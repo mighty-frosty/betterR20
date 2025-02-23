@@ -1,5 +1,5 @@
 const betteR205etoolsMain = function () {
-	IMG_URL = `${BASE_SITE_URL}img/`;
+	IMG_URL = `${DATA_URL_IMG_REPO}`;
 
 	SPELL_DATA_DIR = `${DATA_URL}spells/`;
 	SPELL_META_URL = `${SPELL_DATA_DIR}roll20.json`;
