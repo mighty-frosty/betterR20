@@ -1,6 +1,7 @@
 const fs = require("fs");
 
 const SCRIPT_VERSION = "1.35.186.14ba";
+const SCRIPT_VERSION = "1.35.186.14bb";
 const SCRIPT_REPO = "https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/dev-beta-death/dist/";
 
 const SCRIPT_BETA_DESCRIPTION = `This version contains following changes
@@ -277,6 +278,8 @@ const BUILDS = {
 	"5etools": {
 		authors: AUTHORS_5ETOOLS,
 		baseURL: "https://raw.githubusercontent.com/5etools-mirror-3/5etools-src/refs/heads/main/",
+		baseURL: "https://5e.tools/",
+		imgURL: "https://raw.githubusercontent.com/5etools-mirror-3/5etools-img/refs/heads/main/",
 		libs: LIB_SCRIPTS["5etools"],
 		libsAPI: LIB_SCRIPTS_API["5etools"],
 		scripts: SCRIPTS["5etools"],
@@ -285,6 +288,8 @@ const BUILDS = {
 	"5et2014": {
 		authors: AUTHORS_5ETOOLS,
 		baseURL: "https://raw.githubusercontent.com/5etools-mirror-3/5etools-2014-src/refs/heads/main/",
+		baseURL: "https://2014.5e.tools/",
+		imgURL: "https://raw.githubusercontent.com/5etools-mirror-3/5etools-2014-img/refs/heads/main/",
 		libs: LIB_SCRIPTS["5etools"],
 		libsAPI: LIB_SCRIPTS_API["5etools"],
 		scripts: SCRIPTS["5etools"],
@@ -306,6 +311,7 @@ Object.entries(BUILDS).forEach(([name, data]) => {
 			.replace("%B20_NAME%", name)
 			.replace("%B20_VERSION%", SCRIPT_VERSION)
 			.replace("%B20_BASE_URL%", data.baseURL)
+			.replace("%B20_IMG_URL%", data.imgURL)
 			.replace("%B20_REPO_URL%", SCRIPT_REPO),
 		...libJson.map(filePath => wrapLibData(filePath.replace("data2014", "data"), fs.readFileSync(filePath, "utf-8"))),
 		...data.scripts.map(filename => filename === "base-util"
