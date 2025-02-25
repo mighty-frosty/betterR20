@@ -2,7 +2,6 @@
 // @name         betteR20-beta-core-death
 // @namespace    https://5e.tools/
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      1.35.186.14ba
 // @version      1.35.186.14bb
 // @updateURL    https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/dev-beta-death/dist/betteR20-core.meta.js
 // @downloadURL  https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/dev-beta-death/dist/betteR20-core.user.js
@@ -31,7 +30,6 @@ ART_HANDOUT = "betteR20-art";
 CONFIG_HANDOUT = "betteR20-config";
 
 B20_NAME = `core`;
-B20_VERSION = `1.35.186.14ba`;
 B20_VERSION = `1.35.186.14bb`;
 B20_REPO_URL = `https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/dev-beta-death/dist/`;
 
@@ -42,7 +40,6 @@ SITE_JS_URL = `${BASE_SITE_URL}js/`;
 DATA_URL = `${BASE_SITE_URL}data/`;
 
 DATA_URL_MODULES = `https://raw.githubusercontent.com/5etools-mirror-1/roll20-module/master`;
-DATA_URL_IMG_REPO = `https://raw.githubusercontent.com/5etools-mirror-3/5etools-img/refs/heads/main/`; // obsolete as of 1.35.11
 DATA_URL_IMG_REPO = `%B20_IMF_URL%`; // obsolete as of 1.35.11
 DATA_URL_ART_REPO = `https://raw.githubusercontent.com/5etools-mirror-1/pab-index/main/`;
 DATA_URL_PLAYLIST = `https://api.github.com/repos/ttrpg-resources/betterR20-playlist/contents`;

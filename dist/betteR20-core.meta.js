@@ -2,7 +2,6 @@
 // @name         betteR20-beta-core-death
 // @namespace    https://5e.tools/
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      1.35.186.14ba
 // @version      1.35.186.14bb
 // @updateURL    https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/dev-beta-death/dist/betteR20-core.meta.js
 // @downloadURL  https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/dev-beta-death/dist/betteR20-core.user.js

@@ -331,7 +331,6 @@ function d20plusMonsters () {
 
 					const firstFluffImage = d20plus.cfg.getOrDefault("import", "importCharAvatar") === "Portrait (where available)" && fluff && fluff.images ? (() => {
 						const firstImage = fluff.images[0] || {};
-						return (firstImage.href || {}).type === "internal" ? `${IMG_URL}${firstImage.href.path}` : (firstImage.href || {}).url;
 						return (firstImage.href || {}).type === "internal" ? `${IMG_URL}/${firstImage.href.path}` : (firstImage.href || {}).url;
 					})() : null;
 					$.ajax({
