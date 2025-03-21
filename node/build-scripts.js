@@ -1,6 +1,6 @@
 const fs = require("fs");
 
-const SCRIPT_VERSION = "1.35.186.14bb";
+const SCRIPT_VERSION = "1.35.186.14c";
 const SCRIPT_REPO = "https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/dev-beta-death/dist/";
 
 const SCRIPT_BETA_DESCRIPTION = `This version contains following changes
@@ -269,6 +269,7 @@ const BUILDS = {
 	core: {
 		authors: AUTHORS_CORE,
 		baseURL: "https://5e.tools/",
+		imgURL: "",
 		libs: LIB_SCRIPTS.core,
 		libsAPI: LIB_SCRIPTS_API.core,
 		scripts: SCRIPTS.core,

@@ -322,7 +322,7 @@ function d20plusMonsters () {
 				/* OGL Sheet */
 				try {
 					const type = Parser.monTypeToFullObj(data.type).asText;
-					const tokenUrl = Renderer.monster.getTokenUrl(data);
+					const tokenUrl = `${IMG_URL}bestiary/tokens/${data.source}/${name}.webp`;
 					const avatar = data.tokenUrl || Parser.nameToTokenName(tokenUrl);
 					character.size = data.size;
 					character.name = data._displayName || data.name;
@@ -331,7 +331,7 @@ function d20plusMonsters () {
 
 					const firstFluffImage = d20plus.cfg.getOrDefault("import", "importCharAvatar") === "Portrait (where available)" && fluff && fluff.images ? (() => {
 						const firstImage = fluff.images[0] || {};
-						return (firstImage.href || {}).type === "internal" ? `${IMG_URL}/${firstImage.href.path}` : (firstImage.href || {}).url;
+						return (firstImage.href || {}).type === "internal" ? `${IMG_URL}${firstImage.href.path}` : (firstImage.href || {}).url;
 					})() : null;
 					$.ajax({
 						url: avatar,
