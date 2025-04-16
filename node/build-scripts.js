@@ -1,6 +1,6 @@
 const fs = require("fs");
 
-const SCRIPT_VERSION = "1.35.186.14jc";
+const SCRIPT_VERSION = "1.35.186.14jd";
 const SCRIPT_REPO = "https://github.com/DeathStalker471/betterR20/raw/refs/heads/Jumpgate-Importer/dist/";
 
 const SCRIPT_BETA_DESCRIPTION = `This version contains following changes
