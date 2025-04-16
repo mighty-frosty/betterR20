@@ -1,7 +1,7 @@
 const fs = require("fs");
 
-const SCRIPT_VERSION = "1.35.186.14c";
-const SCRIPT_REPO = "https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/dev-beta-death/dist/";
+const SCRIPT_VERSION = "1.35.186.14jc";
+const SCRIPT_REPO = "https://github.com/DeathStalker471/betterR20/raw/refs/heads/Jumpgate-Importer/dist/";
 
 const SCRIPT_BETA_DESCRIPTION = `This version contains following changes
 -- Beta features overview:
