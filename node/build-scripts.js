@@ -32,7 +32,7 @@ const SCRIPT_BETA_DESCRIPTION = `This version contains following changes
 `;
 
 const AUTHORS_CORE = `TheGiddyLimit/Redweller`;
-const AUTHORS_5ETOOLS = `5egmegaanon/astranauta/MrLabRat/TheGiddyLimit/DBAWiseMan/BDeveau/Remuz/Callador Julaan/Erogroth/Stormy/FlayedOne/Cucucc/Cee/oldewyrm/darthbeep/Mertang/Redweller`;
+const AUTHORS_5ETOOLS = `5egmegaanon/astranauta/MrLabRat/TheGiddyLimit/DBAWiseMan/BDeveau/Remuz/Callador Julaan/Erogroth/Stormy/FlayedOne/Cucucc/Cee/oldewyrm/darthbeep/Mertang/Redweller/DeathStalker`;
 
 const matchString = `
 // @match        https://app.roll20.net/editor
@@ -54,7 +54,7 @@ const analyticsBlocking = `
 
 function getHeader (name, info) {
 	return `// ==UserScript==
-// @name         betteR20-beta-${name}-death
+// @name         betteR20-beta-${name}-death-jumpagate-import
 // @namespace    https://5e.tools/
 // @license      MIT (https://opensource.org/licenses/MIT)
 // @version      ${SCRIPT_VERSION}
@@ -178,6 +178,7 @@ const SCRIPTS = {
 		"templates/template-roll20-editors-misc",
 		"templates/template-base-misc",
 		"templates/template-page-weather",
+		"templates/template-roll20-page-lighting",
 		"base-engine",
 		"base-menu",
 		"base-weather",
@@ -223,6 +224,7 @@ const SCRIPTS = {
 		"templates/template-roll20-editors-misc",
 		"templates/template-base-misc",
 		"templates/template-page-weather",
+		"templates/template-roll20-page-lighting",
 		"base-engine",
 		"base-menu",
 		"base-weather",

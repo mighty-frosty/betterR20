@@ -91,7 +91,7 @@ function d20plusEngine () {
 		// ensure tokens have editable sight
 		$("#tmpl_tokeneditor").replaceWith(d20plus.html.tokenEditor);
 		// show dynamic lighting/etc page settings
-		$("#tmpl_pagesettings").replaceWith(d20plus.engine._makePageSettings());
+		//$("#tmpl_pagesettings").replaceWith(d20plus.engine._makePageSettings());
 		// swap templates stashed in page.view.template for each page
 		d20.Campaign.pages.models.forEach(page => page.view.template = $.jqotec("#tmpl_pagesettings"));
 	};
@@ -103,7 +103,6 @@ function d20plusEngine () {
 			</ul>
 			<div class='tab-content'>
 				${d20plus.html.pageSettings}
-				${d20plus.html.pageSettingsWeather}
 			</div>
 		</script>`;
 	};
