@@ -51,7 +51,7 @@ const betteR205etools = function () {
 				d20plus.engine.enhanceTransmogrifier();
 				d20plus.engine.removeLinkConfirmation();
 				d20plus.artBrowse.initRepoBrowser();
-				d20plus.ui.addQuickUiGm();
+				//d20plus.ui.addQuickUiGm();
 				d20plus.anim.animatorTool.init();
 				// Better20 jukebox tab
 				d20plus.remoteLibre.init();
