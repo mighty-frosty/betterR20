@@ -1,6 +1,6 @@
 const fs = require("fs");
 
-const SCRIPT_VERSION = "1.35.186.14jd";
+const SCRIPT_VERSION = "1.35.186.14je";
 const SCRIPT_REPO = "https://github.com/DeathStalker471/betterR20/raw/refs/heads/Jumpgate-Importer/dist/";
 
 const SCRIPT_BETA_DESCRIPTION = `This version contains following changes
@@ -279,7 +279,7 @@ const BUILDS = {
 	},
 	"5etools": {
 		authors: AUTHORS_5ETOOLS,
-		baseURL: "https://5e.tools/",
+		baseURL: "https://raw.githubusercontent.com/5etools-mirror-3/5etools-src/refs/heads/main/",
 		imgURL: "https://raw.githubusercontent.com/5etools-mirror-3/5etools-img/refs/heads/main/",
 		libs: LIB_SCRIPTS["5etools"],
 		libsAPI: LIB_SCRIPTS_API["5etools"],
@@ -288,7 +288,7 @@ const BUILDS = {
 	},
 	"5et2014": {
 		authors: AUTHORS_5ETOOLS,
-		baseURL: "https://2014.5e.tools/",
+		baseURL: "https://raw.githubusercontent.com/5etools-mirror-3/5etools-2014-src/refs/heads/main/",
 		imgURL: "https://raw.githubusercontent.com/5etools-mirror-3/5etools-2014-img/refs/heads/main/",
 		libs: LIB_SCRIPTS["5etools"],
 		libsAPI: LIB_SCRIPTS_API["5etools"],
