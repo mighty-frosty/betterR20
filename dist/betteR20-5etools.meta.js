@@ -2,7 +2,7 @@
 // @name         betteR20-beta-5etools-death-jumpagate-import
 // @namespace    https://5e.tools/
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      1.35.186.14je
+// @version      1.35.186.14jf
 // @updateURL    https://github.com/DeathStalker471/betterR20/raw/refs/heads/Jumpgate-Importer/dist/betteR20-5etools.meta.js
 // @downloadURL  https://github.com/DeathStalker471/betterR20/raw/refs/heads/Jumpgate-Importer/dist/betteR20-5etools.user.js
 // @description  Enhance your Roll20 experience
