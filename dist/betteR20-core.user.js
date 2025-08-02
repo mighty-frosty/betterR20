@@ -2,9 +2,9 @@
 // @name         betteR20-beta-core-death-jumpagate-import
 // @namespace    https://5e.tools/
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      1.35.186.14jf
-// @updateURL    https://github.com/DeathStalker471/betterR20/raw/refs/heads/Jumpgate-Importer/dist/betteR20-core.meta.js
-// @downloadURL  https://github.com/DeathStalker471/betterR20/raw/refs/heads/Jumpgate-Importer/dist/betteR20-core.user.js
+// @version      1.35.186.14ji
+// @updateURL    https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/betteR20-core.meta.js
+// @downloadURL  https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/betteR20-core.user.js
 // @description  Enhance your Roll20 experience
 // @author       TheGiddyLimit/Redweller
 
@@ -30,8 +30,8 @@ ART_HANDOUT = "betteR20-art";
 CONFIG_HANDOUT = "betteR20-config";
 
 B20_NAME = `core`;
-B20_VERSION = `1.35.186.14jf`;
-B20_REPO_URL = `https://github.com/DeathStalker471/betterR20/raw/refs/heads/Jumpgate-Importer/dist/`;
+B20_VERSION = `1.35.186.14ji`;
+B20_REPO_URL = `https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/`;
 
 // TODO automate to use mirror if main site is unavailable
 BASE_SITE_URL = `https://5e.tools/`; // "https://5e.tools/";
@@ -10686,24 +10686,23 @@ function initHTMLTokenEditor () {
 
 	// no mods; just switched in to grant full features to non-pro
 	d20plus.html.tokenEditor = `
-	<script id="tmpl_tokeneditor" type="text/html">
-		<div class='dialog largedialog tokeneditor' style='display: block;'>
-			<ul class='nav nav-tabs tokeneditor_navigation'>
-				<li class='active'>
-					<a data-tab='basic' href='javascript:void(0);'>
-						<h2>Details</h2>
-					</a>
-				</li>
-				<li>
-					<a data-tab='notes' href='javascript:void(0);'>
-						<h2>GM Notes</h2>
-					</a>
-				</li>
-				<li class='nav-tabs--beta'>
-					<a data-tab='prototype' href='javascript:void(0);'>
-						<h2>Dynamic Lighting</h2>
-					</a>
-				</li>
+<script id="tmpl_tokeneditor" type="text/html">
+<div class='dialog largedialog tokeneditor' style='display: block;'>
+<ul class='nav nav-tabs tokeneditor_navigation'>
+<li class='active'>
+<a data-tab='basic' href='javascript:void(0);'>
+<h2>Details</h2>
+</a>
+</li>
+<li>
+<a data-tab='notes' href='javascript:void(0);'>
+<h2>GM Notes</h2>
+</a>
+</li>
+<li class='nav-tabs--beta'>
+<a data-tab='prototype' href='javascript:void(0);'>
+<h2>Dynamic Lighting</h2>
+</a>
 				<!-- BEGIN MOD -->
 				<li class='nav-tabs--beta'>
 					<span class="label label-info">bR20</span>
@@ -10712,1073 +10711,1113 @@ function initHTMLTokenEditor () {
 					</a>
 				</li>
 				<!-- END MOD -->
-			</ul>
-			<div class='tab-content'>
-				<div class='basic tab-pane tokeneditor__details'>
-					<div class='w-100 d-inline-flex flex-wrap'>
-						<!-- General -->
-						<div class='tokeneditor__col general'>
-							<div class='tokeneditor__row--general d-grid'>
-								<div class='tokeneditor__header'>
-									<h3 class='page_title text-capitalize'>general</h3>
-								</div>
-								<div class='tokeneditor__dropdown d-grid'>
-									<div class='dropdown keep-open'>
-										<button aria-expanded='false' aria-haspopup='true' class='btn btn-default btn--circle' data-toggle='dropdown' type='button'>
-											<span class='sr-only'>nameplate player permissions menu</span>
-											<svg aria-hidden='true' class='svg-inline--fa' data-icon='ellipsis-v' data-prefix='fas' height='12' viewBox='0 0 192 512' width='12' xmlns='http://www.w3.org/2000/svg'>
-												<path d='M96 184c39.8 0 72 32.2 72 72s-32.2 72-72 72-72-32.2-72-72 32.2-72 72-72zM24 80c0 39.8 32.2 72 72 72s72-32.2 72-72S135.8 8 96 8 24 40.2 24 80zm0 352c0 39.8 32.2 72 72 72s72-32.2 72-72-32.2-72-72-72-72 32.2-72 72z' fill='000000'></path>
-											</svg>
-										</button>
-										<ul aria-labelledby='dLabel' class='dropdown-menu dropdown-menu--right'>
-											<h4>Player Permissions</h4>
-											<li class='dropdown-item'>
-												<div class='checkbox'>
-													<label title='allow players to see name plate'>
-														<input class='showplayers_name' type='checkbox'>
-														See
-													</label>
-												</div>
-											</li>
-											<li class='dropdown-item'>
-												<div class='checkbox'>
-													<label title='allow players to edit name plate'>
-														<input class='playersedit_name' type='checkbox'>
-														Edit
-													</label>
-												</div>
-											</li>
-										</ul>
-									</div>
-								</div>
-							</div>
-							<!-- Represents Character -->
-							<div class='tokeneditor__row'>
-								<div class='tokeneditor__subheader help-icon'>
-									<h4>Represents Character</h4>
-									<a class='showtip pictos' title='You can choose to have the token represent a Character from the Journal. If you do, the token&#39;s name, controlling players, and bar values will be based on the Character. Most times you&#39;ll just leave this set to None/Generic.'>?</a>
-								</div>
-								<div class='tokeneditor__container'>
-									<label title='select which token this character represents'>
-										<span class='sr-only'>select which token this character represents</span>
-										<select class='represents'>
-											<option value=''>None/Generic Token</option>
-											<$ _.each(window.Campaign.activeCharacters(), function(char) { $>
-											<option value="<$!char.id$>"><$!char.get("name")$></option>
-											<$ }); $>
-										</select>
-									</label>
-								</div>
-							</div>
-							<!-- Name -->
-							<div class='tokeneditor__row'>
-								<div class='tokeneditor__subheader'>
-									<h4>Name</h4>
-								</div>
-								<div class='tokeneditor__container tokeneditor__container-name tokeneditor__border d-inline-grid'>
-									<div class='d-flex'>
-										<label class='sr-only' for='token-general-character-name'>character name</label>
-										<input class='name' id='token-general-character-name' type='text'>
-									</div>
-									<div class='tokeneditor__container-nameplate disable_box'>
-										<div class='d-flex justify-content-center align-items-center'>
-											<label class='sr-only' for='token-general-nameplate'>show nameplate on token</label>
-											<input class='showname' id='token-general-nameplate' type='checkbox' value='1'>
-										</div>
-										<h4 class='text-capitalize'>nameplate</h4>
-									</div>
-								</div>
-							</div>
-							<!-- Controlled By -->
-							<div class='tokeneditor__row'>
-								<div class='tokeneditor__subheader'>
-									<h4>Controlled By</h4>
-								</div>
-								<div class='tokeneditor__container'>
-									<$ if(this.character) { $>
-									<p>(Determined by Character settings)</p>
-									<$ } else { $>
-									<select class='controlledby selectize' multiple='true'>
-										<option value='all'>All Players</option>
-										<$ window.Campaign.players.each(function(player) { $>
-										<option value="<$!player.id$>"><$!player.get("displayname")$></option>
-										<$ }); $>
-									</select>
-									<$ } $>
-								</div>
-							</div>
-							<!-- Update default token button -->
-							<$ if(!this.isDefaultToken) { $>
-							<div class='tokeneditor__row'>
-								<button class='btn btn-primary update_default_token'>Update Default Token</button>
-								<a class='showtip pictos' title='Copy a snapshot of this token’s image and settings as the default token for this character.'>?</a>
-							</div>
-							<div class='tokeneditor__row'>
-								<button class='btn btn-primary go_to_character'>Open Character Sheet</button>
-								<a class='showtip pictos' title='Open the character sheet linked to this token (alt + double click on token).'>?</a>
-							</div>
-							<$ } $>
-							<!-- Tint Color -->
-							<div class='tokeneditor__row'>
-								<div class='tokeneditor__subheader'>
-									<h4>Tint Color</h4>
-								</div>
-								<div class='tokeneditor__container'>
-									<label class='sr-only' for='token-general-tint-color'>choose a tint color of the token</label>
-									<input class='tint_color colorpicker' id='token-general-tint-color' type='text'>
-								</div>
-							</div>
-						</div>
-						<!-- Token Settings -->
-						<div class='tokeneditor__col token-settings'>
-							<div class='tokeneditor__header'>
-								<h3 class='page_title text-capitalize'>token bars</h3>
-							</div>
-							<div class='tokeneditor__row tokeneditor__row--bar d-grid'>
-								<div class='col tokeneditor__bar-inputs d-grid'>
-									<div class='tokeneditor__subheader align-items-center d-grid'>
-										<span class='bar_color_indicator' style='background-color: <$!window.Campaign.get('bar1_color')$>'></span>
-										<h4>Bar 1</h4>
-									</div>
-									<div class='tokeneditor__container align-items-center d-grid'>
-										<div class='tokeneditor__border'>
-											<label title='enter bar 1 value'>
-												<input class='bar1_value' placeholder='Value' type='text'>
-											</label>
-										</div>
-										<span>/</span>
-										<div class='tokeneditor__border'>
-											<label title='enter bar 1 maximum value'>
-												<input class='bar1_max' placeholder='Max' type='text'>
-											</label>
-										</div>
-									</div>
-								</div>
-								<div class='col tokeneditor__bar-select align-items-center'>
-									<div class='tokeneditor__subheader help-icon'>
-										<h4 class='text-capitalize'>attribute</h4>
-										<a class='pictos showtip' title='You can choose to have the bar represent an attribute from the character sheet like health, mana, or an expendable resource.'>?</a>
-									</div>
-									<div class='tokeneditor__container'>
-										<label title='select a character sheet attribute to link to bar 1'>
-											<span class='sr-only'>select a character sheet attribute to link to bar 1</span>
-											<select class='bar1_link'>
-												<option value=''>None</option>
-												<$ _.each(this.availAttribs(), function(attrib) { $>
-												<option value="<$!attrib.id$>"><$!attrib.name$>
-													<$ }); $>
-											</select>
-										</label>
-									</div>
-								</div>
-								<div class='col tokeneditor__dropdown d-grid'>
-									<div class='dropdown keep-open'>
-										<button aria-expanded='false' aria-haspopup='true' class='btn btn-default btn--circle' data-toggle='dropdown' type='button'>
-											<span class='sr-only'>bar 1 player permissions menu</span>
-											<svg aria-hidden='true' class='svg-inline--fa' data-icon='ellipsis-v' data-prefix='fas' height='12' viewBox='0 0 192 512' width='12' xmlns='http://www.w3.org/2000/svg'>
-												<path d='M96 184c39.8 0 72 32.2 72 72s-32.2 72-72 72-72-32.2-72-72 32.2-72 72-72zM24 80c0 39.8 32.2 72 72 72s72-32.2 72-72S135.8 8 96 8 24 40.2 24 80zm0 352c0 39.8 32.2 72 72 72s72-32.2 72-72-32.2-72-72-72-72 32.2-72 72z' fill='000000'></path>
-											</svg>
-										</button>
-										<ul aria-labelledby='dLabel' class='dropdown-menu dropdown-menu--right permission_section bar1' id='myDropdown'>
-											<h4>Player Permissions</h4>
-											<li class='dropdown-item'>
-												<div class='checkbox'>
-													<label title='show players bar 1'>
-														<input class='showplayers_bar1' type='checkbox' value=''>
-														See
-													</label>
-												</div>
-											</li>
-											<li class='dropdown-item'>
-												<div class='checkbox'>
-													<label title='allow players to edit bar 1'>
-														<input class='playersedit_bar1' type='checkbox' value=''>
-														Edit
-													</label>
-												</div>
-											</li>
-											<li class='dropdown-item'>
-												<label class='bar_val_permission'>
-													Text Overlay:
-													<select class='bar1options'>
-														<option value='hidden'>
-															Hidden
-														</option>
-														<option selected value='editors'>
-															Visible to Editors
-														</option>
-														<option value='everyone'>
-															Visible to Everyone
-														</option>
-													</select>
-												</label>
-											</li>
-										</ul>
-									</div>
-								</div>
-							</div>
-							<div class='tokeneditor__row tokeneditor__row--bar d-grid'>
-								<div class='col tokeneditor__bar-inputs d-grid'>
-									<div class='tokeneditor__subheader align-items-center d-grid'>
-										<span class='bar_color_indicator' style='background-color: <$!window.Campaign.get('bar2_color')$>'></span>
-										<h4>Bar 2</h4>
-									</div>
-									<div class='tokeneditor__container align-items-center d-grid'>
-										<div class='tokeneditor__border'>
-											<label title='enter bar 2 value'>
-												<input class='bar2_value' placeholder='Value' type='text'>
-											</label>
-										</div>
-										<span>/</span>
-										<div class='tokeneditor__border'>
-											<label title='enter bar 2 maximum value'>
-												<input class='bar2_max' placeholder='Max' type='text'>
-											</label>
-										</div>
-									</div>
-								</div>
-								<div class='col tokeneditor__bar-select align-items-center'>
-									<div class='tokeneditor__subheader help-icon'>
-										<h4 class='text-capitalize'>attribute</h4>
-									</div>
-									<div class='tokeneditor__container'>
-										<label title='select a character sheet attribute to link to bar 2'>
-											<span class='sr-only'>select a character sheet attribute to link to bar 2</span>
-											<select class='bar2_link'>
-												<option value=''>None</option>
-												<$ _.each(this.availAttribs(), function(attrib) { $>
-												<option value="<$!attrib.id$>"><$!attrib.name$>
-													<$ }); $>
-											</select>
-										</label>
-									</div>
-								</div>
-								<div class='col tokeneditor__dropdown d-grid'>
-									<div class='dropdown keep-open'>
-										<button aria-expanded='false' aria-haspopup='true' class='btn btn-default btn--circle' data-toggle='dropdown' type='button'>
-											<span class='sr-only'>bar 2 player permissions menu</span>
-											<svg aria-hidden='true' class='svg-inline--fa' data-icon='ellipsis-v' data-prefix='fas' height='12' viewBox='0 0 192 512' width='12' xmlns='http://www.w3.org/2000/svg'>
-												<path d='M96 184c39.8 0 72 32.2 72 72s-32.2 72-72 72-72-32.2-72-72 32.2-72 72-72zM24 80c0 39.8 32.2 72 72 72s72-32.2 72-72S135.8 8 96 8 24 40.2 24 80zm0 352c0 39.8 32.2 72 72 72s72-32.2 72-72-32.2-72-72-72-72 32.2-72 72z' fill='000000'></path>
-											</svg>
-										</button>
-										<ul aria-labelledby='dLabel' class='dropdown-menu dropdown-menu--right permission_section bar2' id='myDropdown'>
-											<h4>Player Permissions</h4>
-											<li class='dropdown-item'>
-												<div class='checkbox'>
-													<label title='show players bar 2'>
-														<input class='showplayers_bar2' type='checkbox' value=''>
-														See
-													</label>
-												</div>
-											</li>
-											<li class='dropdown-item'>
-												<div class='checkbox'>
-													<label title='allow players to edit bar 2'>
-														<input class='playersedit_bar2' type='checkbox' value=''>
-														Edit
-													</label>
-												</div>
-											</li>
-											<li class='dropdown-item'>
-												<label class='bar_val_permission'>
-													Text Overlay:
-													<select class='bar2options'>
-														<option value='hidden'>
-															Hidden
-														</option>
-														<option selected value='editors'>
-															Visible to Editors
-														</option>
-														<option value='everyone'>
-															Visible to Everyone
-														</option>
-													</select>
-												</label>
-											</li>
-										</ul>
-									</div>
-								</div>
-							</div>
-							<div class='tokeneditor__row tokeneditor__row--bar d-grid'>
-								<div class='col tokeneditor__bar-inputs d-grid'>
-									<div class='tokeneditor__subheader align-items-center d-grid'>
-										<span class='bar_color_indicator' style='background-color: <$!window.Campaign.get('bar3_color')$>'></span>
-										<h4>Bar 3</h4>
-									</div>
-									<div class='tokeneditor__container align-items-center d-grid'>
-										<div class='tokeneditor__border'>
-											<label title='enter bar 3 value'>
-												<input class='bar3_value' placeholder='Value' type='text'>
-											</label>
-										</div>
-										<span>/</span>
-										<div class='tokeneditor__border'>
-											<label title='enter bar 3 maximum value'>
-												<input class='bar3_max' placeholder='Max' type='text'>
-											</label>
-										</div>
-									</div>
-								</div>
-								<div class='col tokeneditor__bar-select align-items-center'>
-									<div class='tokeneditor__subheader help-icon'>
-										<h4 class='text-capitalize'>attribute</h4>
-									</div>
-									<div class='tokeneditor__container'>
-										<label title='select a character sheet attribute to link to bar 3'>
-											<span class='sr-only'>select a character sheet attribute to link to bar 3</span>
-											<select class='bar3_link'>
-												<option value=''>None</option>
-												<$ _.each(this.availAttribs(), function(attrib) { $>
-												<option value="<$!attrib.id$>"><$!attrib.name$>
-													<$ }); $>
-											</select>
-										</label>
-									</div>
-								</div>
-								<div class='col tokeneditor__dropdown d-grid'>
-									<div class='dropdown keep-open'>
-										<button aria-expanded='false' aria-haspopup='true' class='btn btn-default btn--circle' data-toggle='dropdown' type='button'>
-											<span class='sr-only'>bar 3 player permissions menu</span>
-											<svg aria-hidden='true' class='svg-inline--fa' data-icon='ellipsis-v' data-prefix='fas' height='12' viewBox='0 0 192 512' width='12' xmlns='http://www.w3.org/2000/svg'>
-												<path d='M96 184c39.8 0 72 32.2 72 72s-32.2 72-72 72-72-32.2-72-72 32.2-72 72-72zM24 80c0 39.8 32.2 72 72 72s72-32.2 72-72S135.8 8 96 8 24 40.2 24 80zm0 352c0 39.8 32.2 72 72 72s72-32.2 72-72-32.2-72-72-72-72 32.2-72 72z' fill='000000'></path>
-											</svg>
-										</button>
-										<ul aria-labelledby='dLabel' class='dropdown-menu dropdown-menu--right permission_section bar3' id='myDropdown'>
-											<h4>Player Permissions</h4>
-											<li class='dropdown-item'>
-												<div class='checkbox'>
-													<label title='show players bar 3'>
-														<input class='showplayers_bar3' type='checkbox' value=''>
-														See
-													</label>
-												</div>
-											</li>
-											<li class='dropdown-item'>
-												<div class='checkbox'>
-													<label title='allow players to edit bar 3'>
-														<input class='playersedit_bar3' type='checkbox' value=''>
-														Edit
-													</label>
-												</div>
-											</li>
-											<li class='dropdown-item'>
-												<label class='bar_val_permission'>
-													Text Overlay:
-													<select class='bar3options'>
-														<option value='hidden'>
-															Hidden
-														</option>
-														<option selected value='editors'>
-															Visible to Editors
-														</option>
-														<option value='everyone'>
-															Visible to Everyone
-														</option>
-													</select>
-												</label>
-											</li>
-										</ul>
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
-					<hr>
-					<!-- Token Tooltip -->
-					<div class='tokendescription w-100'>
-						<div class='w-100 d-inline-flex flex-wrap tokeneditor__container tokeneditor__tooltip-title'>
-							<div class='flex-col'>
-								<div class='tokeneditor__header w-100'>
-									<h3 class='page_title text-capitalize'>Tooltip</h3>
-								</div>
-							</div>
-							<div class='tokeneditor__container-tooltip tooltip_disable_box'>
-								<div class='d-flex justify-content-center align-items-center'>
-									<label class='sr-only' for='token-general-description-toggle'>show tooltip on token</label>
-									<input class='show_tooltip' id='token-general-tooltip-toggle' type='checkbox' value='1'>
-								</div>
-								<h4 class='text-capitalize'>Show</h4>
-							</div>
-						</div>
-					</div>
-					<div class='tokeneditor__row'>
-						<div class='tokeneditor__container'>
-							<div class='d-flex'>
-								<textarea class='token-tooltip' id='token-general-description' maxlength='150' type='text'></textarea>
-							</div>
-						</div>
-					</div>
-					<br>
-					<small>
-						<span class='tooltip-count'>0</span>
-						/150
-					</small>
-					<hr>
-					<!-- Token Bar Options -->
-					<div class='tokenbaroptions w-100'>
-						<div class='tokeneditor__header w-100'>
-							<h3 class='page_title text-capitalize'>token bar options</h3>
-						</div>
-						<div class='w-100 d-inline-flex flex-wrap'>
-							<div class='tokeneditor__col'>
-								<div class='tokeneditor__subheader help-icon'>
-									<h4 class='text-capitalize'>location</h4>
-									<a class='showtip pictos' title='&lt;b&gt;Above:&lt;/b&gt; &lt;br&gt; All bars are above the token. (Default for new games) &lt;br&gt; &lt;b&gt;Top Overlapping:&lt;/b&gt; &lt;br&gt; The bottom-most bar overlaps the top of the token. Other bars float above it. &lt;br&gt; &lt;b&gt;Bottom Overlapping:&lt;/b&gt; &lt;br&gt; Bars fill the token from the bottom up. &lt;br&gt; &lt;b&gt;Below:&lt;/b&gt; &lt;br&gt; All bars are below the token.'>?</a>
-								</div>
-								<div class='tokeneditor__container player-permissions'>
-									<div class='permission_section barLocation'>
-										<label class='movable_token_bar' title='select the token bar location'>
-											<span class='sr-only'>select the token bar location</span>
-											<select class='token_bar_location'>
-												<option selected value='above'>
-													Above
-												</option>
-												<option value='overlap_top'>
-													Top Overlapping
-												</option>
-												<option value='overlap_bottom'>
-													Bottom Overlapping
-												</option>
-												<option value='below'>
-													Below
-												</option>
-											</select>
-										</label>
-									</div>
-								</div>
-							</div>
-							<div class='tokeneditor__col'>
-								<div class='tokeneditor__subheader help-icon'>
-									<h4 class='text-capitalize'>style</h4>
-									<a class='showtip pictos' title='&lt;b&gt;Standard:&lt;/b&gt;&lt;br&gt; Full sized token bar, displays text overlays. &lt;br&gt; &lt;b&gt;Compact:&lt;/b&gt; &lt;br&gt;Narrow token bars. No text overlay.'>?</a>
-								</div>
-								<div class='tokeneditor__container player-permissions'>
-									<div class='permission_section barLocation tokenbaroptions__style d-grid'>
-										<label class='compact_bar align-items-center' title='Standard token bar style'>
-											<input checked name='barStyle' type='radio' value='standard'>
-											<span class='sr-only'>choose token bar style</span>
-											Standard
-										</label>
-										<label class='compact_bar align-items-center' title='Compact token bar style'>
-											<span class='sr-only'>choose token bar style</span>
-											<input name='barStyle' type='radio' value='compact'>
-											Compact
-										</label>
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
-					<hr>
-					<!-- Token Aura -->
-					<div class='tokenaura w-100'>
-						<div class='tokeneditor__header w-100'>
-							<h3 class='page_title text-capitalize'>token aura</h3>
-						</div>
-						<div class='w-100 d-inline-flex flex-wrap'>
-							<div class='tokeneditor__col'>
-								<div class='tokenaura__header d-grid'>
-									<div class='tokeneditor__subheader'>
-										<h4 class='text-capitalize'>Aura 1</h4>
-									</div>
-									<div class='tokeneditor__dropdown d-grid'>
-										<div class='dropdown keep-open dropup'>
-											<button aria-expanded='false' aria-haspopup='true' class='btn btn-default btn--circle' data-toggle='dropdown' type='button'>
-												<span class='sr-only'>aura 1 player permissions menu</span>
-												<svg aria-hidden='true' class='svg-inline--fa' data-icon='ellipsis-v' data-prefix='fas' height='12' viewBox='0 0 192 512' width='12' xmlns='http://www.w3.org/2000/svg'>
-													<path d='M96 184c39.8 0 72 32.2 72 72s-32.2 72-72 72-72-32.2-72-72 32.2-72 72-72zM24 80c0 39.8 32.2 72 72 72s72-32.2 72-72S135.8 8 96 8 24 40.2 24 80zm0 352c0 39.8 32.2 72 72 72s72-32.2 72-72-32.2-72-72-72-72 32.2-72 72z' fill='000000'></path>
-												</svg>
-											</button>
-											<ul aria-labelledby='dLabel' class='dropdown-menu dropdown-menu--right' id='myDropdown'>
-												<h4>Player Permissions</h4>
-												<li class='dropdown-item'>
-													<div class='checkbox'>
-														<label title='show players aura 1'>
-															<input class='showplayers_aura1' type='checkbox' value=''>
-															See
-														</label>
-													</div>
-												</li>
-												<li class='dropdown-item'>
-													<div class='checkbox'>
-														<label title='allow players to edit aura 1'>
-															<input class='playersedit_aura1' type='checkbox' value=''>
-															Edit
-														</label>
-													</div>
-												</li>
-											</ul>
-										</div>
-									</div>
-								</div>
-								<div class='tokenaura__container d-grid'>
-									<!-- Token Aura Diameter -->
-									<div class='tokenaura__diameter'>
-										<div class='tokeneditor__subheader'>
-											<h4 class='text-capitalize'>radius</h4>
-										</div>
-										<div class='tokeneditor__container tokeneditor__border'>
-											<label title='input aura 1 radius'>
-												<input class='aura1_radius' type='text'>
-											</label>
-											<div class='disable_box d-block'>
-												<$!window.Campaign.activePage().get("scale_units")$>
-											</div>
-										</div>
-									</div>
-									<!-- Token Aura Shape -->
-									<div class='tokenaura__shape'>
-										<div class='tokeneditor__subheader'>
-											<h4 class='text-capitalize'>shape</h4>
-										</div>
-										<div class='tokeneditor__container'>
-											<label title='select aura 1 shape'>
-												<select class='text-capitalize aura1_options'>
-													<option selected value='circle'>circle</option>
-													<option value='square'>square</option>
-												</select>
-											</label>
-										</div>
-									</div>
-									<!-- Token Aura Tint Color -->
-									<div class='tokeneditor__tint'>
-										<div class='tokeneditor__subheader'>
-											<h4 class='text-capitalize'>tint color</h4>
-										</div>
-										<div class='tokeneditor__container'>
-											<input class='colorpicker aura1_color' type='text'>
-										</div>
-									</div>
-								</div>
-							</div>
-							<div class='tokeneditor__col'>
-								<div class='tokenaura__header d-grid'>
-									<div class='tokeneditor__subheader'>
-										<h4 class='text-capitalize'>Aura 2</h4>
-									</div>
-									<div class='tokeneditor__dropdown d-grid'>
-										<div class='dropdown keep-open dropup'>
-											<button aria-expanded='false' aria-haspopup='true' class='btn btn-default btn--circle' data-toggle='dropdown' type='button'>
-												<span class='sr-only'>aura 2 player permissions menu</span>
-												<svg aria-hidden='true' class='svg-inline--fa' data-icon='ellipsis-v' data-prefix='fas' height='12' viewBox='0 0 192 512' width='12' xmlns='http://www.w3.org/2000/svg'>
-													<path d='M96 184c39.8 0 72 32.2 72 72s-32.2 72-72 72-72-32.2-72-72 32.2-72 72-72zM24 80c0 39.8 32.2 72 72 72s72-32.2 72-72S135.8 8 96 8 24 40.2 24 80zm0 352c0 39.8 32.2 72 72 72s72-32.2 72-72-32.2-72-72-72-72 32.2-72 72z' fill='000000'></path>
-												</svg>
-											</button>
-											<ul aria-labelledby='dLabel' class='dropdown-menu dropdown-menu--right' id='myDropdown'>
-												<h4>Player Permissions</h4>
-												<li class='dropdown-item'>
-													<div class='checkbox'>
-														<label title='show players aura 2'>
-															<input class='showplayers_aura2' type='checkbox' value=''>
-															See
-														</label>
-													</div>
-												</li>
-												<li class='dropdown-item'>
-													<div class='checkbox'>
-														<label title='allow players to edit aura 2'>
-															<input class='playersedit_aura2' type='checkbox' value=''>
-															Edit
-														</label>
-													</div>
-												</li>
-											</ul>
-										</div>
-									</div>
-								</div>
-								<div class='tokenaura__container d-grid'>
-									<!-- Token Aura Diameter -->
-									<div class='tokenaura__diameter'>
-										<div class='tokeneditor__subheader'>
-											<h4 class='text-capitalize'>radius</h4>
-										</div>
-										<div class='tokeneditor__container tokeneditor__border'>
-											<label title='input aura 2 radius'>
-												<input class='aura2_radius' type='text'>
-											</label>
-											<div class='disable_box d-block'>
-												<$!window.Campaign.activePage().get("scale_units")$>
-											</div>
-										</div>
-									</div>
-									<!-- Token Aura Shape -->
-									<div class='tokenaura__shape'>
-										<div class='tokeneditor__subheader'>
-											<h4 class='text-capitalize'>shape</h4>
-										</div>
-										<div class='tokeneditor__container'>
-											<label title='select aura 2 shape'>
-												<select class='text-capitalize aura2_options'>
-													<option selected value='circle'>circle</option>
-													<option value='square'>square</option>
-												</select>
-											</label>
-										</div>
-									</div>
-									<!-- Token Aura Tint Color -->
-									<div class='tokeneditor__tint'>
-										<div class='tokeneditor__subheader'>
-											<h4 class='text-capitalize'>tint color</h4>
-										</div>
-										<div class='tokeneditor__container'>
-											<input class='colorpicker aura2_color' type='text'>
-										</div>
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
-				</div>
-				<!-- GM Notes -->
-				<div class='notes tab-pane'>
-					<div class='tokeneditor__header'>
-						<h3 class='d-inline'>GM Notes</h3>
-						<span>(Only visible to GMs)</span>
-					</div>
-					<div>
-						<textarea class='gmnotes summernote'></textarea>
-					</div>
-				</div>
-				<!-- Dynamic Lighting -- Legacy lighting is under Advanced within this. -->
-				<div class='prototype tab-pane'>
-					<div class='alert alert-info' role='alert'>
-						<p><a href="https://help.roll20.net/hc/articles/360051754954-Token-Settings" target='' _blank''>Easily convert your legacy settings with the Convert Lighting tool </a></p>
-					</div>
-					<div class='token_vision'>
-						<p class='token_vision_title'>Token Vision</p>
-						<div class='dyn_fog_vision' style='padding-top: 10px;'>
-							<div class='row-fluid clearfix'>
-								<div class='span8'>
-									<p class='vision_title'>Vision</p>
-								</div>
-								<div class='span4 dyn_fog_switch'>
-									<label class='switch'>
-										<input class='dyn_fog_emits_vision feature_toggle' type='checkbox'>
-										<span class='slider round'></span>
-										</input>
-									</label>
-								</div>
-							</div>
-							<div class='row-fluid clearfix'>
-								<div class='span8'>
-									<p class='description'>Gives the ability to see, if there is light or if Night Vision is enabled. Tokens with vision can see to the edge of the available light.</p>
-								</div>
-								<div class='span4 dyn_fog_switch'>
-									<div class='hidden'>
-										<input class='dyn_fog_vision_range' type='number'>
-										<input class='dyn_fog_dim_vision_range' type='number'>
-									</div>
-								</div>
-							</div>
-						</div>
-						<hr>
-						<div class='dyn_fog_dark_vision' style='padding-top: 10px;'>
-							<div class='row-fluid clearfix'>
-								<div class='span8'>
-									<p class='vision_title'>Night Vision</p>
-								</div>
-								<div class='span4 dyn_fog_switch'>
-									<label class='switch'>
-										<input class='dyn_fog_emits_dark_vision feature_toggle' data-target='.dark_vision_input' data-toggle='toggle' type='checkbox'>
-										<span class='slider round'></span>
-										</input>
-									</label>
-								</div>
-							</div>
-							<div class='row-fluid clearfix'>
-								<div class='span12'>
-									<p class='description'>Give this token the ability to see without any light.</p>
-								</div>
-							</div>
-							<div class='row-fluid clearfix toggle-element dark_vision_input'>
-								<div class='span8'>
-									<label class='distance'>Night Vision Distance</label>
-								</div>
-								<div class='span4 dyn_fog_switch'>
-									<div class='form-group'>
-										<div class='input-group'>
-											<input class='dyn_fog_dark_vision_range' min='0' type='number'>
-											<span class='input-group-addon'><$!window.Campaign.activePage().get("scale_units")$></span>
-										</div>
-									</div>
-								</div>
-							</div>
-							<div class='row-fluid clearfix'>
-								<div class='alert alert-danger negative_number_alert_night_vision hidden' role='alert'>
-									<p>Please enter a positive number.</p>
-								</div>
-							</div>
-							<div class='row-fluid clearfix toggle-element dark_vision_input'>
-								<div class='span8'>
-									<label class='vision-color'>Tint Color</label>
-								</div>
-								<div class='span4 dyn_fog_switch'>
-									<input class='dyn_fog_dark_vision_color colorpicker' type='text' value='transparent'>
-								</div>
-							</div>
-							<div class='row-fluid clearfix toggle-element dark_vision_input' style='padding-top: 10px'>
-								<div class='span8'>
-									<label>Night Vision Effect</label>
-								</div>
-								<div class='span4 dyn_fog_switch'>
-									<div class='form-group' style='float:right;'>
-										<div class='input-group'>
-											<label class='dyn_fog_dropdown'>
-												<select class='dyn_fog_dark_vision_effect form-control'>
-													<option value=''>None</option>
-													<option value='Nocturnal'>Nocturnal</option>
-													<option value='Dimming'>Dimming</option>
-												</select>
-											</label>
-										</div>
-									</div>
-								</div>
-							</div>
-							<div class='row-fluid clearfix toggle-element dark_vision_input dyn_fog_dark_fx_dimming_row hidden' style='padding-top: 10px'>
-								<div class='span8'>
-									<label class='dyn_fog_dark_vision_color'>Dimming Start</label>
-								</div>
-								<div class='span4 dyn_fog_switch'>
-									<div class='form-group'>
-										<div class='input-group'>
-											<input class='dyn_fog_dark_vision_effect_dimming' max='100' min='0' step='0.01' type='number' value='5'>
-											<span class='input-group-addon'><$!window.Campaign.activePage().get("scale_units")$></span>
-										</div>
-									</div>
-								</div>
-							</div>
-							<div class='row-fluid clearfix'>
-								<div class='alert alert-danger negative_number_alert_night_vision_dimming hidden' role='alert'>
-									<p>Please enter a positive number.</p>
-								</div>
-							</div>
-						</div>
-						<hr>
-						<div class='limit_field_of_vision hidden' style='padding-top: 10px;'>
-							<div class='row-fluid clearfix'>
-								<div class='span8'>
-									<p class='vision_title'>Limit Field of Vision</p>
-								</div>
-								<div class='span4 dyn_fog_switch'>
-									<label class='switch'>
-										<input class='field_of_vision feature_toggle' data-target='.field_of_vision_inputs' data-toggle='toggle' type='checkbox'>
-										<span class='slider round'></span>
-										</input>
-									</label>
-								</div>
-							</div>
-							<div class='row-fluid clearfix'>
-								<div class='span12'>
-									<p class='description'>Limit the field revealed for the token.</p>
-								</div>
-							</div>
-							<div class='row-fluid clearfix toggle-element field_of_vision_inputs'>
-								<div class='span3'>
-									<label class='distance'>Total</label>
-								</div>
-								<div class='span3 dyn_fog_switch'>
-									<div class='form-group'>
-										<div class='input-group'>
-											<input class='field_of_vision_total' max='360' min='0' type='number'>
-											<span class='input-group-addon'>&deg;</span>
-										</div>
-									</div>
-								</div>
-								<div class='span3'>
-									<label class='distance'>Center</label>
-								</div>
-								<div class='span3 dyn_fog_switch'>
-									<div class='form-group'>
-										<div class='input-group'>
-											<input class='field_of_vision_center' max='360' min='0' type='number'>
-											<span class='input-group-addon'>&deg;</span>
-										</div>
-									</div>
-								</div>
-								<div class='row-fluid clearfix'></div>
-								<div class='row-fluid clearfix'>
-									<div class='alert alert-danger wrong_number_alert_vision hidden' role='alert'>
-										<p>Please enter a number between 0-360.</p>
-									</div>
-								</div>
-								<div class='row-fluid clearfix'>
-									<div class='span6'>
-										<p class='description'>Total size of the Field of Vision.</p>
-									</div>
-									<div class='span6'>
-										<p class='description'>50% of Vision is before the Center, 50% is after.</p>
-									</div>
-								</div>
-							</div>
-							<hr>
-						</div>
-					</div>
-					<div class='token_light'>
-						<p class='token_light_title'>Token Emits Light</p>
-						<div class='dyn_fog_light' style='padding-top: 10px;'>
-							<div class='row-fluid clearfix'>
-								<div class='span8'>
-									<p class='light_title'>Bright Light</p>
-								</div>
-								<div class='span4 dyn_fog_switch'>
-									<label class='switch'>
-										<input class='dyn_fog_emits_light feature_toggle' data-target='.bright_light_input' data-toggle='toggle' type='checkbox'>
-										<span class='slider round'></span>
-										</input>
-									</label>
-								</div>
-							</div>
-							<div class='row-fluid clearfix'>
-								<div class='span8'>
-									<p class='description'>Makes the token emit Bright Light. Enable this to set its Distance.</p>
-								</div>
-							</div>
-							<div class='row-fluid clearfix toggle-element bright_light_input'>
-								<div class='span8'>
-									<label class='distance'>Bright Light Distance</label>
-								</div>
-								<div class='span4 dyn_fog_switch'>
-									<div class='form-group'>
-										<div class='input-group'>
-											<input class='dyn_fog_light_range' min='0' type='number'>
-											<span class='input-group-addon'><$!window.Campaign.activePage().get("scale_units")$></span>
-										</div>
-									</div>
-								</div>
-							</div>
-							<div class='row-fluid clearfix'>
-								<div class='alert alert-danger negative_number_alert_bright_light hidden' role='alert'>
-									<p>Please enter a positive number.</p>
-								</div>
-							</div>
-						</div>
-						<hr>
-						<div class='dyn_fog_dim_light' style='padding-top: 10px;'>
-							<div class='row-fluid clearfix'>
-								<div class='span8'>
-									<p class='light_title'>Low Light</p>
-								</div>
-								<div class='span4 dyn_fog_switch'>
-									<label class='switch'>
-										<input class='dyn_fog_emits_dim_light feature_toggle' data-target='.low_light_input' data-toggle='toggle' type='checkbox'>
-										<span class='slider round'></span>
-										</input>
-									</label>
-								</div>
-							</div>
-							<div class='row-fluid clearfix'>
-								<div class='span8'>
-									<p class='description'>Makes the token emit Low Light, in addition to any Bright Light set above. Enable this to set its Distance.</p>
-								</div>
-							</div>
-							<div class='row-fluid clearfix toggle-element low_light_input'>
-								<div class='span8'>
-									<label class='distance'>Low Light Distance</label>
-								</div>
-								<div class='span4 dyn_fog_switch'>
-									<div class='form-group'>
-										<div class='input-group'>
-											<input class='dyn_fog_dim_light_range' min='0' type='number'>
-											<span class='input-group-addon'><$!window.Campaign.activePage().get("scale_units")$></span>
-										</div>
-									</div>
-								</div>
-							</div>
-							<div class='row-fluid clearfix toggle-element low_light_input'>
-								<div class='span8'>
-									<label class='distance'>Brightness</label>
-								</div>
-								<div class='span4 dyn_fog_switch'>
-									<div class='form-group'>
-										<div class='input-group flex-group'>
-											<img class='dyn_fog_img_left flex-item' src='/images/editor/lightbulb_low.svg'>
-											<input class='dyn_fog_dim_light_opacity flex-item' max='1' min='0.2' step='0.05' type='range'>
-											<img class='dyn_fog_img_right flex-item' src='/images/editor/lightbulb_high.svg'>
-										</div>
-									</div>
-								</div>
-							</div>
-							<div class='row-fluid clearfix'>
-								<div class='alert alert-danger negative_number_alert_dim_light hidden' role='alert'>
-									<p>Please enter a positive number.</p>
-								</div>
-							</div>
-						</div>
-						<hr>
-						<div class='directional_bright_light hidden' style='padding-top: 10px;'>
-							<div class='row-fluid clearfix'>
-								<div class='span8'>
-									<p class='light_title'>Directional Light</p>
-								</div>
-								<div class='span4 dyn_fog_switch'>
-									<label class='switch'>
-										<input class='directional_bright_light_toggle feature_toggle' data-target='.directional_bright_light_inputs' data-toggle='toggle' type='checkbox'>
-										<span class='slider round'></span>
-										</input>
-									</label>
-								</div>
-							</div>
-							<div class='row-fluid clearfix'>
-								<div class='span12'>
-									<p class='description'>Set the direction of the Light emitting from this token.</p>
-								</div>
-							</div>
-							<div class='row-fluid clearfix toggle-element directional_bright_light_inputs'>
-								<div class='span3'>
-									<label class='distance'>Total</label>
-								</div>
-								<div class='span3 dyn_fog_switch'>
-									<div class='form-group'>
-										<div class='input-group'>
-											<input class='directional_bright_light_total' max='360' min='0' type='number'>
-											<span class='input-group-addon'>&deg;</span>
-										</div>
-									</div>
-								</div>
-								<div class='span3'>
-									<label class='distance'>Center</label>
-								</div>
-								<div class='span3 dyn_fog_switch'>
-									<div class='form-group'>
-										<div class='input-group'>
-											<input class='directional_bright_light_center' max='360' min='0' type='number'>
-											<span class='input-group-addon'>&deg;</span>
-										</div>
-									</div>
-								</div>
-								<div class='row-fluid clearfix'></div>
-								<div class='row-fluid clearfix'>
-									<div class='alert alert-danger wrong_number_alert_bright hidden' role='alert'>
-										<p>Please enter a number between 0-360.</p>
-									</div>
-								</div>
-								<div class='row-fluid clearfix'>
-									<div class='span6'>
-										<p class='description'>Total size of the Field of Light.</p>
-									</div>
-									<div class='span6'>
-										<p class='description'>50% of Light is before the Center, 50% is after.</p>
-									</div>
-								</div>
-							</div>
-							<hr>
-							<div class='row-fluid clearfix'>
-								<div class='span8'>
-									<label class='light_title'>Light Color</label>
-								</div>
-								<div class='span4 dyn_fog_switch'>
-									<input class='dyn_fog_light_color colorpicker' type='text' value='transparent'>
-								</div>
-							</div>
-							<hr>
-						</div>
-						<div class='total_light'>
-							<div class='row-fluid clearfix'>
-								<div class='span8'>
-									<p class='light_title'>Total Light</p>
-								</div>
-								<div class='span4 dyn_fog_switch'>
-									<div class='form-group'>
-										<div class='input-group'>
-											<input class='total_light_input' disabled type='number' value='0'>
-											<span class='input-group-addon'><$!window.Campaign.activePage().get("scale_units")$></span>
-										</div>
-									</div>
-								</div>
-							</div>
-							<div class='row-fluid clearfix'>
-								<div class='span8'>
-									<p class='description'>Amount of light emitting from this token.</p>
-								</div>
-							</div>
-						</div>
-						<hr>
-						<div class='token_light'>
-							<div aria-expanded='false' class='span8' data-target='.collapse_dyn_fog_advance' data-toggle='collapse' style='display:flex'>
-								<p class='token_light_title' style='flex:1'>Advanced & Legacy Settings</p>
-								<i aria-expanded='false' class='fa fa-chevron-up collapse_dyn_fog_advance' style='font-size:20px;cursor: pointer;'></i>
-								<i aria-expanded='false' class='fa fa-chevron-down collapse_dyn_fog_advance' style='font-size:20px;cursor: pointer;'></i>
-							</div>
-							<div class='dyn_fog_light' style='padding-top: 10px;'></div>
-							<div class='total_light collapse collapse_dyn_fog_advance'>
-								<div class='row-fluid clearfix'>
-									<div class='span8'>
-										<p class='light_title'>Light Multiplier</p>
-									</div>
-									<div class='span4 dyn_fog_switch'>
-										<div class='form-group'>
-											<div class='input-group'>
-												<input class='light_multi_input' min='1' type='number' value='100'>
-												<span class='input-group-addon'>%</span>
-											</div>
-										</div>
-									</div>
-								</div>
-								<div class='row-fluid clearfix'>
-									<div class='span8'>
-										<p class='description'>This changes the effective radius of light for this player. A setting of 200% will let this player see light from twice it’s set radius.</p>
-									</div>
-								</div>
-								<hr>
-								<div class='row-fluid clearfix'>
-									<div class='span8'>
-										<p class='light_title'>Legacy Lighting</p>
-									</div>
-									<div class='span4 dyn_fog_switch'>
-										<label class='switch'>
-											<input class='dyn_fog_enable_legacy_lighting feature_toggle' data-target='.toggle_legacy_light_section' data-toggle='toggle' type='checkbox'>
-											<span class='slider round'></span>
-											</input>
-										</label>
-									</div>
-								</div>
-								<div class='row-fluid toggle-element toggle_legacy_light_section'>
-									<div class='emits-light'>
-										<div class='clear'></div>
-										<h4>Emits Light</h4>
-										<div class='inlineinputs' style='margin-top: 5px; margin-bottom: 5px;'>
-											<input class='light_radius' type='text'>
-											<$!window.Campaign.activePage().get("scale_units")$>.
-											<input class='light_dimradius' type='text'>
-											<$!window.Campaign.activePage().get("scale_units")$>.
-											<input class='light_angle' placeholder='360' type='text'>
-											<span style='font-size: 2.0em;'>&deg;</span>
-										</div>
-										<span style='color: #888; padding-left: 5px;'>Light Radius / (optional) Start of Dim / Angle</span>
-										<div class='inlineinputs' style='margin-top: 5px;'>
-											<label style='margin-left: 7px;'>
-												<input class='light_otherplayers' type='checkbox'>
-												All Players See Light
-											</label>
-										</div>
-										<div class='inlineinputs' style='margin-top: 2px;'>
-											<label style='margin-left: 7px;'>
-												<input class='light_hassight' type='checkbox'>
-												Has Sight
-											</label>
-											<span style="margin-left: 9px; margin-right: 28px;">/</span>
-											Angle:
-											<input class='light_losangle' placeholder='360' type='text'>
-											<span style='font-size: 2.0em;'>&deg;</span>
-											<span style="margin-left: 8px; margin-right: 12px;">/</span>
-											Multiplier:
-											<input class='light_multiplier' placeholder='1.0' style='margin-right: 10px;' type='text'>x</input>
-										</div>
-										<h4>Advanced Fog of War</h4>
-										<div class='inlineinputs' style='margin-top: 5px; margin-bottom: 5px;'>
-											<input class='advfow_viewdistance' type='text'>
-											<$!window.Campaign.activePage().get("scale_units")$>.
-										</div>
-										<span style='color: #888; padding-left: 5px;'>Reveal Distance</span>
-									</div>
-									<div class='alert alert-info' role='alert' style='margin-top: 5%'>
-										<p><a href=" https://blog.roll20.net/posts/retiring-legacy-dynamic-lighting-what-you-need-to-know/" target='' _blank''>The sunset has started for Legacy Dynamic Lighting. Convert to Dynamic Lighting now; click to learn more.</a></p>
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
-				</div>
+</li>
+<li class='nav-tabs--beta'>
+<a data-tab='advanced_settings' href='javascript:void(0);'>
+<h2>Advanced</h2>
+</a>
+</li>
+</ul>
+<div class='tab-content'>
+<div class='basic tab-pane tokeneditor__details'>
+<div class='w-100 d-inline-flex flex-wrap'>
+<!-- General -->
+<div class='tokeneditor__col general'>
+<div class='tokeneditor__row--general d-grid'>
+<div class='tokeneditor__header'>
+<h3 class='page_title text-capitalize'>general</h3>
+</div>
+<div class='tokeneditor__dropdown d-grid'>
+<div class='dropdown keep-open'>
+<button aria-expanded='false' aria-haspopup='true' class='btn btn-default btn--circle' data-toggle='dropdown' type='button'>
+<span class='sr-only'>nameplate player permissions menu</span>
+<svg aria-hidden='true' class='svg-inline--fa' data-icon='ellipsis-v' data-prefix='fas' height='12' viewBox='0 0 192 512' width='12' xmlns='http://www.w3.org/2000/svg'>
+<path d='M96 184c39.8 0 72 32.2 72 72s-32.2 72-72 72-72-32.2-72-72 32.2-72 72-72zM24 80c0 39.8 32.2 72 72 72s72-32.2 72-72S135.8 8 96 8 24 40.2 24 80zm0 352c0 39.8 32.2 72 72 72s72-32.2 72-72-32.2-72-72-72-72 32.2-72 72z' fill='000000'></path>
+</svg>
+</button>
+<ul aria-labelledby='dLabel' class='dropdown-menu dropdown-menu--right'>
+<h4>Player Permissions</h4>
+<li class='dropdown-item'>
+<div class='checkbox'>
+<label title='allow players to see name plate'>
+<input class='showplayers_name' type='checkbox'>
+See
+</label>
+</div>
+</li>
+<li class='dropdown-item'>
+<div class='checkbox'>
+<label title='allow players to edit name plate'>
+<input class='playersedit_name' type='checkbox'>
+Edit
+</label>
+</div>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<!-- Represents Character -->
+<div class='tokeneditor__row'>
+<div class='tokeneditor__subheader help-icon'>
+<h4>Represents Character</h4>
+<a class='showtip pictos' title='You can choose to have the token represent a Character from the Journal. If you do, the token&#39;s name, controlling players, and bar values will be based on the Character. Most times you&#39;ll just leave this set to None/Generic.'>?</a>
+</div>
+<div class='tokeneditor__container'>
+<label title='select which token this character represents'>
+<span class='sr-only'>select which token this character represents</span>
+<select class='represents'>
+<option value=''>None/Generic Token</option>
+<$ _.each(window.Campaign.activeCharacters(), function(char) { $>
+<option value="<$!char.id$>"><$!char.get("name")$></option>
+<$ }); $>
+</select>
+</label>
+</div>
+</div>
+<!-- Name -->
+<div class='tokeneditor__row'>
+<div class='tokeneditor__subheader'>
+<h4>Name</h4>
+</div>
+<div class='tokeneditor__container tokeneditor__container-name tokeneditor__border d-inline-grid'>
+<div class='d-flex'>
+<label class='sr-only' for='token-general-character-name'>character name</label>
+<input class='name' id='token-general-character-name' type='text'>
+</div>
+<div class='tokeneditor__container-nameplate disable_box'>
+<div class='d-flex justify-content-center align-items-center'>
+<label class='sr-only' for='token-general-nameplate'>show nameplate on token</label>
+<input class='showname' id='token-general-nameplate' type='checkbox' value='1'>
+</div>
+<h4 class='text-capitalize'>nameplate</h4>
+</div>
+</div>
+</div>
+<!-- Controlled By -->
+<div class='tokeneditor__row'>
+<div class='tokeneditor__subheader'>
+<h4>Controlled By</h4>
+</div>
+<div class='tokeneditor__container'>
+<$ if(this.character) { $>
+<p>(Determined by Character settings)</p>
+<$ } else { $>
+<select class='controlledby selectize' multiple='true'>
+<option value='all'>All Players</option>
+<$ window.Campaign.players.each(function(player) { $>
+<option value="<$!player.id$>"><$!player.get("displayname")$></option>
+<$ }); $>
+</select>
+<$ } $>
+</div>
+</div>
+<!-- Update default token button -->
+<$ if(!this.isDefaultToken) { $>
+<div class='tokeneditor__row'>
+<button class='btn btn-primary update_default_token'>Update Default Token</button>
+<a class='showtip pictos' title='Copy a snapshot of this token’s image and settings as the default token for this character.'>?</a>
+</div>
+<div class='tokeneditor__row'>
+<button class='btn btn-primary go_to_character'>Open Character Sheet</button>
+<a class='showtip pictos' title='Open the character sheet linked to this token (alt + double click on token).'>?</a>
+</div>
+<$ } $>
+<!-- Tint Color -->
+<div class='tokeneditor__row'>
+<div class='tokeneditor__subheader'>
+<h4>Tint Color</h4>
+</div>
+<div class='tokeneditor__container'>
+<label class='sr-only' for='token-general-tint-color'>choose a tint color of the token</label>
+<input class='tint_color colorpicker' id='token-general-tint-color' type='text'>
+</div>
+</div>
+</div>
+<!-- Token Settings -->
+<div class='tokeneditor__col token-settings'>
+<div class='tokeneditor__header'>
+<h3 class='page_title text-capitalize'>token bars</h3>
+</div>
+<div class='tokeneditor__row tokeneditor__row--bar d-grid'>
+<div class='col tokeneditor__bar-inputs d-grid'>
+<div class='tokeneditor__subheader align-items-center d-grid'>
+<span class='bar_color_indicator' style='background-color: <$!window.Campaign.get('bar1_color')$>'></span>
+<h4>Bar 1</h4>
+</div>
+<div class='tokeneditor__container align-items-center d-grid'>
+<div class='tokeneditor__border'>
+<label title='enter bar 1 value'>
+<input class='bar1_value' placeholder='Value' type='text'>
+</label>
+</div>
+<span>/</span>
+<div class='tokeneditor__border'>
+<label title='enter bar 1 maximum value'>
+<input class='bar1_max' placeholder='Max' type='text'>
+</label>
+</div>
+</div>
+</div>
+<div class='col tokeneditor__bar-select align-items-center'>
+<div class='tokeneditor__subheader help-icon'>
+<h4 class='text-capitalize'>attribute</h4>
+<a class='pictos showtip' title='You can choose to have the bar represent an attribute from the character sheet like health, mana, or an expendable resource.'>?</a>
+</div>
+<div class='tokeneditor__container'>
+<label title='select a character sheet attribute to link to bar 1'>
+<span class='sr-only'>select a character sheet attribute to link to bar 1</span>
+<select class='bar1_link'>
+<option value=''>None</option>
+<$ _.each(this.availAttribs(), function(attrib) { $>
+<option value="<$!attrib.id$>"><$!attrib.name$>
+<$ }); $>
+</select>
+</label>
+</div>
+</div>
+<div class='col tokeneditor__dropdown d-grid'>
+<div class='dropdown keep-open'>
+<button aria-expanded='false' aria-haspopup='true' class='btn btn-default btn--circle' data-toggle='dropdown' type='button'>
+<span class='sr-only'>bar 1 player permissions menu</span>
+<svg aria-hidden='true' class='svg-inline--fa' data-icon='ellipsis-v' data-prefix='fas' height='12' viewBox='0 0 192 512' width='12' xmlns='http://www.w3.org/2000/svg'>
+<path d='M96 184c39.8 0 72 32.2 72 72s-32.2 72-72 72-72-32.2-72-72 32.2-72 72-72zM24 80c0 39.8 32.2 72 72 72s72-32.2 72-72S135.8 8 96 8 24 40.2 24 80zm0 352c0 39.8 32.2 72 72 72s72-32.2 72-72-32.2-72-72-72-72 32.2-72 72z' fill='000000'></path>
+</svg>
+</button>
+<ul aria-labelledby='dLabel' class='dropdown-menu dropdown-menu--right permission_section bar1' id='myDropdown'>
+<h4>Player Permissions</h4>
+<li class='dropdown-item'>
+<div class='checkbox'>
+<label title='show players bar 1'>
+<input class='showplayers_bar1' type='checkbox' value=''>
+See
+</label>
+</div>
+</li>
+<li class='dropdown-item'>
+<div class='checkbox'>
+<label title='allow players to edit bar 1'>
+<input class='playersedit_bar1' type='checkbox' value=''>
+Edit
+</label>
+</div>
+</li>
+<li class='dropdown-item'>
+<label class='bar_val_permission'>
+Text Overlay:
+<select class='bar1options'>
+<option value='hidden'>
+Hidden
+</option>
+<option selected value='editors'>
+Visible to Editors
+</option>
+<option value='everyone'>
+Visible to Everyone
+</option>
+</select>
+</label>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class='tokeneditor__row tokeneditor__row--bar d-grid'>
+<div class='col tokeneditor__bar-inputs d-grid'>
+<div class='tokeneditor__subheader align-items-center d-grid'>
+<span class='bar_color_indicator' style='background-color: <$!window.Campaign.get('bar2_color')$>'></span>
+<h4>Bar 2</h4>
+</div>
+<div class='tokeneditor__container align-items-center d-grid'>
+<div class='tokeneditor__border'>
+<label title='enter bar 2 value'>
+<input class='bar2_value' placeholder='Value' type='text'>
+</label>
+</div>
+<span>/</span>
+<div class='tokeneditor__border'>
+<label title='enter bar 2 maximum value'>
+<input class='bar2_max' placeholder='Max' type='text'>
+</label>
+</div>
+</div>
+</div>
+<div class='col tokeneditor__bar-select align-items-center'>
+<div class='tokeneditor__subheader help-icon'>
+<h4 class='text-capitalize'>attribute</h4>
+</div>
+<div class='tokeneditor__container'>
+<label title='select a character sheet attribute to link to bar 2'>
+<span class='sr-only'>select a character sheet attribute to link to bar 2</span>
+<select class='bar2_link'>
+<option value=''>None</option>
+<$ _.each(this.availAttribs(), function(attrib) { $>
+<option value="<$!attrib.id$>"><$!attrib.name$>
+<$ }); $>
+</select>
+</label>
+</div>
+</div>
+<div class='col tokeneditor__dropdown d-grid'>
+<div class='dropdown keep-open'>
+<button aria-expanded='false' aria-haspopup='true' class='btn btn-default btn--circle' data-toggle='dropdown' type='button'>
+<span class='sr-only'>bar 2 player permissions menu</span>
+<svg aria-hidden='true' class='svg-inline--fa' data-icon='ellipsis-v' data-prefix='fas' height='12' viewBox='0 0 192 512' width='12' xmlns='http://www.w3.org/2000/svg'>
+<path d='M96 184c39.8 0 72 32.2 72 72s-32.2 72-72 72-72-32.2-72-72 32.2-72 72-72zM24 80c0 39.8 32.2 72 72 72s72-32.2 72-72S135.8 8 96 8 24 40.2 24 80zm0 352c0 39.8 32.2 72 72 72s72-32.2 72-72-32.2-72-72-72-72 32.2-72 72z' fill='000000'></path>
+</svg>
+</button>
+<ul aria-labelledby='dLabel' class='dropdown-menu dropdown-menu--right permission_section bar2' id='myDropdown'>
+<h4>Player Permissions</h4>
+<li class='dropdown-item'>
+<div class='checkbox'>
+<label title='show players bar 2'>
+<input class='showplayers_bar2' type='checkbox' value=''>
+See
+</label>
+</div>
+</li>
+<li class='dropdown-item'>
+<div class='checkbox'>
+<label title='allow players to edit bar 2'>
+<input class='playersedit_bar2' type='checkbox' value=''>
+Edit
+</label>
+</div>
+</li>
+<li class='dropdown-item'>
+<label class='bar_val_permission'>
+Text Overlay:
+<select class='bar2options'>
+<option value='hidden'>
+Hidden
+</option>
+<option selected value='editors'>
+Visible to Editors
+</option>
+<option value='everyone'>
+Visible to Everyone
+</option>
+</select>
+</label>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class='tokeneditor__row tokeneditor__row--bar d-grid'>
+<div class='col tokeneditor__bar-inputs d-grid'>
+<div class='tokeneditor__subheader align-items-center d-grid'>
+<span class='bar_color_indicator' style='background-color: <$!window.Campaign.get('bar3_color')$>'></span>
+<h4>Bar 3</h4>
+</div>
+<div class='tokeneditor__container align-items-center d-grid'>
+<div class='tokeneditor__border'>
+<label title='enter bar 3 value'>
+<input class='bar3_value' placeholder='Value' type='text'>
+</label>
+</div>
+<span>/</span>
+<div class='tokeneditor__border'>
+<label title='enter bar 3 maximum value'>
+<input class='bar3_max' placeholder='Max' type='text'>
+</label>
+</div>
+</div>
+</div>
+<div class='col tokeneditor__bar-select align-items-center'>
+<div class='tokeneditor__subheader help-icon'>
+<h4 class='text-capitalize'>attribute</h4>
+</div>
+<div class='tokeneditor__container'>
+<label title='select a character sheet attribute to link to bar 3'>
+<span class='sr-only'>select a character sheet attribute to link to bar 3</span>
+<select class='bar3_link'>
+<option value=''>None</option>
+<$ _.each(this.availAttribs(), function(attrib) { $>
+<option value="<$!attrib.id$>"><$!attrib.name$>
+<$ }); $>
+</select>
+</label>
+</div>
+</div>
+<div class='col tokeneditor__dropdown d-grid'>
+<div class='dropdown keep-open'>
+<button aria-expanded='false' aria-haspopup='true' class='btn btn-default btn--circle' data-toggle='dropdown' type='button'>
+<span class='sr-only'>bar 3 player permissions menu</span>
+<svg aria-hidden='true' class='svg-inline--fa' data-icon='ellipsis-v' data-prefix='fas' height='12' viewBox='0 0 192 512' width='12' xmlns='http://www.w3.org/2000/svg'>
+<path d='M96 184c39.8 0 72 32.2 72 72s-32.2 72-72 72-72-32.2-72-72 32.2-72 72-72zM24 80c0 39.8 32.2 72 72 72s72-32.2 72-72S135.8 8 96 8 24 40.2 24 80zm0 352c0 39.8 32.2 72 72 72s72-32.2 72-72-32.2-72-72-72-72 32.2-72 72z' fill='000000'></path>
+</svg>
+</button>
+<ul aria-labelledby='dLabel' class='dropdown-menu dropdown-menu--right permission_section bar3' id='myDropdown'>
+<h4>Player Permissions</h4>
+<li class='dropdown-item'>
+<div class='checkbox'>
+<label title='show players bar 3'>
+<input class='showplayers_bar3' type='checkbox' value=''>
+See
+</label>
+</div>
+</li>
+<li class='dropdown-item'>
+<div class='checkbox'>
+<label title='allow players to edit bar 3'>
+<input class='playersedit_bar3' type='checkbox' value=''>
+Edit
+</label>
+</div>
+</li>
+<li class='dropdown-item'>
+<label class='bar_val_permission'>
+Text Overlay:
+<select class='bar3options'>
+<option value='hidden'>
+Hidden
+</option>
+<option selected value='editors'>
+Visible to Editors
+</option>
+<option value='everyone'>
+Visible to Everyone
+</option>
+</select>
+</label>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<hr>
+<div class='token_opacity'>
+<div class='row-fluid clearfix'>
+<div class='span8'>
+<h3 class='page_title text-capitalize'>Base Opacity</h3>
+</div>
+<div class='input-group flex-group'>
+<input class='token_opacity_slider flex-item' id='opac_input' max='1' min='0.0' step='0.05' type='range' value='1'>
+</div>
+<output class='token_opacity_text flex-item' id='opac_output'>100%</output>
+</div>
+</div>
+</hr>
+</div>
+</div>
+<hr>
+<!-- Token Tooltip -->
+<div class='tokendescription w-100'>
+<div class='w-100 d-inline-flex flex-wrap tokeneditor__container tokeneditor__tooltip-title'>
+<div class='flex-col'>
+<div class='tokeneditor__header w-100'>
+<h3 class='page_title text-capitalize'>Tooltip</h3>
+</div>
+</div>
+<div class='tokeneditor__container-tooltip tooltip_disable_box'>
+<div class='d-flex justify-content-center align-items-center'>
+<label class='sr-only' for='token-general-description-toggle'>show tooltip on token</label>
+<input class='show_tooltip' id='token-general-tooltip-toggle' type='checkbox' value='1'>
+</div>
+<h4 class='text-capitalize'>Show</h4>
+</div>
+</div>
+</div>
+<div class='tokeneditor__row'>
+<div class='tokeneditor__container'>
+<div class='d-flex'>
+<textarea class='token-tooltip' id='token-general-description' maxlength='150' type='text'></textarea>
+</div>
+</div>
+</div>
+<br>
+<small>
+<span class='tooltip-count'>0</span>
+/150
+</small>
+<hr>
+<!-- Token Bar Options -->
+<div class='tokenbaroptions w-100'>
+<div class='tokeneditor__header w-100'>
+<h3 class='page_title text-capitalize'>token bar options</h3>
+</div>
+<div class='w-100 d-inline-flex flex-wrap'>
+<div class='tokeneditor__col'>
+<div class='tokeneditor__subheader help-icon'>
+<h4 class='text-capitalize'>location</h4>
+<a class='showtip pictos' title='&lt;b&gt;Above:&lt;/b&gt; &lt;br&gt; All bars are above the token. (Default for new games) &lt;br&gt; &lt;b&gt;Top Overlapping:&lt;/b&gt; &lt;br&gt; The bottom-most bar overlaps the top of the token. Other bars float above it. &lt;br&gt; &lt;b&gt;Bottom Overlapping:&lt;/b&gt; &lt;br&gt; Bars fill the token from the bottom up. &lt;br&gt; &lt;b&gt;Below:&lt;/b&gt; &lt;br&gt; All bars are below the token.'>?</a>
+</div>
+<div class='tokeneditor__container player-permissions'>
+<div class='permission_section barLocation'>
+<label class='movable_token_bar' title='select the token bar location'>
+<span class='sr-only'>select the token bar location</span>
+<select class='token_bar_location'>
+<option selected value='above'>
+Above
+</option>
+<option value='overlap_top'>
+Top Overlapping
+</option>
+<option value='overlap_bottom'>
+Bottom Overlapping
+</option>
+<option value='below'>
+Below
+</option>
+</select>
+</label>
+</div>
+</div>
+</div>
+<div class='tokeneditor__col'>
+<div class='tokeneditor__subheader help-icon'>
+<h4 class='text-capitalize'>style</h4>
+<a class='showtip pictos' title='&lt;b&gt;Standard:&lt;/b&gt;&lt;br&gt; Full sized token bar, displays text overlays. &lt;br&gt; &lt;b&gt;Compact:&lt;/b&gt; &lt;br&gt;Narrow token bars. No text overlay.'>?</a>
+</div>
+<div class='tokeneditor__container player-permissions'>
+<div class='permission_section barLocation tokenbaroptions__style d-grid'>
+<label class='compact_bar align-items-center' title='Standard token bar style'>
+<input checked name='barStyle' type='radio' value='standard'>
+<span class='sr-only'>choose token bar style</span>
+Standard
+</label>
+<label class='compact_bar align-items-center' title='Compact token bar style'>
+<span class='sr-only'>choose token bar style</span>
+<input name='barStyle' type='radio' value='compact'>
+Compact
+</label>
+</div>
+</div>
+</div>
+</div>
+</div>
+<hr>
+<!-- Token Aura -->
+<div class='tokenaura w-100'>
+<div class='tokeneditor__header w-100'>
+<h3 class='page_title text-capitalize'>token aura</h3>
+</div>
+<div class='w-100 d-inline-flex flex-wrap'>
+<div class='tokeneditor__col'>
+<div class='tokenaura__header d-grid'>
+<div class='tokeneditor__subheader'>
+<h4 class='text-capitalize'>Aura 1</h4>
+</div>
+<div class='tokeneditor__dropdown d-grid'>
+<div class='dropdown keep-open dropup'>
+<button aria-expanded='false' aria-haspopup='true' class='btn btn-default btn--circle' data-toggle='dropdown' type='button'>
+<span class='sr-only'>aura 1 player permissions menu</span>
+<svg aria-hidden='true' class='svg-inline--fa' data-icon='ellipsis-v' data-prefix='fas' height='12' viewBox='0 0 192 512' width='12' xmlns='http://www.w3.org/2000/svg'>
+<path d='M96 184c39.8 0 72 32.2 72 72s-32.2 72-72 72-72-32.2-72-72 32.2-72 72-72zM24 80c0 39.8 32.2 72 72 72s72-32.2 72-72S135.8 8 96 8 24 40.2 24 80zm0 352c0 39.8 32.2 72 72 72s72-32.2 72-72-32.2-72-72-72-72 32.2-72 72z' fill='000000'></path>
+</svg>
+</button>
+<ul aria-labelledby='dLabel' class='dropdown-menu dropdown-menu--right' id='myDropdown'>
+<h4>Player Permissions</h4>
+<li class='dropdown-item'>
+<div class='checkbox'>
+<label title='show players aura 1'>
+<input class='showplayers_aura1' type='checkbox' value=''>
+See
+</label>
+</div>
+</li>
+<li class='dropdown-item'>
+<div class='checkbox'>
+<label title='allow players to edit aura 1'>
+<input class='playersedit_aura1' type='checkbox' value=''>
+Edit
+</label>
+</div>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class='tokenaura__container d-grid'>
+<!-- Token Aura Diameter -->
+<div class='tokenaura__diameter'>
+<div class='tokeneditor__subheader'>
+<h4 class='text-capitalize'>radius</h4>
+</div>
+<div class='tokeneditor__container tokeneditor__border'>
+<label title='input aura 1 radius'>
+<input class='aura1_radius' type='text'>
+</label>
+<div class='disable_box d-block'>
+<$!window.Campaign.activePage().get("scale_units")$>
+</div>
+</div>
+</div>
+<!-- Token Aura Shape -->
+<div class='tokenaura__shape'>
+<div class='tokeneditor__subheader'>
+<h4 class='text-capitalize'>shape</h4>
+</div>
+<div class='tokeneditor__container'>
+<label title='select aura 1 shape'>
+<select class='text-capitalize aura1_options'>
+<option selected value='circle'>circle</option>
+<option value='square'>square</option>
+</select>
+</label>
+</div>
+</div>
+<!-- Token Aura Tint Color -->
+<div class='tokeneditor__tint'>
+<div class='tokeneditor__subheader'>
+<h4 class='text-capitalize'>tint color</h4>
+</div>
+<div class='tokeneditor__container'>
+<input class='colorpicker aura1_color' type='text'>
+</div>
+</div>
+</div>
+</div>
+<div class='tokeneditor__col'>
+<div class='tokenaura__header d-grid'>
+<div class='tokeneditor__subheader'>
+<h4 class='text-capitalize'>Aura 2</h4>
+</div>
+<div class='tokeneditor__dropdown d-grid'>
+<div class='dropdown keep-open dropup'>
+<button aria-expanded='false' aria-haspopup='true' class='btn btn-default btn--circle' data-toggle='dropdown' type='button'>
+<span class='sr-only'>aura 2 player permissions menu</span>
+<svg aria-hidden='true' class='svg-inline--fa' data-icon='ellipsis-v' data-prefix='fas' height='12' viewBox='0 0 192 512' width='12' xmlns='http://www.w3.org/2000/svg'>
+<path d='M96 184c39.8 0 72 32.2 72 72s-32.2 72-72 72-72-32.2-72-72 32.2-72 72-72zM24 80c0 39.8 32.2 72 72 72s72-32.2 72-72S135.8 8 96 8 24 40.2 24 80zm0 352c0 39.8 32.2 72 72 72s72-32.2 72-72-32.2-72-72-72-72 32.2-72 72z' fill='000000'></path>
+</svg>
+</button>
+<ul aria-labelledby='dLabel' class='dropdown-menu dropdown-menu--right' id='myDropdown'>
+<h4>Player Permissions</h4>
+<li class='dropdown-item'>
+<div class='checkbox'>
+<label title='show players aura 2'>
+<input class='showplayers_aura2' type='checkbox' value=''>
+See
+</label>
+</div>
+</li>
+<li class='dropdown-item'>
+<div class='checkbox'>
+<label title='allow players to edit aura 2'>
+<input class='playersedit_aura2' type='checkbox' value=''>
+Edit
+</label>
+</div>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class='tokenaura__container d-grid'>
+<!-- Token Aura Diameter -->
+<div class='tokenaura__diameter'>
+<div class='tokeneditor__subheader'>
+<h4 class='text-capitalize'>radius</h4>
+</div>
+<div class='tokeneditor__container tokeneditor__border'>
+<label title='input aura 2 radius'>
+<input class='aura2_radius' type='text'>
+</label>
+<div class='disable_box d-block'>
+<$!window.Campaign.activePage().get("scale_units")$>
+</div>
+</div>
+</div>
+<!-- Token Aura Shape -->
+<div class='tokenaura__shape'>
+<div class='tokeneditor__subheader'>
+<h4 class='text-capitalize'>shape</h4>
+</div>
+<div class='tokeneditor__container'>
+<label title='select aura 2 shape'>
+<select class='text-capitalize aura2_options'>
+<option selected value='circle'>circle</option>
+<option value='square'>square</option>
+</select>
+</label>
+</div>
+</div>
+<!-- Token Aura Tint Color -->
+<div class='tokeneditor__tint'>
+<div class='tokeneditor__subheader'>
+<h4 class='text-capitalize'>tint color</h4>
+</div>
+<div class='tokeneditor__container'>
+<input class='colorpicker aura2_color' type='text'>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- GM Notes -->
+<div class='notes tab-pane'>
+<div class='tokeneditor__header'>
+<h3 class='d-inline'>GM Notes</h3>
+<span>(Only visible to GMs)</span>
+</div>
+<div>
+<textarea class='gmnotes summernote'></textarea>
+</div>
+</div>
+<!-- Dynamic Lighting -- Legacy lighting is under Advanced within this. -->
+<div class='prototype tab-pane'>
+<div class='alert alert-info' role='alert'>
+<p><a href="https://help.roll20.net/hc/articles/360051754954-Token-Settings" target=''_blank''>Easily convert your legacy settings with the Convert Lighting tool </a></p>
+</div>
+<div class='token_vision'>
+<p class='token_vision_title'>Token Vision</p>
+<div class='dyn_fog_vision' style='padding-top: 10px;'>
+<div class='row-fluid clearfix'>
+<div class='span8'>
+<p class='vision_title'>Vision</p>
+</div>
+<div class='span4 dyn_fog_switch'>
+<label class='switch'>
+<input class='dyn_fog_emits_vision feature_toggle' type='checkbox'>
+<span class='slider round'></span>
+</input>
+</label>
+</div>
+</div>
+<div class='row-fluid clearfix'>
+<div class='span8'>
+<p class='description'>Gives the ability to see, if there is light or if Night Vision is enabled. Tokens with vision can see to the edge of the available light.</p>
+</div>
+<div class='span4 dyn_fog_switch'>
+<div class='hidden'>
+<input class='dyn_fog_vision_range' type='number'>
+<input class='dyn_fog_dim_vision_range' type='number'>
+</div>
+</div>
+</div>
+</div>
+<hr>
+<div class='dyn_fog_dark_vision' style='padding-top: 10px;'>
+<div class='row-fluid clearfix'>
+<div class='span8'>
+<p class='vision_title'>Night Vision</p>
+</div>
+<div class='span4 dyn_fog_switch'>
+<label class='switch'>
+<input class='dyn_fog_emits_dark_vision feature_toggle' data-target='.dark_vision_input' data-toggle='toggle' type='checkbox'>
+<span class='slider round'></span>
+</input>
+</label>
+</div>
+</div>
+<div class='row-fluid clearfix'>
+<div class='span12'>
+<p class='description'>Give this token the ability to see without any light.</p>
+</div>
+</div>
+<div class='row-fluid clearfix toggle-element dark_vision_input'>
+<div class='span8'>
+<label class='distance'>Night Vision Distance</label>
+</div>
+<div class='span4 dyn_fog_switch'>
+<div class='form-group'>
+<div class='input-group'>
+<input class='dyn_fog_dark_vision_range' min='0' type='number'>
+<span class='input-group-addon'><$!window.Campaign.activePage().get("scale_units")$></span>
+</div>
+</div>
+</div>
+</div>
+<div class='row-fluid clearfix'>
+<div class='alert alert-danger negative_number_alert_night_vision hidden' role='alert'>
+<p>Please enter a positive number.</p>
+</div>
+</div>
+<div class='row-fluid clearfix toggle-element dark_vision_input'>
+<div class='span8'>
+<label class='vision-color'>Tint Color</label>
+</div>
+<div class='span4 dyn_fog_switch'>
+<input class='dyn_fog_dark_vision_color colorpicker' type='text' value='transparent'>
+</div>
+</div>
+<div class='row-fluid clearfix toggle-element dark_vision_input' style='padding-top: 10px'>
+<div class='span8'>
+<label>Night Vision Effect</label>
+</div>
+<div class='span4 dyn_fog_switch'>
+<div class='form-group' style='float:right;'>
+<div class='input-group'>
+<label class='dyn_fog_dropdown'>
+<select class='dyn_fog_dark_vision_effect form-control'>
+<option value=''>None</option>
+<option value='Nocturnal'>Nocturnal</option>
+<option value='Dimming'>Dimming</option>
+</select>
+</label>
+</div>
+</div>
+</div>
+</div>
+<div class='row-fluid clearfix toggle-element dark_vision_input dyn_fog_dark_fx_dimming_row hidden' style='padding-top: 10px'>
+<div class='span8'>
+<label class='dyn_fog_dark_vision_color'>Dimming Start</label>
+</div>
+<div class='span4 dyn_fog_switch'>
+<div class='form-group'>
+<div class='input-group'>
+<input class='dyn_fog_dark_vision_effect_dimming' max='100' min='0' step='0.01' type='number' value='5'>
+<span class='input-group-addon'><$!window.Campaign.activePage().get("scale_units")$></span>
+</div>
+</div>
+</div>
+</div>
+<div class='row-fluid clearfix'>
+<div class='alert alert-danger negative_number_alert_night_vision_dimming hidden' role='alert'>
+<p>Please enter a positive number.</p>
+</div>
+</div>
+</div>
+<hr>
+<div class='limit_field_of_vision hidden' style='padding-top: 10px;'>
+<div class='row-fluid clearfix'>
+<div class='span8'>
+<p class='vision_title'>Limit Field of Vision</p>
+</div>
+<div class='span4 dyn_fog_switch'>
+<label class='switch'>
+<input class='field_of_vision feature_toggle' data-target='.field_of_vision_inputs' data-toggle='toggle' type='checkbox'>
+<span class='slider round'></span>
+</input>
+</label>
+</div>
+</div>
+<div class='row-fluid clearfix'>
+<div class='span12'>
+<p class='description'>Limit the field revealed for the token.</p>
+</div>
+</div>
+<div class='row-fluid clearfix toggle-element field_of_vision_inputs'>
+<div class='span3'>
+<label class='distance'>Total</label>
+</div>
+<div class='span3 dyn_fog_switch'>
+<div class='form-group'>
+<div class='input-group'>
+<input class='field_of_vision_total' max='360' min='0' type='number'>
+<span class='input-group-addon'>&deg;</span>
+</div>
+</div>
+</div>
+<div class='span3'>
+<label class='distance'>Center</label>
+</div>
+<div class='span3 dyn_fog_switch'>
+<div class='form-group'>
+<div class='input-group'>
+<input class='field_of_vision_center' max='360' min='0' type='number'>
+<span class='input-group-addon'>&deg;</span>
+</div>
+</div>
+</div>
+<div class='row-fluid clearfix'></div>
+<div class='row-fluid clearfix'>
+<div class='alert alert-danger wrong_number_alert_vision hidden' role='alert'>
+<p>Please enter a number between 0-360.</p>
+</div>
+</div>
+<div class='row-fluid clearfix'>
+<div class='span6'>
+<p class='description'>Total size of the Field of Vision.</p>
+</div>
+<div class='span6'>
+<p class='description'>50% of Vision is before the Center, 50% is after.</p>
+</div>
+</div>
+</div>
+<hr>
+</div>
+</div>
+<div class='token_light'>
+<p class='token_light_title'>Token Emits Light</p>
+<div class='dyn_fog_light' style='padding-top: 10px;'>
+<div class='row-fluid clearfix'>
+<div class='span8'>
+<p class='light_title'>Bright Light</p>
+</div>
+<div class='span4 dyn_fog_switch'>
+<label class='switch'>
+<input class='dyn_fog_emits_light feature_toggle' data-target='.bright_light_input' data-toggle='toggle' type='checkbox'>
+<span class='slider round'></span>
+</input>
+</label>
+</div>
+</div>
+<div class='row-fluid clearfix'>
+<div class='span8'>
+<p class='description'>Makes the token emit Bright Light. Enable this to set its Distance.</p>
+</div>
+</div>
+<div class='row-fluid clearfix toggle-element bright_light_input'>
+<div class='span8'>
+<label class='distance'>Bright Light Distance</label>
+</div>
+<div class='span4 dyn_fog_switch'>
+<div class='form-group'>
+<div class='input-group'>
+<input class='dyn_fog_light_range' min='0' type='number'>
+<span class='input-group-addon'><$!window.Campaign.activePage().get("scale_units")$></span>
+</div>
+</div>
+</div>
+</div>
+<div class='row-fluid clearfix'>
+<div class='alert alert-danger negative_number_alert_bright_light hidden' role='alert'>
+<p>Please enter a positive number.</p>
+</div>
+</div>
+</div>
+<hr>
+<div class='dyn_fog_dim_light' style='padding-top: 10px;'>
+<div class='row-fluid clearfix'>
+<div class='span8'>
+<p class='light_title'>Low Light</p>
+</div>
+<div class='span4 dyn_fog_switch'>
+<label class='switch'>
+<input class='dyn_fog_emits_dim_light feature_toggle' data-target='.low_light_input' data-toggle='toggle' type='checkbox'>
+<span class='slider round'></span>
+</input>
+</label>
+</div>
+</div>
+<div class='row-fluid clearfix'>
+<div class='span8'>
+<p class='description'>Makes the token emit Low Light, in addition to any Bright Light set above. Enable this to set its Distance.</p>
+</div>
+</div>
+<div class='row-fluid clearfix toggle-element low_light_input'>
+<div class='span8'>
+<label class='distance'>Low Light Distance</label>
+</div>
+<div class='span4 dyn_fog_switch'>
+<div class='form-group'>
+<div class='input-group'>
+<input class='dyn_fog_dim_light_range' min='0' type='number'>
+<span class='input-group-addon'><$!window.Campaign.activePage().get("scale_units")$></span>
+</div>
+</div>
+</div>
+</div>
+<div class='row-fluid clearfix toggle-element low_light_input'>
+<div class='span8'>
+<label class='distance'>Brightness</label>
+</div>
+<div class='span4 dyn_fog_switch'>
+<div class='form-group'>
+<div class='input-group flex-group'>
+<img class='dyn_fog_img_left flex-item' src='/images/editor/lightbulb_low.svg'>
+<input class='dyn_fog_dim_light_opacity flex-item' max='1' min='0.2' step='0.05' type='range'>
+<img class='dyn_fog_img_right flex-item' src='/images/editor/lightbulb_high.svg'>
+</div>
+</div>
+</div>
+</div>
+<div class='row-fluid clearfix'>
+<div class='alert alert-danger negative_number_alert_dim_light hidden' role='alert'>
+<p>Please enter a positive number.</p>
+</div>
+</div>
+</div>
+<hr>
+<div class='directional_bright_light hidden' style='padding-top: 10px;'>
+<div class='row-fluid clearfix'>
+<div class='span8'>
+<p class='light_title'>Directional Light</p>
+</div>
+<div class='span4 dyn_fog_switch'>
+<label class='switch'>
+<input class='directional_bright_light_toggle feature_toggle' data-target='.directional_bright_light_inputs' data-toggle='toggle' type='checkbox'>
+<span class='slider round'></span>
+</input>
+</label>
+</div>
+</div>
+<div class='row-fluid clearfix'>
+<div class='span12'>
+<p class='description'>Set the direction of the Light emitting from this token.</p>
+</div>
+</div>
+<div class='row-fluid clearfix toggle-element directional_bright_light_inputs'>
+<div class='span3'>
+<label class='distance'>Total</label>
+</div>
+<div class='span3 dyn_fog_switch'>
+<div class='form-group'>
+<div class='input-group'>
+<input class='directional_bright_light_total' max='360' min='0' type='number'>
+<span class='input-group-addon'>&deg;</span>
+</div>
+</div>
+</div>
+<div class='span3'>
+<label class='distance'>Center</label>
+</div>
+<div class='span3 dyn_fog_switch'>
+<div class='form-group'>
+<div class='input-group'>
+<input class='directional_bright_light_center' max='360' min='0' type='number'>
+<span class='input-group-addon'>&deg;</span>
+</div>
+</div>
+</div>
+<div class='row-fluid clearfix'></div>
+<div class='row-fluid clearfix'>
+<div class='alert alert-danger wrong_number_alert_bright hidden' role='alert'>
+<p>Please enter a number between 0-360.</p>
+</div>
+</div>
+<div class='row-fluid clearfix'>
+<div class='span6'>
+<p class='description'>Total size of the Field of Light.</p>
+</div>
+<div class='span6'>
+<p class='description'>50% of Light is before the Center, 50% is after.</p>
+</div>
+</div>
+</div>
+<hr>
+<div class='row-fluid clearfix'>
+<div class='span8'>
+<label class='light_title'>Light Color</label>
+</div>
+<div class='span4 dyn_fog_switch'>
+<input class='dyn_fog_light_color colorpicker' type='text' value='transparent'>
+</div>
+</div>
+<hr>
+</div>
+<div class='total_light'>
+<div class='row-fluid clearfix'>
+<div class='span8'>
+<p class='light_title'>Total Light</p>
+</div>
+<div class='span4 dyn_fog_switch'>
+<div class='form-group'>
+<div class='input-group'>
+<input class='total_light_input' disabled type='number' value='0'>
+<span class='input-group-addon'><$!window.Campaign.activePage().get("scale_units")$></span>
+</div>
+</div>
+</div>
+</div>
+<div class='row-fluid clearfix'>
+<div class='span8'>
+<p class='description'>Amount of light emitting from this token.</p>
+</div>
+</div>
+</div>
+<hr>
+<div class='token_light'>
+<div aria-expanded='false' class='span8' data-target='.collapse_dyn_fog_advance' data-toggle='collapse' style='display:flex'>
+<p class='token_light_title' style='flex:1'>Advanced</p>
+<i aria-expanded='false' class='fa fa-chevron-up collapse_dyn_fog_advance' style='font-size:20px;cursor: pointer;'></i>
+<i aria-expanded='false' class='fa fa-chevron-down collapse_dyn_fog_advance' style='font-size:20px;cursor: pointer;'></i>
+</div>
+<div class='dyn_fog_light' style='padding-top: 10px;'></div>
+<div class='total_light collapse collapse_dyn_fog_advance'>
+<div class='row-fluid clearfix'>
+<div class='span8'>
+<p class='light_title'>Light Multiplier</p>
+</div>
+<div class='span4 dyn_fog_switch'>
+<div class='form-group'>
+<div class='input-group'>
+<input class='light_multi_input' min='1' type='number' value='100'>
+<span class='input-group-addon'>%</span>
+</div>
+</div>
+</div>
+</div>
+<div class='row-fluid clearfix'>
+<div class='span8'>
+<p class='description'>This changes the effective radius of light for this player. A setting of 200% will let this player see light from twice it’s set radius.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class='advanced_settings tab-pane'>
+<div class='advanced_token_options' style='width: 100%; display: flex; flex-direction: column; gap: 4px;'>
+<div class='fg_options_section'>
+<div class='tokeneditor__subheader help-icon' style='width: 100%; display: flex; align-items: center;'>
+<p class='token_foreground_title' style='margin: 0px'>Foreground Options</p>
+<a class='showtip pictos' style='margin: 0px' title='Configure how the object behaves when on the foreground layer and dynamic lighting is on.'>?</a>
+</div>
+<div class='row-fluid clearfix'>
+<div class='token_settings_horizontal_row'>
+<div class='tokeneditor__subheader help-icon' style='width: 100%; display: flex; align-items: center; gap: 4px;'>
+<p style='margin: 0px'>Dynamic Lighting Interaction</p>
+<a class='showtip pictos' style='margin: 0px' title='How should this token interact with darkness when on the foreground layer?'>?</a>
+</div>
+<label title='Darkness interaction'>
+<span class='sr-only'>select how this token interacts with darkness on the foreground layer</span>
+<select class='darknessInteract'>
+<option value='above'>Above Darkness</option>
+<option value='as'>As Darkness</option>
+<option value='below'>Below Darkness</option>
+</select>
+</label>
+</div>
+</div>
+<div class='row-fluid clearfix'>
+<div class='span8'>
+<p class='foreground_title'>Show Grid?</p>
+</div>
+<div class='span4 dyn_fog_switch'>
+<label class='switch'>
+<input class='fg_show_grid feature_toggle' type='checkbox'>
+<span class='slider round'></span>
+</input>
+</label>
+</div>
+</div>
+</div>
+<hr>
+<div class='token_interaction_settings'>
+<div class='token_interaction_header_row'>
+<div class='tokeneditor__subheader help-icon' style='width: 100%; display: flex; align-items: center; gap: 4px;'>
+<p class='token_foreground_title' style='margin: 0px'>Reactions</p>
+<a class='showtip pictos' style='margin: 0px' title='Configure how the object behaves when a controlled token overlaps with it'>?</a>
+</div>
+</div>
+<div class='token_interaction_setting' style='width: fit-content'>
+<div class='span' style='height: 20px'>
+<input class='token_interaction_opacity_enable' style='height: 20px; width: 20px; padding-left: 4px;' type='checkbox'>
+</div>
+<p class='token_interaction_setting_title'>Conditional Fade</p>
+</div>
+<div class='dyn_fog_vision token_interaction_sub_setting' id='con_fade' style='padding-top: 10px;'>
+<div class='row-fluid clearfix'>
+<div class='span8'>
+<p class='token_interaction_sub_setting_title'>Conditional Fade Opacity</p>
+</div>
+<div class='input-group flex-group' style='align-items: center; gap: 4px;'>
+<input class='interaction_opacity flex-item' id='fg_op_input' max='1' min='0.0' step='0.05' type='range'>
+<output class='interaction_opacity_text flex-item' id='fg_op_output'>0%</output>
+</div>
+</div>
+<div class='row-fluid clearfix'>
+<div class='span8'>
+<p class='foreground_title'>Foreground Only</p>
+</div>
+<div class='span4 dyn_fog_switch'>
+<label class='switch'>
+<input class='opacity_fg_only feature_toggle' type='checkbox'>
+<span class='slider round'></span>
+</input>
+</label>
+</div>
+</div>
+</div>
+</div>
+</hr>
+</div>
+</div>
 				<div class='image tab-pane'>
 					<div class='modal-tokeneditor-header'>
 						<h3 class='d-inline'>Edit Token Image</h3>
@@ -11803,9 +11842,9 @@ function initHTMLTokenEditor () {
 						}
 					</style>
 				</div>
-			</div>
-		</div>
-	</script>
+</div>
+</div>
+</script>
 	`;
 }
 
@@ -11817,576 +11856,481 @@ function initHTMLPageSettings () {
 
 	// no mods; just switched in to grant full features to non-pro
 	d20plus.html.pageSettings = `
-	<div class='pagedetails tab-pane' style='display:block;'>
-		<!-- * SIZE */ -->
-		<div class='size_settings' id='size_settings'>
-			<div class='pagedetails__header'>
-				<h3 class='page_title'>Size</h3>
-			</div>
-			<div class='pagedetails__subheader'>
-				<h4>Width</h4>
-			</div>
-			<div class='pagedetails__container grid_settings-input--list input-group'>
-				<div class='pagedetails-input size_settings-input'>
-					<div>
-						<label class='sr-only' for='page-size-width-input'>enter a custom page width in pixels</label>
-						<input id="page-size-width-input" type="number" class="width units page_setting_item" value="<$!this.model.get("width")$>" />
-					</div>
-					<div class='disable_box'>cells</div>
-				</div>
-				<div class='col pagedetails-symbol'>
-					<span class='page_setting_item'>X</span>
-				</div>
-				<div class='pagedetails-input size_settings-input'>
-					<div>
-						<label class='sr-only' for='page-size-width-multiplier'>custom page width will be multiplied by 70</label>
-						<input id='page-size-width-multiplier' type="text" value="70" class="page_setting_item" disabled>
-					</div>
-					<div class='disable_box'>px</div>
-				</div>
-				<div class='col pagedetails-symbol'>
-					<span class='page_setting_item'>=</span>
-				</div>
-				<div class='pagedetails-input size_settings-input'>
-					<div>
-						<label class='sr-only' for='page-size-width-total'>total page width in pixels after being multiplied by 70</label>
-						<input id='page-size-width-total' type="number" class="px_width pixels page_setting_item" value="<$!this.model.get("width")*70$>" />
-					</div>
-					<div class='disable_box'>px</div>
-				</div>
-			</div>
-			<div class='pagedetails__subheader'>
-				<h4>Height</h4>
-			</div>
-			<div class='pagedetails__container grid_settings-input--list input-group'>
-				<div class='pagedetails-input size_settings-input'>
-					<div>
-						<label class='sr-only' for='page-size-height-input'>enter a custom page height in pixels</label>
-						<input id="page-size-height-input" type="number" class="height units page_setting_item" value="<$!this.model.get("height")$>" />
-					</div>
-					<div class='disable_box'>cells</div>
-				</div>
-				<div class='col pagedetails-symbol'>
-					<span class='page_setting_item'>X</span>
-				</div>
-				<div class='pagedetails-input size_settings-input'>
-					<div>
-						<label class='sr-only' for='page-size-height-multiplier'>custom page height will be multiplied by 70</label>
-						<input id='page-size-height-multiplier' type="text" value="70" class="page_setting_item" disabled>
-					</div>
-					<div class='disable_box'>px</div>
-				</div>
-				<div class='col pagedetails-symbol'>
-					<span class='page_setting_item'>=</span>
-				</div>
-				<div class='pagedetails-input size_settings-input'>
-					<div>
-						<label class='sr-only' for='page-size-height-total'>total page height in pixels after being multiplied by 70</label>
-						<input id='page-size-height-total' type="number" class="px_height pixels page_setting_item" value="<$!this.model.get("height")*70$>" />
-					</div>
-					<div class='disable_box'>px</div>
-				</div>
-			</div>
-			<div class='fine-print text-muted'>
-				<p>The height and width are true to size when zoom is set to 100%.</p>
-			</div>
-		</div>
-		<hr>
-		<!-- * BACKGROUND */ -->
-		<div class='background_settings'>
-			<div class='pagedetails__header'>
-				<h3 class='page_title'>Background</h3>
-			</div>
-			<div class='pagedetails__subheader'>
-				<div class='row'>
-					<div class='col-xs-5' style='display: flex; flex-direction: column; align-items: center; gap: 4px;'>
-						<div class='pagedetails__container'>
-							<h4>Board Color</h4>
-						</div>
-						<div class='pagedetails__container'>
-							<div>
-								<input class='pagebackground' type='text'>
-							</div>
-						</div>
-					</div>
-					<div class='col-xs-5' style='display: flex; flex-direction: column; align-items: center; gap: 4px;'>
-						<div class='pagedetails__container'>
-							<h4>Backdrop Color</h4>
-						</div>
-						<div class='pagedetails__container'>
-							<div>
-								<input class='wrappercolor' type='text'>
-							</div>
-						</div>
-					</div>
-				</div>
-			</div>
-			<div class='pagedetails__subheader'>
-				<div class='row'>
-					<div class='col-xs-7 pagedetails__subheader'>
-						<h4 class='text-capitalize'>Apply dominant color from map layer</h4>
-					</div>
-					<div class='col-xs-3 grid_switch'>
-						<label class='switch'>
-							<label class='sr-only' for='page-wrapper-color-from-map-toggle'>apply dominant color from map layer</label>
-							<input class='useautowrapper showtip' id='page-wrapper-color-from-map-toggle' title='Automatically update the backdrop to match the map layer' type='checkbox' value='1'>
-							<span class='slider round'></span>
-							</input>
-						</label>
-					</div>
-				</div>
-			</div>
-		</div>
-		<hr>
-		<!-- * SCALE */ -->
-		<div class='scale_settings'>
-			<div class='pagedetails__header'>
-				<h3 class='page_title'>Scale</h3>
-			</div>
-			<div class='pagedetails__subheader'>
-				<h4 class='text-capitalize'>grid cell distance</h4>
-			</div>
-			<div class='pagedetails__container'>
-				<div class='pagedetails-input scale_settings-input'>
-					<div>
-						<label class='sr-only' for='page-scale-grid-cell-distance'>enter a custom distance for each grid cell</label>
-						<input id='page-scale-grid-cell-distance' type="number" class="scale_number" value="<$!this.model.get("scale_number")$>" />
-					</div>
-					<div class='scale_settings-select'>
-						<label class='sr-only' for='page-scale-grid-cell-label-select'>choose a label for your grid cells</label>
-						<select class='scale_units' id='page-scale-grid-cell-label-select'>
-							<option value='ft'>ft.</option>
-							<option value='m'>m.</option>
-							<option value='km'>km.</option>
-							<option value='mi'>mi.</option>
-							<option value='in'>in.</option>
-							<option value='cm'>cm.</option>
-							<option value='un'>un.</option>
-							<option value='hex'>hex</option>
-							<option value='sq'>sq.</option>
-							<option value='custom'>Custom</option>
-						</select>
-					</div>
-				</div>
-			</div>
-			<div class='hidden' id='custom_scale_units'>
-				<div class='pagedetails__subheader'>
-					<h4>custom label</h4>
-				</div>
-				<div class='pagedetails__container'>
-					<div class='pagedetails-input custom_scale_units-input'>
-						<label class='sr-only' for='page-scale-grid-cell-custom-label'>enter a custom label for your grid cells</label>
-						<input id="page-scale-grid-cell-custom-label" type="text" value="<$!this.model.get("scale_units")$>" />
-					</div>
-				</div>
-			</div>
-		</div>
-		<hr>
-		<!-- * GRID */ -->
-		<div class='grid_settings' data-feature_enabled='showgrid' id='grid_settings'>
-			<div class='row'>
-				<div class='col-xs-7 pagedetails__header'>
-					<h3 class='page_title'>Grid</h3>
-				</div>
-				<div class='col-xs-3 grid_switch'>
-					<label class='switch'>
-						<label class='sr-only' for='page-grid-display-toggle'>toggle the page grid</label>
-						<input class='gridenabled feature_enabled' id='page-grid-display-toggle' type='checkbox' value='1'>
-						<span class='slider round'></span>
-						</input>
-					</label>
-				</div>
-			</div>
-			<div class='grid_subsettings' id='grid_subsettings'>
-				<div class='pagedetails__container'>
-					<div class='pagedetails__subheader'>
-						<h4>Type</h4>
-					</div>
-					<div class='grid_settings-select'>
-						<label class='sr-only' for='gridtype'>select the grid type</label>
-						<select id='gridtype'>
-							<option selected value='square'>Square</option>
-							<option value='hex'>Hex (V)</option>
-							<option value='hexr'>Hex (H)</option>
-							<option value='dimetric'>Dimetric</option>
-							<option value='isometric'>Isometric</option>
-						</select>
-					</div>
-				</div>
-				<div class='pagedetails__container grid_settings-row--hex flex-wrap align-items-center' id='hexlabels'>
-					<div class='col-xs-7 pagedetails__subheader'>
-						<h4>show hex labels</h4>
-					</div>
-					<div class='col-xs-3 grid_switch'>
-						<label class='switch'>
-							<label class='sr-only' for='page-grid-hex-label-toggle'>toggle display labels inside of hexes</label>
-							<input class='gridlabels' id='page-grid-hex-label-toggle' type='checkbox' value='1'>
-							<span class='slider round'></span>
-							</input>
-						</label>
-					</div>
-				</div>
-				<div class='pagedetails__subheader help-icon'>
-					<h4>Measurement</h4>
-					<a class='tipsy-w showtip pictos' href='https://roll20.zendesk.com/hc/en-us/articles/360039674913-Ruler' target='_blank' title='Controls how diagonal cells are measured.'>?</a>
-				</div>
-				<div class='pagedetails__container'>
-					<div class='grid_settings-select'>
-						<select id='diagonaltype'>
-							<option class='squareonly' selected value='foure'>D&D 5E/4E Compatible</option>
-							<option class='squareonly' value='threefive'>Pathfinder/3.5E Compatible</option>
-							<option class='squareonly' value='manhattan'>Manhattan</option>
-							<option class='hexonly' value='hex'>Hex Path</option>
-							<option value='pythagorean'>Euclidean</option>
-						</select>
-					</div>
-				</div>
-				<div class='pagedetails__subheader help-icon'>
-					<h4>Cell Width</h4>
-					<a class='tipsy-w showtip pictos' href='https://roll20.zendesk.com/hc/en-us/articles/360039675373-Page-Settings' target='_blank' title='The number of cells per 70 pixels in your grid. Ex .5 = 35 pixels per cell.'>?</a>
-				</div>
-				<div class='pagedetails__container grid_settings-input--list'>
-					<div class='pagedetails-input grid_settings-input'>
-						<label class='sr-only' for='page-grid-cell-width-input'>enter a custom cell width</label>
-						<input id="page-grid-cell-width-input" type="number" class="grid-cell-width snappingincrement units" value="<$!this.model.get("snapping_increment")$>" />
-					</div>
-					<div class='col pagedetails-symbol'>
-						<span class='page_setting_item'>X</span>
-					</div>
-					<div class='pagedetails-input grid_settings-input'>
-						<div>
-							<label class='sr-only' for='page-grid-cell-width-multiplier'>custom cell width will be multiplied by 70</label>
-							<input id='page-grid-cell-width-multiplier' type="text" value="70" class="page_setting_item" disabled>
-						</div>
-						<div class='disable_box'>px</div>
-					</div>
-					<div class='col pagedetails-symbol'>
-						<span class='page_setting_item'>=</span>
-					</div>
-					<div class='pagedetails-input grid_settings-input'>
-						<div>
-							<label class='sr-only' for='page-grid-cell-width-total'>total cell width in pixels after being multiplied by 70</label>
-							<input id="page-grid-cell-width-total" type="number" class="px_snappingincrement pixels" value="<$!this.model.get("snapping_increment")*70$>" />
-						</div>
-						<div class='disable_box'>px</div>
-					</div>
-				</div>
-				<div class='col' style='display: flex; flex-direction: column; gap: 4px;'>
-					<div class='pagedetails__subheader'>
-						<h4>Color</h4>
-					</div>
-					<div class='pagedetails__container'>
-						<div>
-							<input class='gridcolor' type='text'>
-						</div>
-					</div>
-				</div>
-				<div class='pagedetails__subheader'>
-					<h4>Opacity</h4>
-				</div>
-				<div class='pagedetails__container'>
-					<div>
-						<div class='gridopacity'></div>
-					</div>
-				</div>
-			</div>
-		</div>
-		<!-- * Movement */ -->
-		<hr>
-		<div class='restrict_movement lighting_feature' id='restict_movement'>
-			<div class='pagedetails__header w-100'>
-				<h3 class='page_title text-capitalize'>movement</h3>
-			</div>
-			<div class='pagedetails__container d-flex'>
-				<div class='row'>
-					<div class='col-xs-7 pagedetails__subheader'>
-						<h4 class='text-capitalize'>dynamic lighting barriers restrict movement</h4>
-					</div>
-					<div class='col-xs-3 grid_switch'>
-						<label class='switch'>
-							<label class='sr-only' for='page-dynamic-lighting-line-restrict-movement-toggle'>dynamic lighting lines restrict movement toggle</label>
-							<input class='lightrestrictmove showtip' id='page-dynamic-lighting-line-restrict-movement-toggle' title='Don&#39;t allow player tokens to move through Dynamic Lighting walls. Can be enabled even if lighting is not used.' type='checkbox' value='1'>
-							<span class='slider round'></span>
-							</input>
-						</label>
-					</div>
-				</div>
-			</div>
-		</div>
-		<hr>
-		<div class='standard_fog lighting_feature' id='standard_fog'>
-			<div class='pagedetails__header w-100'>
-				<h3 class='page_title text-capitalize'>Fog of War</h3>
-			</div>
-			<div class='pagedetails__container d-flex'>
-				<div class='row'>
-					<div class='col-xs-7 pagedetails__subheader'>
-						<h4 class='text-capitalize'>Standard Fog of War</h4>
-						<a class='tipsy-w showtip pictos' href='https://roll20.zendesk.com/hc/en-us/articles/360039674913-Ruler' target='_blank' title='Enabling Fog of War will disable Updated Dynamic Lighting'>?</a>
-					</div>
-					<div class='col-xs-3 grid_switch'>
-						<label class='switch'>
-							<label class='sr-only' for='page-standard-fog-basic-toggle'>fog</label>
-							<input class='darknessenabled feature_enabled showtip' id='page-standard-fog-basic-toggle' title='Simplest method of adding fog of war to your games. Use in conjunction with the hide/reveal tool' type='checkbox' value='1'>
-							<span class='slider round'></span>
-							</input>
-						</label>
-					</div>
-				</div>
-			</div>
-		</div>
-		</hr>
-		<hr>
-		<div class='gm_darkness_opacity'>
-			<div class='row'>
-				<div class='col-xs-12'>
-					<p class='opacity_title'>GM Darkness Opacity</p>
-				</div>
-			</div>
-		</div>
-		<div class='row'>
-			<div class='col-xs-8'>
-				<div class='fogopacity'></div>
-			</div>
-			<div class='col-xs-1'>
-				<input class='opacity_percentage' disabled type='text'>
-			</div>
-		</div>
-		</hr>
-		<!-- * Audio */ -->
-		<hr>
-		<div class='audio_settings'>
-			<div class='pagedetails__header'>
-				<h3 class='page_title'>Audio</h3>
-			</div>
-			<div class='pagedetails__subheader'>
-				<h4>Play on Load</h4>
-			</div>
-			<div class='pagedetails__container'>
-				<label class='sr-only' for='page-audio-play-on-load'>play an audio track on page load</label>
-				<select class='pagejukeboxtrigger' id='page-audio-play-on-load'></select>
-			</div>
-		</div>
-		<!-- * Archive & Delete Buttons */ -->
-		<hr>
-		<div class='page-buttons d-flex flex-wrap justify-content-between'>
-			<button class='archive btn'>Archive Page</button>
-			<button class='delete btn btn-danger'>Delete Page</button>
-		</div>
-	</div>
+<div class='pagedetails tab-pane' style='display:block;'>
+<!-- * SIZE */ -->
+<div class='size_settings' id='size_settings'>
+<button class="fixHexPageSettingsBtn <$!['hex', 'hexr'].indexOf(this.model.get("grid_type")) > -1 && !this.model.get("jumpgate_hex_object_fix") && !this.model.get("jumpgate_hex_object_ignore") ? 'show' : 'hide'$>">⚠️ Fix your hexes</button>
+<div class='pagedetails__header'>
+<h3 class='page_title'>Size</h3>
+</div>
+<div class='pagedetails__subheader'>
+<h4>Width</h4>
+</div>
+<div class='pagedetails__container grid_settings-input--list input-group'>
+<div class='pagedetails-input size_settings-input'>
+<div>
+<label class='sr-only' for='page-size-width-input'>enter a custom page width in pixels</label>
+<input id="page-size-width-input" type="number" class="width units page_setting_item" value="<$!(this.model.get("grid_type")==='hex' && 'width'==='height') || (this.model.get("grid_type")==='hexr' && 'width'==='width') ? (this.model.get("width")*70/(this.model.get("snapping_increment") || !this.model.get("snapping_increment") === 0 ? this.model.get("snapping_increment") : 1)  - Math.sqrt(3)*(2/3)*70*0.25) / (Math.sqrt(3)*(2/3)*70*0.75) : this.model.get("width")/(this.model.get("snapping_increment") || !this.model.get("snapping_increment") === 0 ? this.model.get("snapping_increment") : 1)$>" />
+</div>
+<div class='disable_box'>cells</div>
+</div>
+<div class='col pagedetails-symbol'>
+<span class='page_setting_item'>X</span>
+</div>
+<div class='pagedetails-input size_settings-input'>
+<div>
+<label class='sr-only' for='page-size-width-multiplier'>custom page width will be multiplied by 70</label>
+<input id='page-size-width-multiplier' class='page-size-width-multiplier' type="text" value="<$!(this.model.get("grid_type") === 'hex' && 'width' === 'height') || (this.model.get("grid_type") === 'hexr' && 'width' === 'width') ? Math.sqrt(3)*2/3*this.model.get("snapping_increment")*70*0.75 : this.model.get("snapping_increment")*70$>" class="page_setting_item" disabled>
+</div>
+<div class='disable_box'>px</div>
+</div>
+<div class='col pagedetails-symbol'>
+<span class='page_setting_item'>=</span>
+</div>
+<div class='pagedetails-input size_settings-input'>
+<div>
+<label class='sr-only' for='page-size-width-total'>total page width in pixels after being multiplied by 70</label>
+<input id='page-size-width-total' type="number" class="px_width pixels page_setting_item" value="<$!this.model.get("width")*70$>" />
+</div>
+<div class='disable_box'>px</div>
+</div>
+</div>
+<div class='pagedetails__subheader'>
+<h4>Height</h4>
+</div>
+<div class='pagedetails__container grid_settings-input--list input-group'>
+<div class='pagedetails-input size_settings-input'>
+<div>
+<label class='sr-only' for='page-size-height-input'>enter a custom page height in pixels</label>
+<input id="page-size-height-input" type="number" class="height units page_setting_item" value="<$!(this.model.get("grid_type")==='hex' && 'height'==='height') || (this.model.get("grid_type")==='hexr' && 'height'==='width') ? (this.model.get("height")*70/(this.model.get("snapping_increment") || !this.model.get("snapping_increment") === 0 ? this.model.get("snapping_increment") : 1)  - Math.sqrt(3)*(2/3)*70*0.25) / (Math.sqrt(3)*(2/3)*70*0.75) : this.model.get("height")/(this.model.get("snapping_increment") || !this.model.get("snapping_increment") === 0 ? this.model.get("snapping_increment") : 1)$>" />
+</div>
+<div class='disable_box'>cells</div>
+</div>
+<div class='col pagedetails-symbol'>
+<span class='page_setting_item'>X</span>
+</div>
+<div class='pagedetails-input size_settings-input'>
+<div>
+<label class='sr-only' for='page-size-height-multiplier'>custom page height will be multiplied by 70</label>
+<input id='page-size-height-multiplier' class='page-size-height-multiplier' type="text" value="<$!(this.model.get("grid_type") === 'hex' && 'height' === 'height') || (this.model.get("grid_type") === 'hexr' && 'height' === 'width') ? Math.sqrt(3)*2/3*this.model.get("snapping_increment")*70*0.75 : this.model.get("snapping_increment")*70$>" class="page_setting_item" disabled>
+</div>
+<div class='disable_box'>px</div>
+</div>
+<div class='col pagedetails-symbol'>
+<span class='page_setting_item'>=</span>
+</div>
+<div class='pagedetails-input size_settings-input'>
+<div>
+<label class='sr-only' for='page-size-height-total'>total page height in pixels after being multiplied by 70</label>
+<input id='page-size-height-total' type="number" class="px_height pixels page_setting_item" value="<$!this.model.get("height")*70$>" />
+</div>
+<div class='disable_box'>px</div>
+</div>
+</div>
+<div class='fine-print text-muted'>
+<p>The height and width are true to size when zoom is set to 100%.</p>
+</div>
+</div>
+<hr>
+<!-- * BACKGROUND */ -->
+<div class='background_settings'>
+<div class='pagedetails__header'>
+<h3 class='page_title'>Background</h3>
+</div>
+<div class='pagedetails__subheader'>
+<div class='row'>
+<div class='col-xs-5' style='display: flex; flex-direction: column; align-items: center; gap: 4px;'>
+<div class='pagedetails__container'>
+<h4>Board Color</h4>
+</div>
+<div class='pagedetails__container'>
+<div>
+<input class='pagebackground' type='text'>
+</div>
+</div>
+</div>
+<div class='col-xs-5' style='display: flex; flex-direction: column; align-items: center; gap: 4px;'>
+<div class='pagedetails__container'>
+<h4>Backdrop Color</h4>
+</div>
+<div class='pagedetails__container'>
+<div>
+<input class='wrappercolor' type='text'>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class='pagedetails__subheader'>
+<div class='row'>
+<div class='col-xs-7 pagedetails__subheader'>
+<h4 class='text-capitalize'>Apply dominant color from map layer</h4>
+</div>
+<div class='col-xs-3 grid_switch'>
+<label class='switch'>
+<label class='sr-only' for='page-wrapper-color-from-map-toggle'>apply dominant color from map layer</label>
+<input class='useautowrapper showtip' id='page-wrapper-color-from-map-toggle' title='Automatically update the backdrop to match the map layer' type='checkbox' value='1'>
+<span class='slider round'></span>
+</input>
+</label>
+</div>
+</div>
+</div>
+</div>
+<hr>
+<!-- * SCALE */ -->
+<div class='scale_settings'>
+<div class='pagedetails__header'>
+<h3 class='page_title'>Scale</h3>
+</div>
+<div class='pagedetails__subheader'>
+<h4 class='text-capitalize'>grid cell distance</h4>
+</div>
+<div class='pagedetails__container'>
+<div class='pagedetails-input scale_settings-input'>
+<div>
+<label class='sr-only' for='page-scale-grid-cell-distance'>enter a custom distance for each grid cell</label>
+<input id='page-scale-grid-cell-distance' type="number" class="scale_number" value="<$!this.model.get("scale_number")$>" />
+</div>
+<div class='scale_settings-select'>
+<label class='sr-only' for='page-scale-grid-cell-label-select'>choose a label for your grid cells</label>
+<select class='scale_units' id='page-scale-grid-cell-label-select'>
+<option value='ft'>ft.</option>
+<option value='m'>m.</option>
+<option value='km'>km.</option>
+<option value='mi'>mi.</option>
+<option value='in'>in.</option>
+<option value='cm'>cm.</option>
+<option value='un'>un.</option>
+<option value='hex'>hex</option>
+<option value='sq'>sq.</option>
+<option value='custom'>Custom</option>
+</select>
+</div>
+</div>
+</div>
+<div class='hidden' id='custom_scale_units'>
+<div class='pagedetails__subheader'>
+<h4>custom label</h4>
+</div>
+<div class='pagedetails__container'>
+<div class='pagedetails-input custom_scale_units-input'>
+<label class='sr-only' for='page-scale-grid-cell-custom-label'>enter a custom label for your grid cells</label>
+<input id="page-scale-grid-cell-custom-label" type="text" value="<$!this.model.get("scale_units")$>" />
+</div>
+</div>
+</div>
+</div>
+<hr>
+<!-- * GRID */ -->
+<div class='grid_settings' data-feature_enabled='showgrid' id='grid_settings'>
+<div class='row'>
+<div class='col-xs-7 pagedetails__header'>
+<h3 class='page_title'>Grid</h3>
+</div>
+<div class='col-xs-3 grid_switch'>
+<label class='switch'>
+<label class='sr-only' for='page-grid-display-toggle'>toggle the page grid</label>
+<input class='gridenabled feature_enabled' id='page-grid-display-toggle' type='checkbox' value='1'>
+<span class='slider round'></span>
+</input>
+</label>
+</div>
+</div>
+<div class='grid_subsettings' id='grid_subsettings'>
+<div class='pagedetails__container'>
+<div class='pagedetails__subheader'>
+<h4>Type</h4>
+</div>
+<div class='grid_settings-select'>
+<label class='sr-only' for='gridtype'>select the grid type</label>
+<select class='gridtype' id='gridtype'>
+<option selected value='square'>Square</option>
+<option value='hex'>Hex (V)</option>
+<option value='hexr'>Hex (H)</option>
+<option value='dimetric'>Dimetric</option>
+<option value='isometric'>Isometric</option>
+</select>
+</div>
+</div>
+<div class='pagedetails__container grid_settings-row--hex flex-wrap align-items-center' id='hexlabels'>
+<div class='col-xs-7 pagedetails__subheader'>
+<h4>show hex labels</h4>
+</div>
+<div class='col-xs-3 grid_switch'>
+<label class='switch'>
+<label class='sr-only' for='page-grid-hex-label-toggle'>toggle display labels inside of hexes</label>
+<input class='gridlabels' id='page-grid-hex-label-toggle' type='checkbox' value='1'>
+<span class='slider round'></span>
+</input>
+</label>
+</div>
+</div>
+<div class='pagedetails__subheader help-icon'>
+<h4>Measurement</h4>
+<a class='tipsy-w showtip pictos' href='https://roll20.zendesk.com/hc/articles/360039674913-Ruler' target='_blank' title='Controls how diagonal cells are measured.'>?</a>
+</div>
+<div class='pagedetails__container'>
+<div class='grid_settings-select'>
+<select id='diagonaltype'>
+<option class='squareonly' selected value='foure'>D&D 5E/4E Compatible</option>
+<option class='squareonly' value='threefive'>Pathfinder/3.5E Compatible</option>
+<option class='squareonly' value='manhattan'>Manhattan</option>
+<option class='hexonly' value='hex'>Hex Path</option>
+<option value='pythagorean'>Euclidean</option>
+</select>
+</div>
+</div>
+<div class='pagedetails__subheader help-icon'>
+<h4>Cell Width</h4>
+<a class='tipsy-w showtip pictos' href='https://roll20.zendesk.com/hc/articles/360039675373-Page-Settings' target='_blank' title='The number of cells per 70 pixels in your grid. Ex .5 = 35 pixels per cell.'>?</a>
+</div>
+<div class='pagedetails__container grid_settings-input--list'>
+<div class='pagedetails-input grid_settings-input'>
+<label class='sr-only' for='page-grid-cell-width-input'>enter a custom cell width</label>
+<input id="page-grid-cell-width-input" type="number" class="grid-cell-width snappingincrement units" value="<$!this.model.get("snapping_increment")$>" />
+</div>
+<div class='col pagedetails-symbol'>
+<span class='page_setting_item'>X</span>
+</div>
+<div class='pagedetails-input grid_settings-input'>
+<div>
+<label class='sr-only' for='page-grid-cell-width-multiplier'>custom cell width will be multiplied by 70</label>
+<input id='page-grid-cell-width-multiplier' type="text" value="70" class="page_setting_item" disabled>
+</div>
+<div class='disable_box'>px</div>
+</div>
+<div class='col pagedetails-symbol'>
+<span class='page_setting_item'>=</span>
+</div>
+<div class='pagedetails-input grid_settings-input'>
+<div>
+<label class='sr-only' for='page-grid-cell-width-total'>total cell width in pixels after being multiplied by 70</label>
+<input id="page-grid-cell-width-total" type="number" class="px_snappingincrement pixels" value="<$!this.model.get("snapping_increment")*70$>" />
+</div>
+<div class='disable_box'>px</div>
+</div>
+</div>
+<div class='col' style='display: flex; flex-direction: column; gap: 4px;'>
+<div class='pagedetails__subheader'>
+<h4>Color</h4>
+</div>
+<div class='pagedetails__container'>
+<div>
+<input class='gridcolor' type='text'>
+</div>
+</div>
+</div>
+<div class='pagedetails__subheader'>
+<h4>Opacity</h4>
+</div>
+<div class='pagedetails__container'>
+<div>
+<div class='gridopacity'></div>
+</div>
+</div>
+</div>
+</div>
+<!-- * Movement */ -->
+<hr>
+<div class='restrict_movement lighting_feature' id='restict_movement'>
+<div class='pagedetails__header w-100'>
+<h3 class='page_title text-capitalize'>Lines Block Movement</h3>
+</div>
+<div class='pagedetails__container d-flex'>
+<div class='row'>
+<div class='col-xs-7 pagedetails__subheader'>
+<h4>Dynamic lighting barriers like lines or closed doors and windows will restrict token movement for Players</h4>
+</div>
+<div class='col-xs-3 grid_switch'>
+<label class='switch'>
+<label class='sr-only' for='page-dynamic-lighting-line-restrict-movement-toggle'>dynamic lighting lines restrict movement toggle</label>
+<input class='lightrestrictmove showtip' id='page-dynamic-lighting-line-restrict-movement-toggle' title='Don&#39;t allow player tokens to move through Dynamic Lighting walls. Can be enabled even if lighting is not used.' type='checkbox' value='1'>
+<span class='slider round'></span>
+</input>
+</label>
+</div>
+</div>
+</div>
+</div>
+<hr>
+<div class='standard_fog lighting_feature' id='standard_fog'>
+<div class='pagedetails__header w-100'>
+<h3 class='page_title text-capitalize'>Hide / Reveal Mask</h3>
+</div>
+<div class='pagedetails__container d-flex'>
+<div class='row'>
+<div class='col-xs-7 pagedetails__subheader'>
+<h4 class='text-capitalize'>Enable Hide / Reveal Mask</h4>
+</div>
+<div class='col-xs-3 grid_switch'>
+<label class='switch'>
+<label class='sr-only' for='page-standard-fog-basic-toggle'>hide / reveal</label>
+<input class='darknessenabled feature_enabled showtip' id='page-standard-fog-basic-toggle' title='Simplest method of adding visible and hidden areas to your games.' type='checkbox' value='1'>
+<span class='slider round'></span>
+</input>
+</label>
+</div>
+</div>
+</div>
+</div>
+</hr>
+<hr>
+<div class='gm_darkness_opacity'>
+<div class='row'>
+<div class='col-xs-12'>
+<p class='opacity_title'>GM Darkness Opacity</p>
+</div>
+</div>
+</div>
+<div class='row'>
+<div class='col-xs-8'>
+<div class='fogopacity'></div>
+</div>
+<div class='col-xs-1'>
+<input class='opacity_percentage' disabled type='text'>
+</div>
+</div>
+</hr>
+<!-- * Audio */ -->
+<hr>
+<div class='audio_settings'>
+<div class='pagedetails__header'>
+<h3 class='page_title'>Audio</h3>
+</div>
+<div class='pagedetails__subheader'>
+<h4>Play on Load</h4>
+</div>
+<div class='pagedetails__container'>
+<label class='sr-only' for='page-audio-play-on-load'>play an audio track on page load</label>
+<select class='pagejukeboxtrigger' id='page-audio-play-on-load'></select>
+</div>
+</div>
+<!-- * Archive & Delete Buttons */ -->
+<hr>
+<div class='page-buttons d-flex flex-wrap justify-content-between'>
+<button class='archive btn'>Archive Page</button>
+<button class='delete btn btn-danger'>Delete Page</button>
+</div>
+</div>
 
-	<div class='lighting tab-pane' style='display:none;'>
-		<!-- BEGIN MOD -->
-		<strong style="display: block; margin-bottom: 10px;">
-			<a class="tipsy-w showtip pictos" title="Requires subscription or players to use a betteR20 script">!</a>
-			Requires a paid Roll20 subscription or all players to use a betteR20 script
-		</strong>
-		<!-- END MOD -->
-		<div class='border_box lighting_feature' data-feature_enabled='dyn_fog_prototype_enabled' id='dyn_fog_prototype_settings'>
-			<div class='alert alert-info' role='alert'>
-				<p><a href="https://help.roll20.net/hc/en-us/articles/360052521913" target='' _blank''>Easily convert your legacy settings with the Convert Lighting tool </a></p>
-			</div>
-			<div class='dyn_fog_settings'>
-				<div class='row'>
-					<div class='col-xs-6'>
-						<p class='dynamic_lighting_title'>Dynamic Lighting</p>
-					</div>
-					<div class='col-xs-3 dyn_fog_switch'>
-						<label class='switch'>
-							<input class='dyn_fog_enabled feature_enabled' type='checkbox'>
-							<span class='slider round'></span>
-							</input>
-						</label>
-					</div>
-				</div>
-			</div>
-			<hr>
-			<div class='explorer_mode'>
-				<div class='row'>
-					<div class='col-xs-6'>
-						<p class='explorer_mode_title'>Explorer Mode</p>
-					</div>
-					<div class='col-xs-3 dyn_fog_switch'>
-						<label class='switch'>
-							<input class='dyn_fog_autofog_mode' type='checkbox'>
-							<span class='slider round'></span>
-							</input>
-						</label>
-					</div>
-				</div>
-				<div class='row'>
-					<div class='col-xs-11'>
-						<p class='description'>Reveals areas of the Map Layer that Players have already explored. Does not reveal areas that were revealed when Explorer Mode is disabled. Previously called "Advanced Fog of War".</p>
-					</div>
-				</div>
-			</div>
-			<hr>
-			<div class='daylight_mode'>
-				<div class='row'>
-					<div class='col-xs-6'>
-						<p class='explorer_mode_title'>Daylight Mode</p>
-					</div>
-					<div class='col-xs-3 dyn_fog_switch'>
-						<label class='switch'>
-							<input class='dyn_fog_global_illum' type='checkbox'>
-							<span class='slider round'></span>
-							</input>
-						</label>
-					</div>
-				</div>
-				<div class='row'>
-					<div class='col-xs-11'>
-						<p class='description'>Adds Light to the whole Page, good for a sunny day or well lit room or GMs who don't want to place a bunch of torches. Previously called "Global Illumination".</p>
-					</div>
-				</div>
-				<div class='row-fluid clearfix daylight_slider_row' style='display: none;'>
-					<div class='span2' style='float:left'>
-						<label class='distance'>Brightness</label>
-					</div>
-					<div class='span8 dyn_fog_switch' style='float:right'>
-						<div class='form-group'>
-							<div class='input-group flex-group'>
-								<img class='dyn_fog_img_left flex-item' src='/images/editor/lightbulb_low.svg'>
-								<input class='dyn_fog_daylight_slider flex-item' max='1' min='0.05' step='0.05' type='range' value='1'>
-								<img class='dyn_fog_img_right flex-item' src='/images/editor/lightbulb_high.svg'>
-							</div>
-						</div>
-					</div>
-				</div>
-			</div>
-			<hr>
-			<div class='update_on_drop_mode'>
-				<div class='row'>
-					<div class='col-xs-6'>
-						<p class='update_on_drop_title'>Update when Token Drop</p>
-					</div>
-					<div class='col-xs-3 dyn_fog_switch'>
-						<label class='switch'>
-							<input class='dyn_fog_update_on_drop' type='checkbox'>
-							<span class='slider round'></span>
-							</input>
-						</label>
-					</div>
-				</div>
-				<div class='row'>
-					<div class='col-xs-11'>
-						<p class='description'>When dragging and dropping a token, the lighting will only change after a player has dropped, not while dragging.</p>
-					</div>
-				</div>
-			</div>
-			<hr>
-			<div class='gm_darkness_opacity'>
-				<div class='row'>
-					<div class='col-xs-12'>
-						<p class='opacity_title'>GM Darkness Opacity</p>
-					</div>
-				</div>
-				<div class='row'>
-					<div class='col-xs-11'>
-						<p class='description'>The GM can see through dark areas hidden from the Players when using Dynamic Lighting. This setting adjusts the opacity of those dark areas for the GM only.</p>
-					</div>
-				</div>
-				<div class='row'>
-					<div class='col-xs-8'>
-						<div class='fogopacity'></div>
-					</div>
-					<div class='col-xs-1'>
-						<input class='opacity_percentage' disabled type='text'>
-					</div>
-				</div>
-			</div>
-			<hr>
-		</div>
-		<div id='legacy_section'>
-			<div aria-expanded='false' class='span8' data-target='.collapse_legacy_lighting' data-toggle='collapse' style='display:flex'>
-				<p class='token_light_title' style='flex:1'>Advanced & Legacy Settings</p>
-				<i aria-expanded='false' class='fa fa-chevron-up collapse_legacy_lighting' style='font-size:20px;cursor: pointer;'></i>
-				<i aria-expanded='false' class='fa fa-chevron-down collapse_legacy_lighting' style='font-size:20px;cursor: pointer;'></i>
-			</div>
-			<div class='collapse collapse_legacy_lighting'>
-				<div class='clearfix'>
-					<div class='col-xs-7'>
-						<p class='light_title'>Legacy Lighting</p>
-					</div>
-					<div class='col-xs-2 dyn_fog_switch'>
-						<label class='switch'>
-							<input class='page_settings_enable_legacy_lighting lighting_feature feature_toggle' data-feature_enabled='showlighting' data-target='.legacy_only_section' data-toggle='toggle' type='checkbox'>
-							<span class='slider round'></span>
-							</input>
-						</label>
-					</div>
-				</div>
-				<div class='toggle-element legacy_only_section'>
-					<hr>
-					<div class='lighting_feature' data-feature_enabled='adv_fow_enabled' id='afow_settings'>
-						<label class='feature_name'>
-							<strong>Advanced Fog of War</strong>
-						</label>
-						<div class='feature_options'>
-							<input class='advancedfowenabled feature_enabled showtip' type='checkbox' value='1'>
-							<label class='checkbox'>&nbsp; Enabled</label>
-							<div class='subsettings'>
-								<div>
-									<input class='advancedfowshowgrid showtip' title='By default the Advanced Fog of War hides the map grid anywhere revealed but the player can no longer see because of Dynamic Lighting. This option makes the grid always visible.' type='checkbox' value='1'>
-									<label class='checkbox'>&nbsp; Show Grid</label>
-								</div>
-								<div>
-									<input class='dimlightreveals showtip' title='By default the Advanced Fog of War will not be permanently revealed by Dynamic Lighting that is not bright. This option allows dim lighting to also reveal the fog.' type='checkbox' value='1'>
-									<label class='checkbox'>&nbsp; Dim Light Reveals</label>
-								</div>
-								<div>
-									<input class='showtip' id='afow_gm_see_all' title='By default, Advanced Fog of War is only revealed by tokens with sight that are controlled by at least one player.&lt;br&gt;This option allows tokens with sight which are not controlled by anyone to reveal Advanced Fog of War for the GM only.' type='checkbox' value='0'>
-									<label class='checkbox'>&nbsp; All Tokens Reveal (GM)</label>
-								</div>
-								<div id='afow_grid_size' style='width: 180px; line-height: 30px;'>
-									<span id='cell_measurement'>Cell Width:</span>
-									<input type="number" class="advancedfowgridsize units" value="<$!this.model.get("adv_fow_grid_size")$>" />
-									<br>
-									<span>x 70 px =</span>
-									<input type="number" class="px_advancedfowgridsize pixels" value="<$!this.model.get("adv_fow_grid_size")*70$>" />
-									<span>px<sup>*</sup></span>
-								</div>
-							</div>
-						</div>
-					</div>
-					<div class='lighting_feature' data-feature_enabled='showlighting' id='dynamic_lighting_settings'>
-						<label class='feature_name'>
-							<strong>Dynamic Lighting</strong>
-						</label>
-						<div class='feature_options'>
-							<input class='lightingenabled feature_enabled showtip' type='checkbox' value='1'>
-							<label class='checkbox'>&nbsp; Enabled</label>
-							<div class='subsettings'>
-								<div>
-									<input class='lightenforcelos showtip' title='Player&#39;s line of sight set by what tokens they can control.' type='checkbox' value='1'>
-									<label class='checkbox'>&nbsp; Enforce Line of Sight</label>
-								</div>
-								<div>
-									<input class='lightingupdate' type='checkbox' value='1'>
-									<label class='checkbox'>&nbsp; Only Update on Drop</label>
-								</div>
-								<div>
-									<input class='lightglobalillum showtip' title='Instead of darkness show light in all places players can see.' type='checkbox' value='1'>
-									<label class='checkbox'>&nbsp; Global Illumination</label>
-								</div>
-							</div>
-						</div>
-					</div>
-					<hr>
-					<div class='alert alert-info' role='alert'>
-						<p><a href=" https://blog.roll20.net/posts/retiring-legacy-dynamic-lighting-what-you-need-to-know/" target='' _blank''>The sunset has started for Legacy Dynamic Lighting. Convert to Dynamic Lighting now; click to learn more.</a></p>
-					</div>
-					<hr>
-					<div id='gm_darkness_opacity'>
-						<label class='feature_name'>
-							<strong>Darkness Opacity (GM)</strong>
-						</label>
-						<div class='fogopacity showtip' title='The GM can see through dark areas hidden from the players when using Fog of War, Advanced Fog of War, and/or Dynamic Lighting. This setting adjusts the opacity of those dark areas for the GM only.'></div>
-					</div>
-				</div>
-			</div>
-		</div>
-	</div>
+<div class='lighting tab-pane' style='display:none;'>
+<div class='border_box lighting_feature' data-feature_enabled='dyn_fog_prototype_enabled' id='dyn_fog_prototype_settings'>
+<div class='alert alert-info' role='alert'>
+<p><a href="https://help.roll20.net/hc/articles/360052521913" target=''_blank''>Easily convert your legacy settings with the Convert Lighting tool </a></p>
+</div>
+<div class='dyn_fog_settings'>
+<div class='row'>
+<div class='col-xs-6'>
+<p class='dynamic_lighting_title'>Dynamic Lighting</p>
+</div>
+<div class='col-xs-3 dyn_fog_switch'>
+<label class='switch'>
+<input class='dyn_fog_enabled feature_enabled' type='checkbox'>
+<span class='slider round'></span>
+</input>
+</label>
+</div>
+</div>
+</div>
+<hr>
+<div class='explorer_mode'>
+<div class='row'>
+<div class='col-xs-6'>
+<p class='explorer_mode_title'>Explorer Mode</p>
+</div>
+<div class='col-xs-3 dyn_fog_switch'>
+<label class='switch'>
+<input class='dyn_fog_autofog_mode' type='checkbox'>
+<span class='slider round'></span>
+</input>
+</label>
+</div>
+</div>
+<div class='row'>
+<div class='col-xs-11'>
+<p class='description'>Reveals areas of the Map Layer that Players have already explored. Does not reveal areas that were revealed when Explorer Mode is disabled.</p>
+</div>
+</div>
+</div>
+<hr>
+<div class='daylight_mode'>
+<div class='row'>
+<div class='col-xs-6'>
+<p class='explorer_mode_title'>Daylight Mode</p>
+</div>
+<div class='col-xs-3 dyn_fog_switch'>
+<label class='switch'>
+<input class='dyn_fog_global_illum' type='checkbox'>
+<span class='slider round'></span>
+</input>
+</label>
+</div>
+</div>
+<div class='row'>
+<div class='col-xs-11'>
+<p class='description'>Adds light to the entire page. Good for a sunny day or rooms that have a baseline level of light - or GMs who don’t want to place a bunch of torches.</p>
+</div>
+</div>
+<div class='row-fluid clearfix daylight_slider_row' style='display: none;'>
+<div class='span2' style='float:left'>
+<label class='distance'>Brightness</label>
+</div>
+<div class='span8 dyn_fog_switch' style='float:right'>
+<div class='form-group'>
+<div class='input-group flex-group'>
+<img class='dyn_fog_img_left flex-item' src='/images/editor/lightbulb_low.svg'>
+<input class='dyn_fog_daylight_slider flex-item' max='1' min='0.05' step='0.05' type='range' value='1'>
+<img class='dyn_fog_img_right flex-item' src='/images/editor/lightbulb_high.svg'>
+</div>
+</div>
+</div>
+</div>
+</div>
+<hr>
+<div class='update_on_drop_mode'>
+<div class='row'>
+<div class='col-xs-6'>
+<p class='update_on_drop_title'>Update Vision on Token Drop</p>
+</div>
+<div class='col-xs-3 dyn_fog_switch'>
+<label class='switch'>
+<input class='dyn_fog_update_on_drop' type='checkbox'>
+<span class='slider round'></span>
+</input>
+</label>
+</div>
+</div>
+<div class='row'>
+<div class='col-xs-11'>
+<p class='description'>When dragging and dropping a token, the lighting will only change after a player has dropped, not while dragging.</p>
+</div>
+</div>
+</div>
+<hr>
+<div class='gm_darkness_opacity'>
+<div class='row'>
+<div class='col-xs-12'>
+<p class='opacity_title'>GM Darkness Opacity</p>
+</div>
+</div>
+<div class='row'>
+<div class='col-xs-11'>
+<p class='description'>Adjust the opacity of the darkness mask for the GM view — lower it to see the map more clearly, or raise it to match the player's 100% opaque view.</p>
+</div>
+</div>
+<div class='row'>
+<div class='col-xs-8'>
+<div class='fogopacity'></div>
+</div>
+<div class='col-xs-1'>
+<input class='opacity_percentage' disabled type='text'>
+</div>
+</div>
+</div>
+<hr>
+</div>
+</div>
 	`;
 }
 
@@ -14233,7 +14177,7 @@ function d20plusEngine () {
 		// ensure tokens have editable sight
 		$("#tmpl_tokeneditor").replaceWith(d20plus.html.tokenEditor);
 		// show dynamic lighting/etc page settings
-		//$("#tmpl_pagesettings").replaceWith(d20plus.engine._makePageSettings());
+		$("#tmpl_pagesettings").replaceWith(d20plus.engine._makePageSettings());
 		// swap templates stashed in page.view.template for each page
 		d20.Campaign.pages.models.forEach(page => page.view.template = $.jqotec("#tmpl_pagesettings"));
 	};
@@ -24438,7 +24382,7 @@ function baseChat () {
 
 	function availableLanguages (charId) {
 		const char = d20.Campaign.characters.get(charId);
-		const langId = d20.journal.customSheets.availableAttributes.repeating_proficiencies_prof_type;
+		const langId = d20.journal.characterSheetsManager.sheets.ogl5e.availableAttributes.repeating_proficiencies_prof_type;
 		if (!char) return [];
 		if (!char.attribs.length) {
 			const fetched = d20plus.ut.fetchCharAttribs(char);
