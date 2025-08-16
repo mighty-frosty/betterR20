@@ -2,7 +2,7 @@
 // @name         betteR20-beta-core-death-jumpagate-import
 // @namespace    https://5e.tools/
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      1.35.186.14jia
+// @version      1.35.186.14jj
 // @updateURL    https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/betteR20-core.meta.js
 // @downloadURL  https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/betteR20-core.user.js
 // @description  Enhance your Roll20 experience
@@ -30,7 +30,7 @@ ART_HANDOUT = "betteR20-art";
 CONFIG_HANDOUT = "betteR20-config";
 
 B20_NAME = `core`;
-B20_VERSION = `1.35.186.14jia`;
+B20_VERSION = `1.35.186.14jj`;
 B20_REPO_URL = `https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/`;
 
 // TODO automate to use mirror if main site is unavailable
@@ -12496,7 +12496,7 @@ function initHTMLroll20EditorsMisc () {
 	d20plus.html = d20plus.html || {};
 
 	d20plus.html.characterEditor = `
-	<script id="tmpl_charactereditor" type="text/html">
+<script id="tmpl_charactereditor" type="text/html">
 		<div class='dialog largedialog charactereditor' style='display: block;'>
 			<div class='tab-content'>
 				<div class='bioinfo tab-pane'>
@@ -12578,6 +12578,9 @@ function initHTMLroll20EditorsMisc () {
 						<div class='span7'>
 							<label>
 								<strong>Name</strong>
+								<$ if(this.get('nexus_character_id')) { $>
+								<a class='showtip pictos' title='Update your name and avatar from within the Demiplane character sheet'>?</a>
+								<$ } $>
 							</label>
 							<input class='name' data-test='character-edit-name' type='text'>
 							<div class='clear'></div>
@@ -12608,9 +12611,15 @@ function initHTMLroll20EditorsMisc () {
 							<input class='tags'>
 							<div class='clear'></div>
 							<hr>
+							<$ if(this.get("ownedBy")) { $>
+							<button class='removefromgame btn btn-danger' data-test='character-remove-from-game' style='float: right;'>
+							Remove From Game
+							</button>
+							<$ } else { $>
 							<button class='delete btn btn-danger' data-test='character-delete' style='float: right;'>
 								Delete
 							</button>
+							<$ } $>
 							<button class='duplicate btn' data-test='character-duplicate' style='margin-right: 10px;'>
 								Duplicate
 							</button>
@@ -12620,6 +12629,9 @@ function initHTMLroll20EditorsMisc () {
 							<div class='clear'></div>
 							<$ } $>
 							<div class='clear'></div>
+							<input class='character-party-toggle' data-test='character-party-toggle' style='float: right;' type='checkbox'>
+								Party Member:
+							</input>
 						</div>
 					</div>
 					<$ if(!window.ADVANCED_SHEET) { $>
