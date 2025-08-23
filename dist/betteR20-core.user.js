@@ -267,7 +267,7 @@ function baseUtil () {
 							in<span style="color: orange; font-family: monospace"> 5etools &gt; better20 &gt; #testing </span>thread
 						</p>
 					</h1>
-					<p>This version contains following changes<br><code>--Jumpgate Is Here?</code><br>Enables jumpgate support for some items<br>1.35.186.14jk - The Request<br>- Allow set defualt token via Link<br></p>
+					<p>This version contains following changes<br><code>--Jumpgate Is Here?</code><br>Enables jumpgate support for some items<br>1.35.186.14jk - The Request<br>- Allow set default token via link<br></p>
 				</div>
 			`);
 			}, 6000);
