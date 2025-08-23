@@ -2,7 +2,7 @@
 // @name         betteR20-beta-core-death-jumpagate-import
 // @namespace    https://5e.tools/
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      1.35.186.14jj
+// @version      1.35.186.14jk
 // @updateURL    https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/betteR20-core.meta.js
 // @downloadURL  https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/betteR20-core.user.js
 // @description  Enhance your Roll20 experience
@@ -30,7 +30,7 @@ ART_HANDOUT = "betteR20-art";
 CONFIG_HANDOUT = "betteR20-config";
 
 B20_NAME = `core`;
-B20_VERSION = `1.35.186.14jj`;
+B20_VERSION = `1.35.186.14jk`;
 B20_REPO_URL = `https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/`;
 
 // TODO automate to use mirror if main site is unavailable
@@ -267,7 +267,7 @@ function baseUtil () {
 							in<span style="color: orange; font-family: monospace"> 5etools &gt; better20 &gt; #testing </span>thread
 						</p>
 					</h1>
-					<p>This version contains following changes<br><code>-- Beta features overview:</code><br>⦁ Mouseover hints on Conditions<br>⦁ Filter Imports by List<br>⦁ Extra Layers functionality<br>⦁ Token Images Editor<br>⦁ Better token Actions & Automation<br>⦁ Some fixes related to roll20 newUI<br>⦁ ArtRepo & community modules restored<br>⦁ Warn about Jumpgate on startup<br>⦁ "Import source" selector rework<br>⦁ New image URLs fixer<br>⦁ New UVTT/DA walls data importer<br>⦁ Separate userscript for 2014 rules only<br><br><code>-- v.186.12 changes:</code><br>⦁ fix 5et2014 queries<br>⦁ better source selector behavior<br><br><code>-- v.186.13 changes:</code><br>⦁ 5etools v2.5.4 update:<br>- update data and libs<br>- update PHB tags (thanks @DeathStalker)<br>- add damage etc. to spells<br>⦁ add doors & windows to Module Importer/Exporter (thanks @csagataj2)<br>⦁ fix disabling BetterActions panel<br></p>
+					<p>This version contains following changes<br><code>--Jumpgate Is Here?</code><br>Enables jumpgate support for some items<br>1.35.186.14jk - The Request<br>- Allow set defualt token via Link<br></p>
 				</div>
 			`);
 			}, 6000);
@@ -12568,11 +12568,13 @@ function initHTMLroll20EditorsMisc () {
 								<$ if(window.is_gm) { $>
 								<button class='btn apply-token-defaults'>Apply Token Defaults</button>
 								<a class='showtip pictos' title='Update tokens where Represents Character is set to this character. All tokens representing this character across all pages will be overwritten.'>?</a>
+								<$ } $>
 								<!-- BEGIN MOD -->
+								<$  { $>
 								<button class="btn token-image-by-url">Set Token Image from URL</button>
 								<a class='showtip pictos' title='Update will only be visible upon re-opening the sheet.'>?</a>
-								<!-- END MOD -->
 								<$ } $>
+								<!-- END MOD -->
 							</div>
 						</div>
 						<div class='span7'>

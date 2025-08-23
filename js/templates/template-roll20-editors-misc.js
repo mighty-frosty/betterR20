@@ -74,11 +74,13 @@ function initHTMLroll20EditorsMisc () {
 								<$ if(window.is_gm) { $>
 								<button class='btn apply-token-defaults'>Apply Token Defaults</button>
 								<a class='showtip pictos' title='Update tokens where Represents Character is set to this character. All tokens representing this character across all pages will be overwritten.'>?</a>
+								<$ } $>
 								<!-- BEGIN MOD -->
+								<$  { $>
 								<button class="btn token-image-by-url">Set Token Image from URL</button>
 								<a class='showtip pictos' title='Update will only be visible upon re-opening the sheet.'>?</a>
-								<!-- END MOD -->
 								<$ } $>
+								<!-- END MOD -->
 							</div>
 						</div>
 						<div class='span7'>

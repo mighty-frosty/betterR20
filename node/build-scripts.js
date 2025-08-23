@@ -1,34 +1,13 @@
 const fs = require("fs");
 
-const SCRIPT_VERSION = "1.35.186.14jj";
+const SCRIPT_VERSION = "1.35.186.14jk";
 const SCRIPT_REPO = "https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/";
 
 const SCRIPT_BETA_DESCRIPTION = `This version contains following changes
--- Beta features overview:
-⦁ Mouseover hints on Conditions
-⦁ Filter Imports by List
-⦁ Extra Layers functionality
-⦁ Token Images Editor
-⦁ Better token Actions & Automation
-⦁ Some fixes related to roll20 newUI
-⦁ ArtRepo & community modules restored
-⦁ Warn about Jumpgate on startup
-⦁ "Import source" selector rework
-⦁ New image URLs fixer
-⦁ New UVTT/DA walls data importer
-⦁ Separate userscript for 2014 rules only
-
--- v.186.12 changes:
-⦁ fix 5et2014 queries
-⦁ better source selector behavior
-
--- v.186.13 changes:
-⦁ 5etools v2.5.4 update:
-- update data and libs
-- update PHB tags (thanks @DeathStalker)
-- add damage etc. to spells
-⦁ add doors & windows to Module Importer/Exporter (thanks @csagataj2)
-⦁ fix disabling BetterActions panel
+--Jumpgate Is Here?
+Enables jumpgate support for some items
+1.35.186.14jk - The Request
+- Allow set default token via link
 `;
 
 const AUTHORS_CORE = `TheGiddyLimit/Redweller`;
