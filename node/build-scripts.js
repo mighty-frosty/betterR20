@@ -1,6 +1,6 @@
 const fs = require("fs");
 
-const SCRIPT_VERSION = "1.35.186.14jk";
+const SCRIPT_VERSION = "1.35.186.14jl";
 const SCRIPT_REPO = "https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/";
 
 const SCRIPT_BETA_DESCRIPTION = `This version contains following changes
@@ -8,6 +8,8 @@ const SCRIPT_BETA_DESCRIPTION = `This version contains following changes
 Enables jumpgate support for some items
 1.35.186.14jk - The Request
 - Allow set default token via link
+1.35.186.14jl - The Fourth Bar that breaks everything
+- Fix token editing
 `;
 
 const AUTHORS_CORE = `TheGiddyLimit/Redweller`;

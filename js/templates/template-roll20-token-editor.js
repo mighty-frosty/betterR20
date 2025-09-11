@@ -156,7 +156,7 @@ Edit
 <div class='tokeneditor__header'>
 <h3 class='page_title text-capitalize'>token bars</h3>
 </div>
-<div class='tokeneditor__row tokeneditor__row--bar d-grid'>
+<div class='tokeneditor__row tokeneditor__row--bar d-grid bar bar_1'>
 <div class='col tokeneditor__bar-inputs d-grid'>
 <div class='tokeneditor__subheader align-items-center d-grid'>
 <span class='bar_color_indicator' style='background-color: <$!window.Campaign.get('bar1_color')$>'></span>
@@ -239,7 +239,7 @@ Visible to Everyone
 </div>
 </div>
 </div>
-<div class='tokeneditor__row tokeneditor__row--bar d-grid'>
+<div class='tokeneditor__row tokeneditor__row--bar d-grid bar bar_2'>
 <div class='col tokeneditor__bar-inputs d-grid'>
 <div class='tokeneditor__subheader align-items-center d-grid'>
 <span class='bar_color_indicator' style='background-color: <$!window.Campaign.get('bar2_color')$>'></span>
@@ -321,7 +321,7 @@ Visible to Everyone
 </div>
 </div>
 </div>
-<div class='tokeneditor__row tokeneditor__row--bar d-grid'>
+<div class='tokeneditor__row tokeneditor__row--bar d-grid bar bar_3'>
 <div class='col tokeneditor__bar-inputs d-grid'>
 <div class='tokeneditor__subheader align-items-center d-grid'>
 <span class='bar_color_indicator' style='background-color: <$!window.Campaign.get('bar3_color')$>'></span>
@@ -386,7 +386,88 @@ Edit
 <li class='dropdown-item'>
 <label class='bar_val_permission'>
 Text Overlay:
-<select class='bar3options'>
+<select class='bar3options'><option value='hidden'>
+Hidden
+</option>
+<option selected value='editors'>
+Visible to Editors
+</option>
+<option value='everyone'>
+Visible to Everyone
+</option>
+</select>
+</label>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class='tokeneditor__row tokeneditor__row--bar d-grid bar bar_4'>
+<div class='col tokeneditor__bar-inputs d-grid'>
+<div class='tokeneditor__subheader align-items-center d-grid'>
+<span class='bar_color_indicator' style='background-color: <$!window.Campaign.get('bar4_color')$>'></span>
+<h4>Bar 4</h4>
+</div>
+<div class='tokeneditor__container align-items-center d-grid'>
+<div class='tokeneditor__border'>
+<label title='enter bar 4 value'>
+<input class='bar4_value' placeholder='Value' type='text'>
+</label>
+</div>
+<span>/</span>
+<div class='tokeneditor__border'>
+<label title='enter bar 4 maximum value'>
+<input class='bar4_max' placeholder='Max' type='text'>
+</label>
+</div>
+</div>
+</div>
+<div class='col tokeneditor__bar-select align-items-center'>
+<div class='tokeneditor__subheader help-icon'>
+<h4 class='text-capitalize'>attribute</h4>
+</div>
+<div class='tokeneditor__container'>
+<label title='select a character sheet attribute to link to bar 4'>
+<span class='sr-only'>select a character sheet attribute to link to bar 4</span>
+<select class='bar4_link'>
+<option value=''>None</option>
+<$ _.each(this.availAttribs(), function(attrib) { $>
+<option value="<$!attrib.id$>"><$!attrib.name$>
+<$ }); $>
+</select>
+</label>
+</div>
+</div>
+<div class='col tokeneditor__dropdown d-grid'>
+<div class='dropdown keep-open'>
+<button aria-expanded='false' aria-haspopup='true' class='btn btn-default btn--circle' data-toggle='dropdown' type='button'>
+<span class='sr-only'>bar 4 player permissions menu</span>
+<svg aria-hidden='true' class='svg-inline--fa' data-icon='ellipsis-v' data-prefix='fas' height='12' viewBox='0 0 192 512' width='12' xmlns='http://www.w3.org/2000/svg'>
+<path d='M96 184c39.8 0 72 32.2 72 72s-32.2 72-72 72-72-32.2-72-72 32.2-72 72-72zM24 80c0 39.8 32.2 72 72 72s72-32.2 72-72S135.8 8 96 8 24 40.2 24 80zm0 352c0 39.8 32.2 72 72 72s72-32.2 72-72-32.2-72-72-72-72 32.2-72 72z' fill='000000'></path>
+</svg>
+</button>
+<ul aria-labelledby='dLabel' class='dropdown-menu dropdown-menu--right permission_section bar4' id='myDropdown'>
+<h4>Player Permissions</h4>
+<li class='dropdown-item'>
+<div class='checkbox'>
+<label title='show players bar 4'>
+<input class='showplayers_bar4' type='checkbox' value=''>
+See
+</label>
+</div>
+</li>
+<li class='dropdown-item'>
+<div class='checkbox'>
+<label title='allow players to edit bar 4'>
+<input class='playersedit_bar4' type='checkbox' value=''>
+Edit
+</label>
+</div>
+</li>
+<li class='dropdown-item'>
+<label class='bar_val_permission'>
+Text Overlay:
+<select class='bar4options'>
 <option value='hidden'>
 Hidden
 </option>
