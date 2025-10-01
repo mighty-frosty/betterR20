@@ -913,7 +913,9 @@ const betteR205etoolsMain = function () {
 	d20plus.setSheet = function () {
 		d20plus.ut.log("Switched Character Sheet Template");
 		d20plus.sheet = "ogl";
-		if (window.is_gm && (!d20.journal.characterSheetsManager.sheets || d20.journal.characterSheetsManager.none)) {
+		const sheets = d20.journal.characterSheetsManager.getAllSheets();
+		const noSheetsFound = !Array.isArray(sheets) && sheets.length < 1;
+		if (window.is_gm && noSheetsFound) {
 			d20plus.ut.showFullScreenWarning({
 				title: "NO CHARACTER SHEET",
 				message: "Your game does not have a character sheet template selected",
@@ -921,9 +923,9 @@ const betteR205etoolsMain = function () {
 			});
 			throw new Error("No character sheet selected!");
 		}
+		const firstSheet = d20.journal.customSheets ?? sheets.first();
 		if (d20.journal.characterSheetsManager.sheets.shaped_d20) d20plus.sheet = "shaped";
 		if (d20.journal.characterSheetsManager.sheets.DnD5e_Character_Sheet) d20plus.sheet = "community";
-		if (d20.journal.characterSheetsManager.sheets.dnd2024byroll20) d20plus.sheet = "2024";
 		d20plus.ut.log(`Switched Character Sheet Template to ${d20plus.sheet}`);
 	};
 	// Return Initiative Tracker template with formulas

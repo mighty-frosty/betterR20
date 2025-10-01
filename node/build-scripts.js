@@ -1,6 +1,6 @@
 const fs = require("fs");
 
-const SCRIPT_VERSION = "1.35.186.14jl";
+const SCRIPT_VERSION = "1.35.186.14jm";
 const SCRIPT_REPO = "https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/";
 
 const SCRIPT_BETA_DESCRIPTION = `This version contains following changes
@@ -10,6 +10,8 @@ Enables jumpgate support for some items
 - Allow set default token via link
 1.35.186.14jl - The Fourth Bar that breaks everything
 - Fix token editing
+1.35.186.14jm - 2024?
+- Disable override for 2024, fixing some importing maybe, also try fix for module importer
 `;
 
 const AUTHORS_CORE = `TheGiddyLimit/Redweller`;
