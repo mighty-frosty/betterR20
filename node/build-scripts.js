@@ -1,6 +1,6 @@
 const fs = require("fs");
 
-const SCRIPT_VERSION = "1.35.186.14jn";
+const SCRIPT_VERSION = "1.35.186.14jo";
 const SCRIPT_REPO = "https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/";
 
 const SCRIPT_BETA_DESCRIPTION = `This version contains following changes
@@ -14,6 +14,8 @@ Enables jumpgate support for some items
 - Disable override for 2024, fixing some importing maybe, also try fix for module importer
 1.35.186.14jn - Data?
 - Update Data
+1.35.186.14jno - HTML IS EVIL?
+- Fix Html
 `;
 
 const AUTHORS_CORE = `TheGiddyLimit/Redweller`;

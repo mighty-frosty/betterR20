@@ -2,7 +2,7 @@
 // @name         betteR20-beta-core-death-jumpagate-import
 // @namespace    https://5e.tools/
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      1.35.186.14jn
+// @version      1.35.186.14jo
 // @updateURL    https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/betteR20-core.meta.js
 // @downloadURL  https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/betteR20-core.user.js
 // @description  Enhance your Roll20 experience
@@ -30,7 +30,7 @@ ART_HANDOUT = "betteR20-art";
 CONFIG_HANDOUT = "betteR20-config";
 
 B20_NAME = `core`;
-B20_VERSION = `1.35.186.14jn`;
+B20_VERSION = `1.35.186.14jo`;
 B20_REPO_URL = `https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/`;
 
 // TODO automate to use mirror if main site is unavailable
@@ -267,7 +267,7 @@ function baseUtil () {
 							in<span style="color: orange; font-family: monospace"> 5etools &gt; better20 &gt; #testing </span>thread
 						</p>
 					</h1>
-					<p>This version contains following changes<br><code>--Jumpgate Is Here?</code><br>Enables jumpgate support for some items<br>1.35.186.14jk - The Request<br>- Allow set default token via link<br>1.35.186.14jl - The Fourth Bar that breaks everything<br>- Fix token editing<br>1.35.186.14jm - 2024?<br>- Disable override for 2024, fixing some importing maybe, also try fix for module importer<br>1.35.186.14jn - Data?<br>- Update Data<br></p>
+					<p>This version contains following changes<br><code>--Jumpgate Is Here?</code><br>Enables jumpgate support for some items<br>1.35.186.14jk - The Request<br>- Allow set default token via link<br>1.35.186.14jl - The Fourth Bar that breaks everything<br>- Fix token editing<br>1.35.186.14jm - 2024?<br>- Disable override for 2024, fixing some importing maybe, also try fix for module importer<br>1.35.186.14jn - Data?<br>- Update Data<br>1.35.186.14jno - HTML IS EVIL?<br>- Fix Html<br><br></p>
 				</div>
 			`);
 			}, 6000);
@@ -11069,7 +11069,8 @@ Edit
 <li class='dropdown-item'>
 <label class='bar_val_permission'>
 Text Overlay:
-<select class='bar3options'><option value='hidden'>
+<select class='bar3options'>
+<option value='hidden'>
 Hidden
 </option>
 <option selected value='editors'>
@@ -11197,6 +11198,11 @@ Visible to Everyone
 <input class='show_tooltip' id='token-general-tooltip-toggle' type='checkbox' value='1'>
 </div>
 <h4 class='text-capitalize'>Show</h4>
+<div class='d-flex justify-content-center align-items-center'>
+<label class='sr-only' for='token-general-description-toggle'>GM Only tooltip on token</label>
+<input class='gm_only_tooltip' id='token-gm-only-tooltip-toggle' type='checkbox' value='1'>
+</div>
+<h4 class='text-capitalize'>GM Only</h4>
 </div>
 </div>
 </div>
@@ -11823,40 +11829,125 @@ Edit
 </div>
 </div>
 <div class='advanced_settings tab-pane'>
-<div class='advanced_token_options' style='width: 100%; display: flex; flex-direction: column; gap: 4px;'>
-<div class='fg_options_section'>
-<div class='tokeneditor__subheader help-icon' style='width: 100%; display: flex; align-items: center;'>
-<p class='token_foreground_title' style='margin: 0px'>Foreground Options</p>
-<a class='showtip pictos' style='margin: 0px' title='Configure how the object behaves when on the foreground layer and dynamic lighting is on.'>?</a>
-</div>
-<div class='row-fluid clearfix'>
-<div class='token_settings_horizontal_row'>
-<div class='tokeneditor__subheader help-icon' style='width: 100%; display: flex; align-items: center; gap: 4px;'>
-<p style='margin: 0px'>Dynamic Lighting Interaction</p>
-<a class='showtip pictos' style='margin: 0px' title='How should this token interact with darkness when on the foreground layer?'>?</a>
-</div>
-<label title='Darkness interaction'>
-<span class='sr-only'>select how this token interacts with darkness on the foreground layer</span>
-<select class='darknessInteract'>
-<option value='above'>Above Darkness</option>
-<option value='as'>As Darkness</option>
-<option value='below'>Below Darkness</option>
-</select>
-</label>
-</div>
-</div>
-<div class='row-fluid clearfix'>
-<div class='span8'>
-<p class='foreground_title'>Show Grid?</p>
-</div>
-<div class='span4 dyn_fog_switch'>
-<label class='switch'>
-<input class='fg_show_grid feature_toggle' type='checkbox'>
-<span class='slider round'></span>
-</input>
-</label>
-</div>
-</div>
+  <div class='advanced_token_options' style='width: 100%; display: flex; flex-direction: column; gap: 4px;'>
+    <div class='fg_options_section'>
+      <div class='tokeneditor__subheader help-icon' style='width: 100%; display: flex; align-items: center;'>
+        <p class='token_foreground_title' style='margin: 0px'>Foreground Options</p>
+        <a class='showtip pictos' style='margin: 0px' title='Configure how the object behaves when on the foreground layer and dynamic lighting is on.'>?</a>
+      </div>
+      <div class='row-fluid clearfix'>
+        <div class='token_settings_horizontal_row'>
+          <div class='tokeneditor__subheader help-icon' style='width: 100%; display: flex; align-items: center; gap: 4px;'>
+            <p style='margin: 0px'>Dynamic Lighting Interaction</p>
+            <a class='showtip pictos' style='margin: 0px' title='How should this token interact with darkness when on the foreground layer?'>?</a>
+          </div>
+          <label title='Darkness interaction'>
+            <span class='sr-only'>select how this token interacts with darkness on the foreground layer</span>
+            <select class='darknessInteract'>
+              <option value='above'>Above Darkness</option>
+              <option value='as'>As Darkness</option>
+              <option value='below'>Below Darkness</option>
+            </select>
+          </label>
+        </div>
+      </div>
+      <div class='row-fluid clearfix'>
+        <div class='span8'>
+          <p class='foreground_title'>Show Grid?</p>
+        </div>
+        <div class='span4 dyn_fog_switch'>
+          <label class='switch'>
+            <input class='fg_show_grid feature_toggle' type='checkbox'>
+            <span class='slider round'></span>
+            </input>
+          </label>
+        </div>
+      </div>
+    </div>
+    <hr>
+    <div class='token_interaction_settings'>
+      <div class='token_interaction_header_row'>
+        <div class='tokeneditor__subheader help-icon' style='width: 100%; display: flex; align-items: center; gap: 4px;'>
+          <p class='token_foreground_title' style='margin: 0px'>Reactions</p>
+          <a class='showtip pictos' style='margin: 0px' title='Configure how the object behaves when a controlled token overlaps with it'>?</a>
+        </div>
+      </div>
+
+      <!-- REACTION 1: CONDITIONAL FADE -->
+      <div class='token_interaction_setting' style='width: fit-content'>
+        <div class='span' style='height: 20px'>
+          <input class='token_interaction_opacity_enable' style='height: 20px; width: 20px; padding-left: 4px;' type='checkbox'>
+        </div>
+        <p class='token_interaction_setting_title'>Conditional Fade</p>
+      </div>
+
+      <!-- CONDITIONAL FADE SETTINGS CONTAINER -->
+      <div class='dyn_fog_vision token_interaction_sub_setting' id='con_fade' style='padding-top: 10px;'>
+        <div class='row-fluid clearfix'>
+          <div class='span8'>
+            <p class='token_interaction_sub_setting_title'>Conditional Fade Opacity</p>
+          </div>
+          <div class='input-group flex-group' style='align-items: center; gap: 4px;'>
+            <input class='interaction_opacity flex-item' id='fg_op_input' max='1' min='0.0' step='0.05' type='range'>
+            <output class='interaction_opacity_text flex-item' id='fg_op_output'>0%</output>
+          </div>
+        </div>
+        <div class='row-fluid clearfix'>
+          <div class='span8'>
+            <p class='foreground_title'>Foreground Only</p>
+          </div>
+          <div class='span4 dyn_fog_switch'>
+            <label class='switch'>
+              <input class='opacity_fg_only feature_toggle' type='checkbox'>
+              <span class='slider round'></span>
+              </input>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- END CONDITIONAL FADE CONTAINER -->
+
+      <hr>
+
+      <!-- REACTION 2: CHAT MESSAGE (Previously Missing) -->
+      <div class='token_interaction_setting' style='width: fit-content; margin-top: 10px;'>
+        <div class='span' style='height: 20px'>
+          <input class='token_interaction_chat_enable' style='height: 20px; width: 20px; padding-left: 4px;' type='checkbox'>
+        </div>
+        <p class='token_interaction_setting_title'>Chat Message</p>
+      </div>
+      <div class='dyn_fog_vision token_interaction_sub_setting' id='token-advanced-chat-reaction-row' style='padding-top: 10px; display: none;'>
+        <div class='row-fluid clearfix'>
+          <div class='span12'>
+            <label class='token_interaction_sub_setting_title'>Message</label>
+            <textarea class='interaction_chat' style='width: 95%; height: 50px;' placeholder='e.g. /w gm A trap has been triggered!'></textarea>
+          </div>
+        </div>
+      </div>
+
+      <hr>
+
+      <!-- REACTION SETTINGS: RESET (Previously Missing) -->
+      <div class='token_interaction_setting' style='width: fit-content'>
+        <div class='span' style='height: 20px'>
+          <input class='token_interaction_reset' style='height: 20px; width: 20px; padding-left: 4px;' type='checkbox'>
+        </div>
+        <p class='token_interaction_setting_title'>Automatic Reset</p>
+      </div>
+      <div id='token_interaction_triggered_section' style='display: none;'>
+        <div class='row-fluid clearfix' style='margin-top: 10px;'>
+          <div class='span8'>
+            <p class='token_interaction_ready_text' style='font-weight: bold;'>Reactions Ready: Yes</p>
+          </div>
+          <div class='span4'>
+            <button class='btn btn-sm btn-default interaction_reset_trigger'>Reset</button>
+          </div>
+        </div>
+      </div>
+
+    </div> <!-- End token_interaction_settings -->
+  </div>
 </div>
 <hr>
 <div class='token_interaction_settings'>
