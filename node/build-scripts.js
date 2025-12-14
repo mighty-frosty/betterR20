@@ -1,6 +1,6 @@
 const fs = require("fs");
 
-const SCRIPT_VERSION = "1.35.186.14jm";
+const SCRIPT_VERSION = "1.35.186.14jn";
 const SCRIPT_REPO = "https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/";
 
 const SCRIPT_BETA_DESCRIPTION = `This version contains following changes
@@ -12,6 +12,8 @@ Enables jumpgate support for some items
 - Fix token editing
 1.35.186.14jm - 2024?
 - Disable override for 2024, fixing some importing maybe, also try fix for module importer
+1.35.186.14jn - Data?
+- Update Data
 `;
 
 const AUTHORS_CORE = `TheGiddyLimit/Redweller`;
@@ -305,7 +307,7 @@ Object.entries(BUILDS).forEach(([name, data]) => {
 						Notes on b20 beta
 						<p style="font-size: 11px;line-height: 15px;color: rgb(32, 194, 14);">
 							<span style="color: rgb(194, 32, 14)">You are using preview version of betteR20</span><br>
-							Please read this carefully and give feedback in official betteR20 Discord server, 
+							Please read this carefully and give feedback in official betteR20 Discord server,
 							in<span style="color: orange; font-family: monospace"> 5etools &gt; better20 &gt; #testing </span>thread
 						</p>
 					</h1>
