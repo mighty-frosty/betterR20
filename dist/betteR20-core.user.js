@@ -2,7 +2,7 @@
 // @name         betteR20-beta-core-death-jumpagate-import
 // @namespace    https://5e.tools/
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      1.35.186.14jo
+// @version      1.35.186.14jp
 // @updateURL    https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/betteR20-core.meta.js
 // @downloadURL  https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/betteR20-core.user.js
 // @description  Enhance your Roll20 experience
@@ -30,7 +30,7 @@ ART_HANDOUT = "betteR20-art";
 CONFIG_HANDOUT = "betteR20-config";
 
 B20_NAME = `core`;
-B20_VERSION = `1.35.186.14jo`;
+B20_VERSION = `1.35.186.14jp`;
 B20_REPO_URL = `https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/`;
 
 // TODO automate to use mirror if main site is unavailable
@@ -267,7 +267,7 @@ function baseUtil () {
 							in<span style="color: orange; font-family: monospace"> 5etools &gt; better20 &gt; #testing </span>thread
 						</p>
 					</h1>
-					<p>This version contains following changes<br><code>--Jumpgate Is Here?</code><br>Enables jumpgate support for some items<br>1.35.186.14jk - The Request<br>- Allow set default token via link<br>1.35.186.14jl - The Fourth Bar that breaks everything<br>- Fix token editing<br>1.35.186.14jm - 2024?<br>- Disable override for 2024, fixing some importing maybe, also try fix for module importer<br>1.35.186.14jn - Data?<br>- Update Data<br>1.35.186.14jno - HTML IS EVIL?<br>- Fix Html<br><br></p>
+					<p>This version contains following changes<br><code>--Jumpgate Is Here?</code><br>Enables jumpgate support for some items<br>1.35.186.14jk - The Request<br>- Allow set default token via link<br>1.35.186.14jl - The Fourth Bar that breaks everything<br>- Fix token editing<br>1.35.186.14jm - 2024?<br>- Disable override for 2024, fixing some importing maybe, also try fix for module importer<br>1.35.186.14jn - Data?<br>- Update Data<br>1.35.186.14jo - HTML IS EVIL?<br>- Fix Html<br>1.35.186.14jp - DATA AND LIBS?<br>- DATA AND LIBS<br><br></p>
 				</div>
 			`);
 			}, 6000);
@@ -29049,40 +29049,17 @@ Parser.sourceJsonToDate = function (source) {
 	if (typeof BrewUtil2 !== "undefined" && BrewUtil2.hasSourceJson(source)) return BrewUtil2.sourceJsonToDate(source);
 	return Parser._parse_aToB(Parser.SOURCE_JSON_TO_DATE, source, null);
 };
-Parser.sourceJsonToColor = function (source) {
-	source = Parser._getSourceStringFromSource(source);
-	if (Parser.hasSourceAbv(source)) return "";
-	if (typeof PrereleaseUtil !== "undefined" && PrereleaseUtil.hasSourceJson(source)) return PrereleaseUtil.sourceJsonToColor(source);
-	if (typeof BrewUtil2 !== "undefined" && BrewUtil2.hasSourceJson(source)) return BrewUtil2.sourceJsonToColor(source);
-	return "";
+
+Parser.sourceJsonToSourceClassname = function (source, {sourceJson = null} = {}) {
+	sourceJson ||= Parser.sourceJsonToJson(source);
+	return `source__${sourceJson.replace(/[^A-Za-z0-9-_]/g, "_")}`;
 };
 
-Parser.sourceJsonToSourceClassname = function (source) {
-	const sourceCased = Parser.sourceJsonToJson(source);
-	return `source__${sourceCased}`;
-};
-
-Parser.sourceJsonToStyle = function (source) {
-	source = Parser._getSourceStringFromSource(source);
-	if (Parser.hasSourceJson(source)) return "";
-	if (typeof PrereleaseUtil !== "undefined" && PrereleaseUtil.hasSourceJson(source)) return PrereleaseUtil.sourceJsonToStyle(source);
-	if (typeof BrewUtil2 !== "undefined" && BrewUtil2.hasSourceJson(source)) return BrewUtil2.sourceJsonToStyle(source);
-	return "";
-};
-
-Parser.sourceJsonToStylePart = function (source) {
-	source = Parser._getSourceStringFromSource(source);
-	if (Parser.hasSourceJson(source)) return "";
-	if (typeof PrereleaseUtil !== "undefined" && PrereleaseUtil.hasSourceJson(source)) return PrereleaseUtil.sourceJsonToStylePart(source);
-	if (typeof BrewUtil2 !== "undefined" && BrewUtil2.hasSourceJson(source)) return BrewUtil2.sourceJsonToStylePart(source);
-	return "";
-};
-
-Parser.sourceJsonToMarkerHtml = function (source, {isList = true, isAddBrackets = null, additionalStyles = ""} = {}) {
+Parser.sourceJsonToMarkerHtml = function (source, {isList = false, isStatsName = false, isAddBrackets = false, additionalStyles = ""} = {}) {
 	source = Parser._getSourceStringFromSource(source);
 	// TODO(Future) consider enabling this
-	// if (SourceUtil.isPartneredSourceWotc(source)) return `<span class="help-subtle ve-source-marker ${isList ? `ve-source-marker--list` : ""} ve-source-marker--partnered ${additionalStyles}" title="D&amp;D Partnered Source">${isList ? "" : "["}✦${isList ? "" : "]"}</span>`;
-	if (SourceUtil.isLegacySourceWotc(source)) return `<span class="help-subtle ve-source-marker ${isList ? `ve-source-marker--list` : ""} ve-source-marker--legacy ${additionalStyles}" title="Legacy Source">${isList && !isAddBrackets ? "" : "["}ʟ${isList && !isAddBrackets ? "" : "]"}</span>`;
+	// if (SourceUtil.isPartneredSourceWotc(source)) return `<span class="help-subtle ve-source-marker ${isList ? `ve-source-marker--list` : ""} ${isStatsName ? `ve-source-marker--stats-name` : ""} ve-source-marker--partnered ${additionalStyles}" title="D&amp;D Partnered Source">${isList ? "" : "["}✦${isList ? "" : "]"}</span>`;
+	if (SourceUtil.isLegacySourceWotc(source)) return `<span class="help-subtle ve-source-marker ${isList ? `ve-source-marker--list` : ""} ${isStatsName ? `ve-source-marker--stats-name` : ""} ve-source-marker--legacy ${additionalStyles}" title="Legacy Source">${isAddBrackets ? "[" : ""}ʟ${isAddBrackets ? "]" : ""}</span>`;
 	return "";
 };
 
@@ -29106,8 +29083,17 @@ Parser.itemValueToFull = function (item, opts = {isShortForm: false, isSmallUnit
  * @param {?boolean} [opts.isShortForm]
  * @param {?boolean} [opts.isSmallUnits]
  * @param {?number} [opts.multiplier]
+ * @param {?string} [opts.styleHint]
  */
-Parser.itemValueToFullMultiCurrency = function (item, opts = {isShortForm: false, isSmallUnits: false, multiplier: null}) {
+Parser.itemValueToFullMultiCurrency = function (
+	item,
+	opts = {
+		isShortForm: false,
+		isSmallUnits: false,
+		multiplier: null,
+		styleHint: null,
+	},
+) {
 	return Parser._moneyToFullMultiCurrency(item, "value", "valueMult", opts);
 };
 
@@ -29135,7 +29121,9 @@ Parser._moneyToFull = function (it, prop, propMult, opts = {isShortForm: false, 
 	return "";
 };
 
-Parser._moneyToFullMultiCurrency = function (it, prop, propMult, {isShortForm, multiplier} = {}) {
+Parser._moneyToFullMultiCurrency = function (it, prop, propMult, {isShortForm, multiplier, styleHint} = {}) {
+	styleHint ||= VetoolsConfig.get("styleSwitcher", "style");
+
 	if (it[prop]) {
 		const conversionTable = Parser.getCurrencyConversionTable(it.currencyConversion);
 
@@ -29156,8 +29144,12 @@ Parser._moneyToFullMultiCurrency = function (it, prop, propMult, {isShortForm, m
 		return [...conversionTable]
 			.reverse()
 			.filter(meta => simplified[meta.coin])
-			.map(meta => `${simplified[meta.coin].toLocaleString(undefined, {maximumFractionDigits: 5})} ${meta.coin}`)
+			.map(meta => `${simplified[meta.coin].toLocaleString(undefined, {maximumFractionDigits: 5})} ${styleHint === "classic" ? meta.coin : meta.coin.toUpperCase()}`)
 			.join(", ");
+	}
+
+	if (it[prop] === 0) {
+		return `0 ${styleHint === "classic" ? "gp" : "GP"}`;
 	}
 
 	if (it[propMult]) return isShortForm ? `×${it[propMult]}` : `base value ×${it[propMult]}`;
@@ -29245,12 +29237,14 @@ Parser.coinAbvToFull = function (coin) {
 /**
  * @param currency Object of the form `{pp: <n>, gp: <m>, ... }`.
  * @param isDisplayEmpty If "empty" values (i.e., those which are 0) should be displayed.
+ * @param styleHint
  */
-Parser.getDisplayCurrency = function (currency, {isDisplayEmpty = false} = {}) {
+Parser.getDisplayCurrency = function (currency, {isDisplayEmpty = false, styleHint = null} = {}) {
+	styleHint ||= VetoolsConfig.get("styleSwitcher", "style");
 	return [...Parser.COIN_ABVS]
 		.reverse()
 		.filter(abv => isDisplayEmpty ? currency[abv] != null : currency[abv])
-		.map(abv => `${currency[abv].toLocaleString()} ${abv}`)
+		.map(abv => `${currency[abv].toLocaleString()} ${styleHint === "classic" ? abv : abv.toUpperCase()}`)
 		.join(", ");
 };
 
@@ -29541,7 +29535,7 @@ Parser.skillProficienciesToFull = function (skillProficiencies, {styleHint = nul
 				if (chObj.from.length === 18) {
 					ptChoose = styleHint === "classic"
 						? `choose any ${count === 1 ? "skill" : chObj.count}`
-						: `Choose ${chObj.count}`;
+						: Renderer.get().render(`{@i Choose any ${chObj.count} ${count === 1 ? "skill" : "skills"}} (see {@book chapter 1|XPHB|1|Skill List})`);
 				} else {
 					ptChoose = styleHint === "classic"
 						? `choose ${count} from ${chObj.from.map(it => getRenderedSkill(it)).joinConjunct(", ", " and ")}`
@@ -29587,19 +29581,27 @@ Parser.spSchoolAbvToShort = function (school) {
 };
 
 Parser.spSchoolAbvToStyle = function (school) { // For prerelease/homebrew
-	const stylePart = Parser.spSchoolAbvToStylePart(school);
+	return Parser._colorableMetaAbvToStyle({key: school, prop: "spellSchools"});
+};
+
+Parser.spSchoolAbvToStylePart = function (school) { // For prerelease/homebrew
+	return Parser._colorableMetaAbvToStylePart({key: school, prop: "spellSchools"});
+};
+
+Parser._colorableMetaAbvToStyle = function ({key, prop}) {
+	const stylePart = Parser._colorableMetaAbvToStylePart({key, prop});
 	if (!stylePart) return stylePart;
 	return `style="${stylePart}"`;
 };
 
-Parser.spSchoolAbvToStylePart = function (school) { // For prerelease/homebrew
-	return Parser._spSchoolAbvToStylePart_prereleaseBrew({school, brewUtil: PrereleaseUtil})
-		|| Parser._spSchoolAbvToStylePart_prereleaseBrew({school, brewUtil: BrewUtil2})
+Parser._colorableMetaAbvToStylePart = function ({key, prop}) {
+	return Parser._colorableMetaAbvToStylePart_prereleaseBrew({key, prop, brewUtil: PrereleaseUtil})
+		|| Parser._colorableMetaAbvToStylePart_prereleaseBrew({key, prop, brewUtil: BrewUtil2})
 		|| "";
 };
 
-Parser._spSchoolAbvToStylePart_prereleaseBrew = function ({school, brewUtil}) {
-	const rawColor = brewUtil.getMetaLookup("spellSchools")?.[school]?.color;
+Parser._colorableMetaAbvToStylePart_prereleaseBrew = function ({key, prop, brewUtil}) {
+	const rawColor = brewUtil.getMetaLookup(prop)?.[key]?.color;
 	if (!rawColor || !rawColor.trim()) return "";
 	const validColor = BrewUtilShared.getValidColor(rawColor);
 	if (validColor.length) return MiscUtil.getColorStylePart(validColor);
@@ -29990,6 +29992,7 @@ Parser.spRangeToFull._getAreaStyleString = function (range) {
 };
 
 Parser.getSingletonUnit = function (unit, isShort) {
+	if (!unit) return unit;
 	switch (unit) {
 		case Parser.UNT_INCHES:
 			return isShort ? "in." : "inch";
@@ -30084,23 +30087,27 @@ Parser.spClassesToFull = function (sp, {isTextOnly = false, subclassLookup = {}}
 	return `${Parser.spMainClassesToFull(fromClassList, {isTextOnly})}${fromSubclasses ? `, ${fromSubclasses}` : ""}`;
 };
 
-Parser.spMainClassesToFull = function (fromClassList, {isTextOnly = false} = {}) {
+Parser.spMainClassesToFull = function (fromClassList, {isTextOnly = false, isIncludeSource = false} = {}) {
 	return fromClassList
 		.map(clsStub => ({hash: UrlUtil.URL_TO_HASH_BUILDER[UrlUtil.PG_CLASSES](clsStub), clsStub}))
 		.filter(it => !ExcludeUtil.isInitialised || !ExcludeUtil.isExcluded(it.hash, "class", it.clsStub.source))
 		.sort((a, b) => SortUtil.ascSort(a.clsStub.name, b.clsStub.name))
 		.map(it => {
-			if (isTextOnly) return it.clsStub.name;
+			if (isTextOnly) {
+				if (isIncludeSource) return `${it.clsStub.name} (${Parser.sourceJsonToAbv(it.clsStub.source)})`;
+				return it.clsStub.name;
+			}
 
 			const definedInSource = it.clsStub.definedInSource || it.clsStub.source;
 			const ptLink = Renderer.get().render(`{@class ${it.clsStub.name}|${it.clsStub.source}}`);
+			const ptSource = isIncludeSource ? ` (${Parser.sourceJsonToAbv(it.clsStub.source)})` : "";
 			const ptTitle = definedInSource === it.clsStub.source ? `Class source/spell list defined in: ${Parser.sourceJsonToFull(definedInSource)}.` : `Class source: ${Parser.sourceJsonToFull(it.clsStub.source)}. Spell list defined in: ${Parser.sourceJsonToFull(definedInSource)}.`;
-			return `<span title="${ptTitle.qq()}">${ptLink}</span>`;
+			return `<span title="${ptTitle.qq()}">${ptLink}${ptSource}</span>`;
 		})
 		.join(", ") || "";
 };
 
-Parser.spSubclassesToFull = function (fromSubclassList, {isTextOnly = false, subclassLookup = {}} = {}) {
+Parser.spSubclassesToFull = function (fromSubclassList, {isTextOnly = false, isIncludeSource = false, subclassLookup = {}} = {}) {
 	return fromSubclassList
 		.filter(mt => {
 			if (!ExcludeUtil.isInitialised) return true;
@@ -30123,19 +30130,23 @@ Parser.spSubclassesToFull = function (fromSubclassList, {isTextOnly = false, sub
 			const byName = SortUtil.ascSort(a.class.name, b.class.name);
 			return byName || SortUtil.ascSort(a.subclass.name, b.subclass.name);
 		})
-		.map(c => Parser._spSubclassItem({fromSubclass: c, isTextOnly}))
+		.map(c => Parser._spSubclassItem({fromSubclass: c, isTextOnly, isIncludeSource}))
 		.join(", ") || "";
 };
 
-Parser._spSubclassItem = function ({fromSubclass, isTextOnly}) {
+Parser._spSubclassItem = function ({fromSubclass, isTextOnly = false, isIncludeSource = false}) {
 	const c = fromSubclass.class;
 	const sc = fromSubclass.subclass;
 	const text = `${sc.shortName}${sc.subSubclass ? ` (${sc.subSubclass})` : ""}`;
-	if (isTextOnly) return text;
+	if (isTextOnly) {
+		if (isIncludeSource) return `${text} (${Parser.sourceJsonToAbv(sc.source)})`;
+		return text;
+	}
 
-	const classPart = `<span title="Source: ${Parser.sourceJsonToFull(c.source)}${c.definedInSource ? ` From a class spell list defined in: ${Parser.sourceJsonToFull(c.definedInSource)}` : ""}">${Renderer.get().render(`{@class ${c.name}|${c.source}}`)}</span>`;
+	const ptClass = `<span title="Source: ${Parser.sourceJsonToFull(c.source)}${c.definedInSource ? ` From a class spell list defined in: ${Parser.sourceJsonToFull(c.definedInSource)}` : ""}">${Renderer.get().render(`{@class ${c.name}|${c.source}}`)}</span>`;
+	const ptSource = isIncludeSource ? ` (${Parser.sourceJsonToAbv(sc.source)})` : "";
 
-	return `<span class="italic" title="Source: ${Parser.sourceJsonToFull(fromSubclass.subclass.source)}">${Renderer.get().render(`{@class ${c.name}|${c.source}|${text}|${sc.shortName}|${sc.source}}`)}</span> ${classPart}`;
+	return `<span class="italic" title="Source: ${Parser.sourceJsonToFull(fromSubclass.subclass.source)}">${Renderer.get().render(`{@class ${c.name}|${c.source}|${text}|${sc.shortName}|${sc.source}}`)}</span>${isIncludeSource ? ptSource : ""} ${ptClass}`;
 };
 
 Parser.SPELL_ATTACK_TYPE_TO_FULL = {};
@@ -30640,6 +30651,14 @@ Parser.psiTypeToMeta = type => {
 	return out;
 };
 
+Parser.psiTypeAbvToStyle = function (type) { // For prerelease/homebrew
+	return Parser._colorableMetaAbvToStyle({key: type, prop: "psionicTypes"});
+};
+
+Parser.psiTypeAbvToStylePart = function (type) { // For prerelease/homebrew
+	return Parser._colorableMetaAbvToStylePart({key: type, prop: "psionicTypes"});
+};
+
 Parser.psiOrderToFull = (order) => {
 	return order === undefined ? Parser.PSI_ORDER_NONE : order;
 };
@@ -30711,6 +30730,7 @@ Parser.OPT_FEATURE_TYPE_TO_FULL = {
 	"RN": "Rune Knight Rune",
 	"AF": "Alchemical Formula",
 	"TT": "Traveler's Trick",
+	"RP": "Renown Perk",
 };
 
 Parser.optFeatureTypeToFull = function (type) {
@@ -30834,7 +30854,7 @@ Parser.CAT_ID_CULT = 19;
 Parser.CAT_ID_BOON = 20;
 Parser.CAT_ID_DISEASE = 21;
 Parser.CAT_ID_METAMAGIC = 22;
-Parser.CAT_ID_MANEUVER_BATTLEMASTER = 23;
+Parser.CAT_ID_MANEUVER_BATTLE_MASTER = 23;
 Parser.CAT_ID_TABLE = 24;
 Parser.CAT_ID_TABLE_GROUP = 25;
 Parser.CAT_ID_MANEUVER_CAVALIER = 26;
@@ -30873,7 +30893,7 @@ Parser.CAT_ID_GROUPS = {
 	"optionalfeature": [
 		Parser.CAT_ID_ELDRITCH_INVOCATION,
 		Parser.CAT_ID_METAMAGIC,
-		Parser.CAT_ID_MANEUVER_BATTLEMASTER,
+		Parser.CAT_ID_MANEUVER_BATTLE_MASTER,
 		Parser.CAT_ID_MANEUVER_CAVALIER,
 		Parser.CAT_ID_ARCANE_SHOT,
 		Parser.CAT_ID_OPTIONAL_FEATURE_OTHER,
@@ -30915,7 +30935,7 @@ Parser.CAT_ID_TO_FULL[Parser.CAT_ID_CULT] = "Cult";
 Parser.CAT_ID_TO_FULL[Parser.CAT_ID_BOON] = "Boon";
 Parser.CAT_ID_TO_FULL[Parser.CAT_ID_DISEASE] = "Disease";
 Parser.CAT_ID_TO_FULL[Parser.CAT_ID_METAMAGIC] = "Metamagic";
-Parser.CAT_ID_TO_FULL[Parser.CAT_ID_MANEUVER_BATTLEMASTER] = "Maneuver; Battlemaster";
+Parser.CAT_ID_TO_FULL[Parser.CAT_ID_MANEUVER_BATTLE_MASTER] = "Maneuver; Battle Master";
 Parser.CAT_ID_TO_FULL[Parser.CAT_ID_TABLE] = "Table";
 Parser.CAT_ID_TO_FULL[Parser.CAT_ID_TABLE_GROUP] = "Table";
 Parser.CAT_ID_TO_FULL[Parser.CAT_ID_MANEUVER_CAVALIER] = "Maneuver; Cavalier";
@@ -30983,7 +31003,7 @@ Parser.CAT_ID_TO_PROP[Parser.CAT_ID_ARCANE_SHOT] = "optionalfeature";
 Parser.CAT_ID_TO_PROP[Parser.CAT_ID_OPTIONAL_FEATURE_OTHER] = "optionalfeature";
 Parser.CAT_ID_TO_PROP[Parser.CAT_ID_FIGHTING_STYLE] = "optionalfeature";
 Parser.CAT_ID_TO_PROP[Parser.CAT_ID_METAMAGIC] = "optionalfeature";
-Parser.CAT_ID_TO_PROP[Parser.CAT_ID_MANEUVER_BATTLEMASTER] = "optionalfeature";
+Parser.CAT_ID_TO_PROP[Parser.CAT_ID_MANEUVER_BATTLE_MASTER] = "optionalfeature";
 Parser.CAT_ID_TO_PROP[Parser.CAT_ID_PACT_BOON] = "optionalfeature";
 Parser.CAT_ID_TO_PROP[Parser.CAT_ID_ELEMENTAL_DISCIPLINE] = "optionalfeature";
 Parser.CAT_ID_TO_PROP[Parser.CAT_ID_ARTIFICER_INFUSION] = "optionalfeature";
@@ -31033,18 +31053,19 @@ Parser.spClassesToCurrentAndLegacy = function (fromClassList) {
  *
  * @param sp a spell
  * @param subclassLookup Data loaded from `generated/gendata-subclass-lookup.json`. Of the form: `{PHB: {Barbarian: {PHB: {Berserker: "Path of the Berserker"}}}}`
+ * @param isIncludeSource
  * @returns {*[]} A two-element array. First item is a string of all the current subclasses, second item a string of
  * all the legacy/superseded subclasses
  */
-Parser.spSubclassesToCurrentAndLegacyFull = function (sp, subclassLookup) {
-	return Parser._spSubclassesToCurrentAndLegacyFull({sp, subclassLookup, prop: "fromSubclass"});
+Parser.spSubclassesToCurrentAndLegacyFull = function (sp, subclassLookup, {isIncludeSource = false} = {}) {
+	return Parser._spSubclassesToCurrentAndLegacyFull({sp, subclassLookup, prop: "fromSubclass", isIncludeSource});
 };
 
-Parser.spVariantSubclassesToCurrentAndLegacyFull = function (sp, subclassLookup) {
-	return Parser._spSubclassesToCurrentAndLegacyFull({sp, subclassLookup, prop: "fromSubclassVariant"});
+Parser.spVariantSubclassesToCurrentAndLegacyFull = function (sp, subclassLookup, {isIncludeSource = false} = {}) {
+	return Parser._spSubclassesToCurrentAndLegacyFull({sp, subclassLookup, prop: "fromSubclassVariant", isIncludeSource});
 };
 
-Parser._spSubclassesToCurrentAndLegacyFull = ({sp, subclassLookup, prop}) => {
+Parser._spSubclassesToCurrentAndLegacyFull = ({sp, subclassLookup, prop, isIncludeSource = false}) => {
 	const fromSubclass = Renderer.spell.getCombinedClasses(sp, prop);
 	if (!fromSubclass.length) return ["", ""];
 
@@ -31085,7 +31106,7 @@ Parser._spSubclassesToCurrentAndLegacyFull = ({sp, subclassLookup, prop}) => {
 			const nm = c.subclass.name;
 			const src = c.subclass.source;
 
-			const toAdd = Parser._spSubclassItem({fromSubclass: c, isTextOnly: false});
+			const toAdd = Parser._spSubclassItem({fromSubclass: c, isTextOnly: false, isIncludeSource});
 
 			const fromLookup = MiscUtil.get(
 				subclassLookup,
@@ -31201,6 +31222,7 @@ Parser.bookOrdinalToAbv = (ordinal, {isPreNoSuff = false, isPlainText = false} =
 		case "episode": return `${isPreNoSuff ? " " : ""}${Parser._bookOrdinalToAbv_getPt({ordinal, isPlainText})} ${ordinal.identifier}${isPreNoSuff ? "" : ": "}`;
 		case "appendix": return `${isPreNoSuff ? " " : ""}${Parser._bookOrdinalToAbv_getPt({ordinal, isPlainText})}${ordinal.identifier != null ? ` ${ordinal.identifier}` : ""}${isPreNoSuff ? "" : ": "}`;
 		case "level": return `${isPreNoSuff ? " " : ""}${Parser._bookOrdinalToAbv_getPt({ordinal, isPlainText})} ${ordinal.identifier}${isPreNoSuff ? "" : ": "}`;
+		case "section": return `${isPreNoSuff ? " " : ""}${Parser._bookOrdinalToAbv_getPt({ordinal, isPlainText})} ${ordinal.identifier}${isPreNoSuff ? "" : ": "}`;
 		default: throw new Error(`Unhandled ordinal type "${ordinal.type}"`);
 	}
 };
@@ -31211,6 +31233,7 @@ Parser._bookOrdinalToAbv_getPt = ({ordinal, isPlainText = false}) => {
 		case "chapter": return isPlainText ? `Ch.` : `<span title="Chapter">Ch.</span>`;
 		case "episode": return isPlainText ? `Ep.` : `<span title="Episode">Ep.</span>`;
 		case "appendix": return isPlainText ? `App.` : `<span title="Appendix">App.</span>`;
+		case "section": return isPlainText ? `Sec.` : `<span title="Section">Sec.</span>`;
 		case "level": return `Level`;
 		default: throw new Error(`Unhandled ordinal type "${ordinal.type}"`);
 	}
@@ -31224,10 +31247,12 @@ Parser.imageTypeToFull = function (imageType) {
 	return Parser._parse_aToB(Parser.IMAGE_TYPE_TO_FULL, imageType, "Other");
 };
 
-Parser.nameToTokenName = function (name) {
-	return name
+Parser.nameToTokenName = function (name, {isUrlEncode = false} = {}) {
+	const out = name
 		.toAscii()
 		.replace(/"/g, "");
+	if (!isUrlEncode) return out;
+	return encodeURIComponent(out);
 };
 
 Parser.bytesToHumanReadable = function (bytes, {fixedDigits = 2} = {}) {
@@ -31439,6 +31464,7 @@ Parser.ruleTypeToFull = function (ruleType) {
 Parser.VEHICLE_TYPE_TO_FULL = {
 	"SHIP": "Ship",
 	"SPELLJAMMER": "Spelljammer Ship",
+	"ELEMENTAL_AIRSHIP": "Elemental Airship",
 	"INFWAR": "Infernal War Machine",
 	"CREATURE": "Creature",
 	"OBJECT": "Object",
@@ -31565,12 +31591,28 @@ Parser.SRC_BMT = "BMT";
 Parser.SRC_DMTCRG = "DMTCRG";
 Parser.SRC_QftIS = "QftIS";
 Parser.SRC_VEoR = "VEoR";
-Parser.SRC_GHLoE = "GHLoE";
-Parser.SRC_DoDk = "DoDk";
-Parser.SRC_ToB1_2023 = "ToB1-2023";
 Parser.SRC_XPHB = "XPHB";
 Parser.SRC_XDMG = "XDMG";
 Parser.SRC_XMM = "XMM";
+Parser.SRC_DrDe = "DrDe";
+Parser.SRC_DrDe_DaS = "DrDe-DaS";
+Parser.SRC_DrDe_BD = "DrDe-BD";
+Parser.SRC_DrDe_TWoO = "DrDe-TWoO";
+Parser.SRC_DrDe_FWtVC = "DrDe-FWtVC";
+Parser.SRC_DrDe_TDoN = "DrDe-TDoN";
+Parser.SRC_DrDe_TFV = "DrDe-TFV";
+Parser.SRC_DrDe_BtS = "DrDe-BtS";
+Parser.SRC_DrDe_SD = "DrDe-SD";
+Parser.SRC_DrDe_ACfaS = "DrDe-ACfaS";
+Parser.SRC_DrDe_DotS = "DrDe-DotSC";
+Parser.SRC_HotB = "HotB";
+Parser.SRC_WttHC = "WttHC";
+Parser.SRC_FRAiF = "FRAiF";
+Parser.SRC_FRHoF = "FRHoF";
+Parser.SRC_ABH = "ABH";
+Parser.SRC_NF = "NF";
+Parser.SRC_LFL = "LFL";
+Parser.SRC_EFA = "EFA";
 Parser.SRC_TD = "TD";
 Parser.SRC_SCREEN = "Screen";
 Parser.SRC_SCREEN_WILDERNESS_KIT = "ScreenWildernessKit";
@@ -31606,6 +31648,7 @@ Parser.SRC_LRDT = "LRDT";
 Parser.SRC_UtHftLH = "UtHftLH";
 Parser.SRC_ScoEE = "ScoEE";
 Parser.SRC_HBTD = "HBTD";
+Parser.SRC_BQGT = "BQGT";
 
 Parser.SRC_AL_PREFIX = "AL";
 
@@ -31754,12 +31797,28 @@ Parser.SOURCE_JSON_TO_FULL[Parser.SRC_BMT] = "The Book of Many Things";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_DMTCRG] = "The Deck of Many Things: Card Reference Guide";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_QftIS] = "Quests from the Infinite Staircase";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_VEoR] = "Vecna: Eve of Ruin";
-Parser.SOURCE_JSON_TO_FULL[Parser.SRC_GHLoE] = "Grim Hollow: Lairs of Etharis";
-Parser.SOURCE_JSON_TO_FULL[Parser.SRC_DoDk] = "Dungeons of Drakkenheim";
-Parser.SOURCE_JSON_TO_FULL[Parser.SRC_ToB1_2023] = "Tome of Beasts 1 (2023 Edition)";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_XPHB] = "Player's Handbook (2024)";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_XDMG] = "Dungeon Master's Guide (2024)";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_XMM] = "Monster Manual (2025)";
+Parser.SOURCE_JSON_TO_FULL[Parser.SRC_DrDe] = "Dragon Delves";
+Parser.SOURCE_JSON_TO_FULL[Parser.SRC_DrDe_DaS] = "Death at Sunset";
+Parser.SOURCE_JSON_TO_FULL[Parser.SRC_DrDe_BD] = "Baker's Doesn't";
+Parser.SOURCE_JSON_TO_FULL[Parser.SRC_DrDe_TWoO] = "The Will of Orcus";
+Parser.SOURCE_JSON_TO_FULL[Parser.SRC_DrDe_FWtVC] = "For Whom the Void Calls";
+Parser.SOURCE_JSON_TO_FULL[Parser.SRC_DrDe_TDoN] = "The Dragon of Najkir";
+Parser.SOURCE_JSON_TO_FULL[Parser.SRC_DrDe_TFV] = "The Forbidden Vale";
+Parser.SOURCE_JSON_TO_FULL[Parser.SRC_DrDe_BtS] = "Before the Storm";
+Parser.SOURCE_JSON_TO_FULL[Parser.SRC_DrDe_SD] = "Shivering Death";
+Parser.SOURCE_JSON_TO_FULL[Parser.SRC_DrDe_ACfaS] = "A Copper for a Song";
+Parser.SOURCE_JSON_TO_FULL[Parser.SRC_DrDe_DotS] = "Dragons of the Sandstone City";
+Parser.SOURCE_JSON_TO_FULL[Parser.SRC_HotB] = "Heroes of the Borderlands";
+Parser.SOURCE_JSON_TO_FULL[Parser.SRC_WttHC] = "Stranger Things: Welcome to the Hellfire Club";
+Parser.SOURCE_JSON_TO_FULL[Parser.SRC_FRAiF] = "Forgotten Realms: Adventures in Faerûn";
+Parser.SOURCE_JSON_TO_FULL[Parser.SRC_FRHoF] = "Forgotten Realms: Heroes of Faerûn";
+Parser.SOURCE_JSON_TO_FULL[Parser.SRC_ABH] = "Astarion's Book of Hungers";
+Parser.SOURCE_JSON_TO_FULL[Parser.SRC_NF] = "Netheril's Fall";
+Parser.SOURCE_JSON_TO_FULL[Parser.SRC_LFL] = "Lorwyn: First Light";
+Parser.SOURCE_JSON_TO_FULL[Parser.SRC_EFA] = "Eberron: Forge of the Artificer";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_TD] = "Tarot Deck";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_SCREEN] = "Dungeon Master's Screen";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_SCREEN_WILDERNESS_KIT] = "Dungeon Master's Screen: Wilderness Kit";
@@ -31768,7 +31827,7 @@ Parser.SOURCE_JSON_TO_FULL[Parser.SRC_SCREEN_SPELLJAMMER] = "Dungeon Master's Sc
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_XSCREEN] = "Dungeon Master's Screen (2024)";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_HF] = "Heroes' Feast";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_HFFotM] = "Heroes' Feast: Flavors of the Multiverse";
-Parser.SOURCE_JSON_TO_FULL[Parser.SRC_HFStCM] = "Heroes' Feast: Saving the Childrens Menu";
+Parser.SOURCE_JSON_TO_FULL[Parser.SRC_HFStCM] = "Heroes' Feast: Saving the Children's Menu";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_PaF] = "Puncheons and Flagons";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_HFDoMM] = "Heroes' Feast: The Deck of Many Morsels";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_CM] = "Candlekeep Mysteries";
@@ -31795,6 +31854,7 @@ Parser.SOURCE_JSON_TO_FULL[Parser.SRC_LRDT] = "Red Dragon's Tale: A LEGO Adventu
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_UtHftLH] = "Uni and the Hunt for the Lost Horn";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_ScoEE] = "Scions of Elemental Evil";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_HBTD] = "Hold Back The Dead";
+Parser.SOURCE_JSON_TO_FULL[Parser.SRC_BQGT] = "Borderlands Quest: Goblin Trouble";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_ALCoS] = `${Parser.AL_PREFIX}Curse of Strahd`;
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_ALEE] = `${Parser.AL_PREFIX}Elemental Evil`;
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_ALRoD] = `${Parser.AL_PREFIX}Rage of Demons`;
@@ -31918,12 +31978,28 @@ Parser.SOURCE_JSON_TO_ABV[Parser.SRC_BMT] = "BMT";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_DMTCRG] = "DMTCRG";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_QftIS] = "QftIS";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_VEoR] = "VEoR";
-Parser.SOURCE_JSON_TO_ABV[Parser.SRC_GHLoE] = "GHLoE";
-Parser.SOURCE_JSON_TO_ABV[Parser.SRC_DoDk] = "DoDk";
-Parser.SOURCE_JSON_TO_ABV[Parser.SRC_ToB1_2023] = "ToB1'23";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_XPHB] = "PHB'24";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_XDMG] = "DMG'24";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_XMM] = "MM'25";
+Parser.SOURCE_JSON_TO_ABV[Parser.SRC_DrDe] = "DrDe";
+Parser.SOURCE_JSON_TO_ABV[Parser.SRC_DrDe_DaS] = "DrDe-DaS";
+Parser.SOURCE_JSON_TO_ABV[Parser.SRC_DrDe_BD] = "DrDe-BD";
+Parser.SOURCE_JSON_TO_ABV[Parser.SRC_DrDe_TWoO] = "DrDe-TWoO";
+Parser.SOURCE_JSON_TO_ABV[Parser.SRC_DrDe_FWtVC] = "DrDe-FWtVC";
+Parser.SOURCE_JSON_TO_ABV[Parser.SRC_DrDe_TDoN] = "DrDe-TDoN";
+Parser.SOURCE_JSON_TO_ABV[Parser.SRC_DrDe_TFV] = "DrDe-TFV";
+Parser.SOURCE_JSON_TO_ABV[Parser.SRC_DrDe_BtS] = "DrDe-BtS";
+Parser.SOURCE_JSON_TO_ABV[Parser.SRC_DrDe_SD] = "DrDe-SD";
+Parser.SOURCE_JSON_TO_ABV[Parser.SRC_DrDe_ACfaS] = "DrDe-ACfaS";
+Parser.SOURCE_JSON_TO_ABV[Parser.SRC_DrDe_DotS] = "DrDe-DotSC";
+Parser.SOURCE_JSON_TO_ABV[Parser.SRC_HotB] = "HotB";
+Parser.SOURCE_JSON_TO_ABV[Parser.SRC_WttHC] = "WttHC";
+Parser.SOURCE_JSON_TO_ABV[Parser.SRC_FRAiF] = "FRAiF";
+Parser.SOURCE_JSON_TO_ABV[Parser.SRC_FRHoF] = "FRHoF";
+Parser.SOURCE_JSON_TO_ABV[Parser.SRC_ABH] = "ABH";
+Parser.SOURCE_JSON_TO_ABV[Parser.SRC_NF] = "NF";
+Parser.SOURCE_JSON_TO_ABV[Parser.SRC_LFL] = "LFL";
+Parser.SOURCE_JSON_TO_ABV[Parser.SRC_EFA] = "EFA";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_TD] = "TD";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_SCREEN] = "Scr'14";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_SCREEN_WILDERNESS_KIT] = "ScrWild";
@@ -31959,6 +32035,7 @@ Parser.SOURCE_JSON_TO_ABV[Parser.SRC_LRDT] = "LRDT";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_UtHftLH] = "UHftLH";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_ScoEE] = "ScoEE";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_HBTD] = "HBTD";
+Parser.SOURCE_JSON_TO_ABV[Parser.SRC_BQGT] = "BQGT";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_ALCoS] = "ALCoS";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_ALEE] = "ALEE";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_ALRoD] = "ALRoD";
@@ -32081,12 +32158,28 @@ Parser.SOURCE_JSON_TO_DATE[Parser.SRC_BMT] = "2023-11-14";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_DMTCRG] = "2023-11-14";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_QftIS] = "2024-07-16";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_VEoR] = "2024-05-21";
-Parser.SOURCE_JSON_TO_DATE[Parser.SRC_GHLoE] = "2023-11-30";
-Parser.SOURCE_JSON_TO_DATE[Parser.SRC_DoDk] = "2023-12-21";
-Parser.SOURCE_JSON_TO_DATE[Parser.SRC_ToB1_2023] = "2023-05-31";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_XPHB] = "2024-09-17";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_XDMG] = "2024-11-12";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_XMM] = "2025-02-18";
+Parser.SOURCE_JSON_TO_DATE[Parser.SRC_DrDe] = "2025-07-08";
+Parser.SOURCE_JSON_TO_DATE[Parser.SRC_DrDe_DaS] = Parser.SOURCE_JSON_TO_DATE[Parser.SRC_DrDe];
+Parser.SOURCE_JSON_TO_DATE[Parser.SRC_DrDe_BD] = Parser.SOURCE_JSON_TO_DATE[Parser.SRC_DrDe];
+Parser.SOURCE_JSON_TO_DATE[Parser.SRC_DrDe_TWoO] = Parser.SOURCE_JSON_TO_DATE[Parser.SRC_DrDe];
+Parser.SOURCE_JSON_TO_DATE[Parser.SRC_DrDe_FWtVC] = Parser.SOURCE_JSON_TO_DATE[Parser.SRC_DrDe];
+Parser.SOURCE_JSON_TO_DATE[Parser.SRC_DrDe_TDoN] = Parser.SOURCE_JSON_TO_DATE[Parser.SRC_DrDe];
+Parser.SOURCE_JSON_TO_DATE[Parser.SRC_DrDe_TFV] = Parser.SOURCE_JSON_TO_DATE[Parser.SRC_DrDe];
+Parser.SOURCE_JSON_TO_DATE[Parser.SRC_DrDe_BtS] = Parser.SOURCE_JSON_TO_DATE[Parser.SRC_DrDe];
+Parser.SOURCE_JSON_TO_DATE[Parser.SRC_DrDe_SD] = Parser.SOURCE_JSON_TO_DATE[Parser.SRC_DrDe];
+Parser.SOURCE_JSON_TO_DATE[Parser.SRC_DrDe_ACfaS] = Parser.SOURCE_JSON_TO_DATE[Parser.SRC_DrDe];
+Parser.SOURCE_JSON_TO_DATE[Parser.SRC_DrDe_DotS] = Parser.SOURCE_JSON_TO_DATE[Parser.SRC_DrDe];
+Parser.SOURCE_JSON_TO_DATE[Parser.SRC_HotB] = "2025-09-16";
+Parser.SOURCE_JSON_TO_DATE[Parser.SRC_WttHC] = "2025-10-07";
+Parser.SOURCE_JSON_TO_DATE[Parser.SRC_FRAiF] = "2025-11-11";
+Parser.SOURCE_JSON_TO_DATE[Parser.SRC_FRHoF] = "2025-11-11";
+Parser.SOURCE_JSON_TO_DATE[Parser.SRC_ABH] = "2025-11-11";
+Parser.SOURCE_JSON_TO_DATE[Parser.SRC_NF] = "2025-11-11";
+Parser.SOURCE_JSON_TO_DATE[Parser.SRC_LFL] = "2025-11-18";
+Parser.SOURCE_JSON_TO_DATE[Parser.SRC_EFA] = "2025-12-09";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_TD] = "2022-05-24";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_SCREEN] = "2015-01-20";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_SCREEN_WILDERNESS_KIT] = "2020-11-17";
@@ -32122,6 +32215,7 @@ Parser.SOURCE_JSON_TO_DATE[Parser.SRC_LRDT] = "2024-04-01";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_UtHftLH] = "2024-09-24";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_ScoEE] = "2024-10-24";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_HBTD] = "2025-02-07";
+Parser.SOURCE_JSON_TO_DATE[Parser.SRC_BQGT] = "2025-06-04";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_ALCoS] = "2016-03-15";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_ALEE] = "2015-04-07";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_ALRoD] = "2015-09-15";
@@ -32225,9 +32319,21 @@ Parser.SOURCES_ADVENTURES = new Set([
 	Parser.SRC_UtHftLH,
 	Parser.SRC_ScoEE,
 	Parser.SRC_HFStCM,
-	Parser.SRC_GHLoE,
-	Parser.SRC_DoDk,
 	Parser.SRC_HBTD,
+	Parser.SRC_BQGT,
+	Parser.SRC_DrDe,
+	Parser.SRC_DrDe_DaS,
+	Parser.SRC_DrDe_BD,
+	Parser.SRC_DrDe_TWoO,
+	Parser.SRC_DrDe_FWtVC,
+	Parser.SRC_DrDe_TDoN,
+	Parser.SRC_DrDe_TFV,
+	Parser.SRC_DrDe_BtS,
+	Parser.SRC_DrDe_SD,
+	Parser.SRC_DrDe_ACfaS,
+	Parser.SRC_DrDe_DotS,
+	Parser.SRC_HotB,
+	Parser.SRC_WttHC,
 
 	Parser.SRC_AWM,
 ]);
@@ -32278,6 +32384,7 @@ Parser.SOURCES_NON_STANDARD_WOTC = new Set([
 	Parser.SRC_UtHftLH,
 	Parser.SRC_ScoEE,
 	Parser.SRC_HBTD,
+	Parser.SRC_BQGT,
 ]);
 Parser.SOURCES_PARTNERED_WOTC = new Set([
 	Parser.SRC_RMBRE,
@@ -32290,9 +32397,6 @@ Parser.SOURCES_PARTNERED_WOTC = new Set([
 	Parser.SRC_CRCotN,
 	Parser.SRC_TDCSR,
 	Parser.SRC_HftT,
-	Parser.SRC_GHLoE,
-	Parser.SRC_DoDk,
-	Parser.SRC_ToB1_2023,
 	Parser.SRC_TD,
 	Parser.SRC_LRDT,
 ]);
@@ -32336,6 +32440,10 @@ Parser.SOURCES_VANILLA = new Set([
 	Parser.SRC_CoA,
 	Parser.SRC_BMT,
 	Parser.SRC_DMTCRG,
+	Parser.SRC_FRAiF,
+	Parser.SRC_FRHoF,
+	Parser.SRC_ABH,
+	Parser.SRC_NF,
 ]);
 
 // Any opinionated set of sources that are """hilarious, dude"""
@@ -32357,6 +32465,8 @@ Parser.SOURCES_COMEDY = new Set([
 	Parser.SRC_UtHftLH,
 	Parser.SRC_ScoEE,
 	Parser.SRC_HBTD,
+	Parser.SRC_BQGT,
+	Parser.SRC_WttHC,
 ]);
 
 // Any opinionated set of sources that are "other settings"
@@ -32392,13 +32502,14 @@ Parser.SOURCES_NON_FR = new Set([
 	Parser.SRC_MPP,
 	Parser.SRC_MCV4EC,
 	Parser.SRC_LK,
-	Parser.SRC_GHLoE,
-	Parser.SRC_DoDk,
-	Parser.SRC_ToB1_2023,
 	Parser.SRC_LRDT,
 	Parser.SRC_UtHftLH,
 	Parser.SRC_ScoEE,
 	Parser.SRC_HBTD,
+	Parser.SRC_BQGT,
+	Parser.SRC_WttHC,
+	Parser.SRC_LFL,
+	Parser.SRC_EFA,
 ]);
 
 // endregion
@@ -32416,6 +32527,8 @@ Parser.SOURCES_AVAILABLE_DOCS_BOOK = {};
 	Parser.SRC_AI,
 	Parser.SRC_ERLW,
 	Parser.SRC_RMR,
+	Parser.SRC_AWM,
+	Parser.SRC_MGELFT,
 	Parser.SRC_EGW,
 	Parser.SRC_MOT,
 	Parser.SRC_TCE,
@@ -32441,12 +32554,17 @@ Parser.SOURCES_AVAILABLE_DOCS_BOOK = {};
 	Parser.SRC_PaF,
 	Parser.SRC_BMT,
 	Parser.SRC_DMTCRG,
-	Parser.SRC_ToB1_2023,
 	Parser.SRC_XPHB,
 	Parser.SRC_XMM,
 	Parser.SRC_XDMG,
 	Parser.SRC_XSCREEN,
 	Parser.SRC_TD,
+	Parser.SRC_FRHoF,
+	Parser.SRC_FRAiF,
+	Parser.SRC_ABH,
+	Parser.SRC_NF,
+	Parser.SRC_LFL,
+	Parser.SRC_EFA,
 ].forEach(src => {
 	Parser.SOURCES_AVAILABLE_DOCS_BOOK[src] = src;
 	Parser.SOURCES_AVAILABLE_DOCS_BOOK[src.toLowerCase()] = src;
@@ -32539,8 +32657,6 @@ Parser.SOURCES_AVAILABLE_DOCS_ADVENTURE = {};
 	Parser.SRC_PiP,
 	Parser.SRC_DitLCoT,
 	Parser.SRC_HFStCM,
-	Parser.SRC_GHLoE,
-	Parser.SRC_DoDk,
 	Parser.SRC_QftIS,
 	Parser.SRC_LRDT,
 	Parser.SRC_VEoR,
@@ -32548,6 +32664,19 @@ Parser.SOURCES_AVAILABLE_DOCS_ADVENTURE = {};
 	Parser.SRC_UtHftLH,
 	Parser.SRC_ScoEE,
 	Parser.SRC_HBTD,
+	Parser.SRC_BQGT,
+	Parser.SRC_DrDe_DaS,
+	Parser.SRC_DrDe_BD,
+	Parser.SRC_DrDe_TWoO,
+	Parser.SRC_DrDe_FWtVC,
+	Parser.SRC_DrDe_TDoN,
+	Parser.SRC_DrDe_TFV,
+	Parser.SRC_DrDe_BtS,
+	Parser.SRC_DrDe_SD,
+	Parser.SRC_DrDe_ACfaS,
+	Parser.SRC_DrDe_DotS,
+	Parser.SRC_HotB,
+	Parser.SRC_WttHC,
 ].forEach(src => {
 	Parser.SOURCES_AVAILABLE_DOCS_ADVENTURE[src] = src;
 	Parser.SOURCES_AVAILABLE_DOCS_ADVENTURE[src.toLowerCase()] = src;
@@ -32573,7 +32702,9 @@ Parser.PROP_TO_TAG = {
 	"itemGroup": "item",
 	"magicvariant": "item",
 };
+Parser._RE_PROP_RAW_PREFIX = /^raw_/;
 Parser.getPropTag = function (prop) {
+	prop = prop.replace(Parser._RE_PROP_RAW_PREFIX, "");
 	if (Parser.PROP_TO_TAG[prop]) return Parser.PROP_TO_TAG[prop];
 	if (prop?.endsWith("Fluff")) return null;
 	return prop;
@@ -41407,8 +41538,21 @@ function MixinProxyBase (Cls) {
 			});
 		}
 
+		_isEqualSimple (a, b) {
+			if (Object.is(a, b)) return true;
+
+			if (!a || !b) return false;
+
+			const isArrayA = Array.isArray(a);
+			const isArrayB = Array.isArray(b);
+			if (isArrayA !== isArrayB) return false;
+			if (isArrayA) return a.length === 0 && b.length === 0;
+
+			return false;
+		}
+
 		_doProxySet (hookProp, object, prop, value) {
-			if (object[prop] === value) return true;
+			if (this._isEqualSimple(object[prop], value)) return true;
 			const prevValue = object[prop];
 			Reflect.set(object, prop, value);
 			this._doFireHooksAll(hookProp, prop, value, prevValue);
@@ -41418,7 +41562,7 @@ function MixinProxyBase (Cls) {
 
 		/** As per `_doProxySet`, but the hooks are run strictly in serial. */
 		async _pDoProxySet (hookProp, object, prop, value) {
-			if (object[prop] === value) return true;
+			if (this._isEqualSimple(object[prop], value)) return true;
 			const prevValue = object[prop];
 			Reflect.set(object, prop, value);
 			if (this.__hooksAll[hookProp]) for (const hook of this.__hooksAll[hookProp]) await hook(prop, value, prevValue);
@@ -41678,6 +41822,7 @@ class UiUtil {
 	 *
 	 * @param {function} [opts.cbClose] Callback run when the modal is closed.
 	 * @param {jQuery} [opts.$titleSplit] Element to have split alongside the title.
+	 * @param {HTMLElement} [opts.eleTitleSplit] Element to have split alongside the title.
 	 * @param {int} [opts.zIndex] Z-index of the modal.
 	 * @param {number} [opts.overlayColor] Overlay color.
 	 * @param {boolean} [opts.isPermanent] If the modal should be impossible to close.
@@ -41692,6 +41837,9 @@ class UiUtil {
 		opts = opts || {};
 
 		const doc = (opts.window || window).document;
+
+		if (opts.$titleSplit && opts.eleTitleSplit) throw new Error(`Only one of "$titleSplit" and "eleTitleSplit" may be specified!`);
+		const eleTitleSplit = opts.eleTitleSplit || opts.$titleSplit?.[0];
 
 		UiUtil._initModalEscapeHandler({doc});
 		UiUtil._initModalMouseupHandlers({doc});
@@ -41783,7 +41931,7 @@ class UiUtil {
 								})
 								: null,
 
-							opts.$titleSplit ? opts.$titleSplit[0] : null,
+							eleTitleSplit,
 
 							btnCloseModal,
 						].filter(Boolean),
@@ -41860,7 +42008,7 @@ class UiUtil {
 		UiUtil._MODAL_STACK = [];
 
 		doc.addEventListener("keydown", evt => {
-			if (evt.which !== 27) return;
+			if (evt.key !== "Escape") return;
 			if (!UiUtil._MODAL_STACK.length) return;
 			if (EventUtil.isInInput(evt)) return;
 
@@ -42406,15 +42554,22 @@ class ListUiUtil {
 
 		build () {
 			return {
+				name: {
+					help: `"name:<query>" ("/query/" for regex; "!query" and "!/query/" to invert) to search by name.`,
+					fn: (listItem, searchTerm) => {
+						if (listItem.data._textCacheName == null) listItem.data._textCacheName = listItem.name.toLowerCase().trim();
+						return this._listSyntax_isTextMatch(listItem.data._textCacheName, searchTerm);
+					},
+				},
 				stats: {
-					help: `"stats:<text>" ("/text/" for regex) to search within stat blocks.`,
+					help: `"stats:<query>" ("/query/" for regex; "!query" and "!/query/" to invert) to search within stat blocks.`,
 					fn: (listItem, searchTerm) => {
 						if (listItem.data._textCacheStats == null) listItem.data._textCacheStats = this._getSearchCacheStats(this._dataList[listItem.ix]);
 						return this._listSyntax_isTextMatch(listItem.data._textCacheStats, searchTerm);
 					},
 				},
 				info: {
-					help: `"info:<text>" ("/text/" for regex) to search within info.`,
+					help: `"info:<query>" ("/query/" for regex; "!query" and "!/query/" to invert) to search within info.`,
 					fn: async (listItem, searchTerm) => {
 						if (listItem.data._textCacheFluff == null) listItem.data._textCacheFluff = await this._pGetSearchCacheFluff(this._dataList[listItem.ix]);
 						return this._listSyntax_isTextMatch(listItem.data._textCacheFluff, searchTerm);
@@ -42422,7 +42577,7 @@ class ListUiUtil {
 					isAsync: true,
 				},
 				text: {
-					help: `"text:<text>" ("/text/" for regex) to search within stat blocks plus info.`,
+					help: `"text:<query>" ("/query/" for regex; "!query" and "!/query/" to invert) to search within stat blocks plus info.`,
 					fn: async (listItem, searchTerm) => {
 						if (listItem.data._textCacheAll == null) {
 							const {textCacheStats, textCacheFluff, textCacheAll} = await this._pGetSearchCacheAll(this._dataList[listItem.ix], {textCacheStats: listItem.data._textCacheStats, textCacheFluff: listItem.data._textCacheFluff});
@@ -42446,7 +42601,11 @@ class ListUiUtil {
 		// TODO(Future) the ideal solution to this is to render every entity to plain text (or failing that, Markdown) and
 		//   indexing that text with e.g. elasticlunr.
 		_getSearchCacheStats (entity) {
-			return this._getSearchCache_entries(entity);
+			return `${this._getSearchCache_name(entity)} -- ${this._getSearchCache_entries(entity)}`;
+		}
+
+		_getSearchCache_name (entity) {
+			return Renderer.stripTags(entity.name).toLowerCase();
 		}
 
 		static _INDEXABLE_PROPS_ENTRIES = [
@@ -42486,7 +42645,9 @@ class ListUiUtil {
 
 		async _pGetSearchCacheFluff (entity) {
 			const fluff = this._pFnGetFluff ? await this._pFnGetFluff(entity) : null;
-			return fluff ? this._getSearchCache_entries(fluff, {indexableProps: ["entries"]}) : "";
+			return fluff
+				? `${this._getSearchCache_name(entity)} -- ${this._getSearchCache_entries(fluff, {indexableProps: ["entries"]})}`
+				: this._getSearchCache_name(entity);
 		}
 
 		async _pGetSearchCacheAll (entity, {textCacheStats = null, textCacheFluff = null}) {
@@ -42599,6 +42760,7 @@ class TabUiUtilBase {
 				tabGroup = TabUiUtilBase._DEFAULT_TAB_GROUP,
 				cbTabChange,
 				additionalClassesWrpHeads,
+				isStacked = false,
 			} = {},
 		) {
 			if (!tabMetas.length) throw new Error(`One or more tab meta must be specified!`);
@@ -42623,6 +42785,7 @@ class TabUiUtilBase {
 					_propProxy,
 					propActive,
 					ixTab: i,
+					isStacked,
 				});
 
 				const $wrpTab = obj.__$getWrpTab({tabMeta: it, ixTab: i});
@@ -42631,18 +42794,18 @@ class TabUiUtilBase {
 					...it,
 					ix: i,
 					$btnTab,
-					btnTab: $btnTab?.[0], // No button if `isSingleTab`
+					btnTab: $btnTab?.[0] ? e_($btnTab?.[0]) : null, // No button if `isSingleTab`
 					$wrpTab,
-					wrpTab: $wrpTab[0],
+					wrpTab: e_($wrpTab[0]),
 				};
 			};
 
 			const tabMetasOut = tabMetas.map((it, i) => {
-				if (it.type) return obj.__renderTypedTabMeta({tabMeta: it, ixTab: i});
+				if (it.type) return obj.__renderTypedTabMeta({tabMeta: it, ixTab: i, isStacked});
 				return renderTabMetas_standard(it, i);
 			}).filter(Boolean);
 
-			if ($parent) obj.__renderTabs_addToParent({$dispTabTitle, $parent, tabMetasOut, additionalClassesWrpHeads});
+			if ($parent) obj.__renderTabs_addToParent({$dispTabTitle, $parent, tabMetasOut, additionalClassesWrpHeads, isStacked});
 
 			const hkActiveTab = () => {
 				tabMetasOut.forEach(it => {
@@ -42669,12 +42832,41 @@ class TabUiUtilBase {
 			return tabMetasOut;
 		};
 
-		obj.__renderTabs_addToParent = function ({$dispTabTitle, $parent, tabMetasOut, additionalClassesWrpHeads}) {
+		obj._renderTabsDict = function (
+			tabMetasDict,
+			{
+				eleParent = null,
+				propProxy = TabUiUtilBase._DEFAULT_PROP_PROXY,
+				tabGroup = TabUiUtilBase._DEFAULT_TAB_GROUP,
+				cbTabChange,
+				additionalClassesWrpHeads,
+				isStacked = false,
+			} = {},
+		) {
+			const entries = Object.entries(tabMetasDict);
+			const byValue = obj._renderTabs(
+				entries.map(([, v]) => v),
+				{
+					eleParent,
+					propProxy,
+					tabGroup,
+					cbTabChange,
+					additionalClassesWrpHeads,
+					isStacked,
+				},
+			);
+			return Object.fromEntries(
+				entries
+					.map(([k], ix) => [k, byValue[ix]]),
+			);
+		};
+
+		obj.__renderTabs_addToParent = function ({$dispTabTitle, $parent, tabMetasOut, additionalClassesWrpHeads, isStacked}) {
 			const hasBorder = tabMetasOut.some(it => it.hasBorder);
 			$$`<div class="ve-flex-col w-100 h-100">
 				${$dispTabTitle}
 				<div class="ve-flex-col w-100 h-100 min-h-0">
-					<div class="ve-flex ${hasBorder ? `ui-tab__wrp-tab-heads--border` : ""} ${additionalClassesWrpHeads || ""}">${tabMetasOut.map(it => it.$btnTab)}</div>
+					<div class="ve-flex ${isStacked ? `ve-flex-wrap ui-tab__wrp-tab-heads--stacked` : ""} ${hasBorder ? `ui-tab__wrp-tab-heads--border` : ""} ${additionalClassesWrpHeads || ""}">${tabMetasOut.map(it => it.$btnTab)}</div>
 					<div class="ve-flex w-100 h-100 min-h-0">${tabMetasOut.map(it => it.$wrpTab).filter(Boolean)}</div>
 				</div>
 			</div>`.appendTo($parent);
@@ -42762,8 +42954,8 @@ class TabUiUtil extends TabUiUtilBase {
 	static decorate (obj, {isInitMeta = false} = {}) {
 		super.decorate(obj, {isInitMeta});
 
-		obj.__$getBtnTab = function ({tabMeta, _propProxy, propActive, ixTab}) {
-			return $(`<button class="ve-btn ve-btn-default ui-tab__btn-tab-head pt-2p px-4p pb-0 ${tabMeta.isHeadHidden ? "ve-hidden" : ""}">${tabMeta.name.qq()}</button>`)
+		obj.__$getBtnTab = function ({tabMeta, _propProxy, propActive, ixTab, isStacked = false}) {
+			return $(`<button class="ve-btn ve-btn-default ui-tab__btn-tab-head ${isStacked ? `ui-tab__btn-tab-head--stacked` : ""} pt-2p px-4p pb-0 ${tabMeta.isHeadHidden ? "ve-hidden" : ""}" ${tabMeta.title ? `title="${tabMeta.title.qq()}"` : ""}>${tabMeta.name.qq()}</button>`)
 				.click(() => obj[_propProxy][propActive] = ixTab);
 		};
 
@@ -42771,17 +42963,17 @@ class TabUiUtil extends TabUiUtilBase {
 			return $(`<div class="ui-tab__wrp-tab-body ve-flex-col ve-hidden ${tabMeta.hasBorder ? "ui-tab__wrp-tab-body--border" : ""} ${tabMeta.hasBackground ? "ui-tab__wrp-tab-body--background" : ""}"></div>`);
 		};
 
-		obj.__renderTypedTabMeta = function ({tabMeta, ixTab}) {
+		obj.__renderTypedTabMeta = function ({tabMeta, ixTab, isStacked = false}) {
 			switch (tabMeta.type) {
-				case "buttons": return obj.__renderTypedTabMeta_buttons({tabMeta, ixTab});
+				case "buttons": return obj.__renderTypedTabMeta_buttons({tabMeta, ixTab, isStacked});
 				default: throw new Error(`Unhandled tab type "${tabMeta.type}"`);
 			}
 		};
 
-		obj.__renderTypedTabMeta_buttons = function ({tabMeta, ixTab}) {
+		obj.__renderTypedTabMeta_buttons = function ({tabMeta, ixTab, isStacked = false}) {
 			const $btns = tabMeta.buttons.map((meta, j) => {
-				const $btn = $(`<button class="ve-btn ui-tab__btn-tab-head pt-2p px-4p pb-0 bbr-0 bbl-0 ${meta.type ? `ve-btn-${meta.type}` : "ve-btn-primary"}" ${meta.title ? `title="${meta.title.qq()}"` : ""}>${meta.html}</button>`)
-					.click(evt => meta.pFnClick(evt, $btn));
+				const $btn = $(`<button class="ve-btn ui-tab__btn-tab-head ${isStacked ? `ui-tab__btn-tab-head--stacked` : ""} pt-2p px-4p pb-0 bbr-0 bbl-0 ${meta.type ? `ve-btn-${meta.type}` : "ve-btn-primary"}" ${meta.title ? `title="${meta.title.qq()}"` : ""}>${meta.html}</button>`)
+					.on("click", evt => meta.pFnClick({evt, $btn, btn: $btn[0]}));
 				return $btn;
 			});
 
@@ -42792,6 +42984,8 @@ class TabUiUtil extends TabUiUtilBase {
 				ix: ixTab,
 				$btns,
 				$btnTab,
+				btns: $btns.map($btn => e_($btn[0])),
+				btnTab: e_($btnTab[0]),
 			};
 		};
 
@@ -42804,6 +42998,7 @@ globalThis.TabUiUtil = TabUiUtil;
 TabUiUtil.TabMeta = class extends TabUiUtilBase.TabMeta {
 	constructor (opts) {
 		super(opts);
+		this.title = opts.title;
 		this.hasBorder = !!opts.hasBorder;
 		this.hasBackground = !!opts.hasBackground;
 		this.isHeadHidden = !!opts.isHeadHidden;
@@ -42816,7 +43011,7 @@ class TabUiUtilSide extends TabUiUtilBase {
 		super.decorate(obj, {isInitMeta});
 
 		obj.__$getBtnTab = function ({isSingleTab, tabMeta, _propProxy, propActive, ixTab}) {
-			return isSingleTab ? null : $(`<button class="ve-btn ve-btn-default ve-btn-sm ui-tab-side__btn-tab mb-2 br-0 btr-0 bbr-0 ve-text-left ve-flex-v-center" title="${tabMeta.name.qq()}"><div class="${tabMeta.icon} ui-tab-side__icon-tab mr-2 mobile-lg__mr-0 ve-text-center"></div><div class="mobile-lg__hidden">${tabMeta.name.qq()}</div></button>`)
+			return isSingleTab ? null : $(`<button class="ve-btn ve-btn-default ve-btn-sm ui-tab-side__btn-tab mb-2 br-0 btr-0 bbr-0 ve-text-left ve-flex-v-center" title="${tabMeta.title ? tabMeta.title.qq() : tabMeta.name.qq()}"><div class="${tabMeta.icon} ui-tab-side__icon-tab mr-2 mobile-lg__mr-0 ve-text-center"></div><div class="mobile-lg__hidden">${tabMeta.name.qq()}</div></button>`)
 				.click(() => this[_propProxy][propActive] = ixTab);
 		};
 
@@ -42844,7 +43039,7 @@ class TabUiUtilSide extends TabUiUtilBase {
 		obj.__renderTypedTabMeta_buttons = function ({tabMeta, ixTab}) {
 			const $btns = tabMeta.buttons.map((meta, j) => {
 				const $btn = $(`<button class="ve-btn ${meta.type ? `ve-btn-${meta.type}` : "ve-btn-primary"} ve-btn-sm" ${meta.title ? `title="${meta.title.qq()}"` : ""}>${meta.html}</button>`)
-					.click(evt => meta.pFnClick(evt, $btn));
+					.on("click", evt => meta.pFnClick({evt, $btn, btn: $btn[0]}));
 
 				if (j === tabMeta.buttons.length - 1) $btn.addClass(`br-0 btr-0 bbr-0`);
 
@@ -43092,11 +43287,11 @@ class SearchWidget {
 	static bindRowHandlers ({result, $row, $ptrRows, fnHandleClick, $iptSearch}) {
 		return $row
 			.keydown(evt => {
-				switch (evt.which) {
-					case 13: { // enter
+				switch (evt.key) {
+					case "Enter": {
 						return fnHandleClick(result);
 					}
-					case 38: { // up
+					case "ArrowUp": {
 						evt.preventDefault();
 						const ixRow = $ptrRows._.indexOf($row);
 						const $prev = $ptrRows._[ixRow - 1];
@@ -43104,7 +43299,7 @@ class SearchWidget {
 						else $iptSearch.focus();
 						break;
 					}
-					case 40: { // down
+					case "ArrowDown": {
 						evt.preventDefault();
 						const ixRow = $ptrRows._.indexOf($row);
 						const $nxt = $ptrRows._[ixRow + 1];
@@ -43321,7 +43516,7 @@ class SearchWidget {
 			this._$iptSearch.keydown(evt => {
 				if (evt.key === "Escape") this._$iptSearch.blur();
 				if (!this._$iptSearch.val().trim().length) return;
-				if (evt.which !== 13) {
+				if (evt.key !== "Enter") {
 					if (lastSearchTerm === "") this.__showMsgWait();
 					lastSearchTerm = this._$iptSearch.val();
 				}
@@ -43357,6 +43552,9 @@ class SearchWidget {
 	// region entity searches
 	static async pGetUserSpellSearch (opts) {
 		opts = opts || {};
+
+		const styleHint = opts.styleHint || VetoolsConfig.get("styleSwitcher", "style");
+
 		await SearchWidget.P_LOADING_CONTENT;
 
 		const nxtOpts = {
@@ -43372,6 +43570,7 @@ class SearchWidget {
 					isRename ? cpy.n.toSpellCase() : "",
 				];
 				while (pts.at(-1) === "") pts.pop();
+				if (styleHint !== "classic") pts[0] = pts[0].toTitleCase();
 				cpy.tag = `{@spell ${pts.join("|")}}`;
 				return cpy;
 			},
@@ -43792,29 +43991,41 @@ class InputUiUtil {
 		return UiUtil.getShowModal(getShowModalOpts);
 	}
 
-	static _$getBtnOk ({comp = null, opts, doClose}) {
-		return $(`<button class="ve-btn ve-btn-primary mr-2">${opts.buttonText || "OK"}</button>`)
-			.click(evt => {
+	static _getBtnOk ({comp = null, opts, doClose}) {
+		return ee`<button class="ve-btn ve-btn-primary mr-2">${opts.buttonText || "OK"}</button>`
+			.onn("click", evt => {
 				evt.stopPropagation();
 				if (comp && !comp._state.isValid) return JqueryUtil.doToast({content: `Please enter valid input!`, type: "warning"});
 				doClose(true);
 			});
 	}
 
-	static _$getBtnCancel ({comp = null, opts, doClose}) {
-		return $(`<button class="ve-btn ve-btn-default">Cancel</button>`)
-			.click(evt => {
+	static _getBtnCancel ({comp = null, opts, doClose}) {
+		return ee`<button class="ve-btn ve-btn-default">Cancel</button>`
+			.onn("click", evt => {
 				evt.stopPropagation();
 				doClose(false);
 			});
 	}
 
-	static _$getBtnSkip ({comp = null, opts, doClose}) {
-		return !opts.isSkippable ? null : $(`<button class="ve-btn ve-btn-default ml-3">Skip</button>`)
-			.click(evt => {
+	static _getBtnSkip ({comp = null, opts, doClose}) {
+		return !opts.isSkippable ? null : ee`<button class="ve-btn ve-btn-default ml-3">Skip</button>`
+			.onn("click", evt => {
 				evt.stopPropagation();
 				doClose(VeCt.SYM_UI_SKIP);
 			});
+	}
+
+	static _$getBtnOk ({comp = null, opts, doClose}) {
+		return $(this._getBtnOk({comp, opts, doClose}));
+	}
+
+	static _$getBtnCancel ({comp = null, opts, doClose}) {
+		return $(this._getBtnCancel({comp, opts, doClose}));
+	}
+
+	static _$getBtnSkip ({comp = null, opts, doClose}) {
+		return $(this._getBtnSkip({comp, opts, doClose}));
 	}
 
 	/* -------------------------------------------- */
@@ -44009,6 +44220,8 @@ class InputUiUtil {
 	 * @param opts.int If the value returned should be an integer.
 	 * @param opts.title Prompt title.
 	 * @param opts.default Default value.
+	 * @param [opts.elePre] Element to add before the number input.
+	 * @param [opts.elePost] Element to add after the number input.
 	 * @param [opts.$elePre] Element to add before the number input.
 	 * @param [opts.$elePost] Element to add after the number input.
 	 * @param [opts.isPermanent] If the prompt can only be closed by entering a number.
@@ -44020,15 +44233,20 @@ class InputUiUtil {
 	static async pGetUserNumber (opts) {
 		opts = opts || {};
 
+		if (opts.elePre && opts.$elePre) throw new Error(`Only one of "elePre" and "$elePre" may be specified!`);
+		if (opts.elePost && opts.$elePost) throw new Error(`Only one of "elePost" and "$elePost" may be specified!`);
+		opts.elePre ??= opts.$elePre?.[0];
+		opts.elePost ??= opts.$elePost?.[0];
+
 		let defaultVal = opts.default !== undefined ? opts.default : null;
 		if (opts.storageKey_default) {
 			const prev = await (opts.isGlobal_default ? StorageUtil.pGet(opts.storageKey_default) : StorageUtil.pGetForPage(opts.storageKey_default));
 			if (prev != null) defaultVal = prev;
 		}
 
-		const $iptNumber = $(`<input class="form-control mb-2 ve-text-right" ${opts.min ? `min="${opts.min}"` : ""} ${opts.max ? `max="${opts.max}"` : ""}>`)
-			.keydown(evt => {
-				if (evt.key === "Escape") { $iptNumber.blur(); return; }
+		const iptNumber = ee`<input class="form-control mb-2 ve-text-right" ${opts.min ? `min="${opts.min}"` : ""} ${opts.max ? `max="${opts.max}"` : ""}>`
+			.onn("keydown", evt => {
+				if (evt.key === "Escape") { iptNumber.blure(); return; }
 
 				evt.stopPropagation();
 				if (evt.key === "Enter") {
@@ -44036,26 +44254,26 @@ class InputUiUtil {
 					doClose(true);
 				}
 			});
-		if (defaultVal !== undefined) $iptNumber.val(defaultVal);
+		if (defaultVal !== undefined) iptNumber.val(defaultVal);
 
-		const {$modalInner, doClose, pGetResolved, doAutoResize: doAutoResizeModal} = await InputUiUtil._pGetShowModal({
+		const {eleModalInner, doClose, pGetResolved, doAutoResize: doAutoResizeModal} = await InputUiUtil._pGetShowModal({
 			title: opts.title || "Enter a Number",
 			isMinHeight0: true,
 		});
 
-		const $btnOk = this._$getBtnOk({opts, doClose});
-		const $btnCancel = this._$getBtnCancel({opts, doClose});
-		const $btnSkip = this._$getBtnSkip({opts, doClose});
+		const btnOk = this._getBtnOk({opts, doClose});
+		const btnCancel = this._getBtnCancel({opts, doClose});
+		const btnSkip = this._getBtnSkip({opts, doClose});
 
-		if (opts.$elePre) opts.$elePre.appendTo($modalInner);
-		$iptNumber.appendTo($modalInner);
-		if (opts.$elePost) opts.$elePost.appendTo($modalInner);
-		$$`<div class="ve-flex-v-center ve-flex-h-right pb-1 px-1">${$btnOk}${$btnCancel}${$btnSkip}</div>`.appendTo($modalInner);
+		if (opts.elePre) eleModalInner.appends(opts.elePre);
+		eleModalInner.appends(iptNumber);
+		if (opts.elePost) eleModalInner.appends(opts.elePost);
+		ee`<div class="ve-flex-v-center ve-flex-h-right pb-1 px-1">${btnOk}${btnCancel}${btnSkip}</div>`.appendTo(eleModalInner);
 
 		if (doAutoResizeModal) doAutoResizeModal();
 
-		$iptNumber.focus();
-		$iptNumber.select();
+		iptNumber.focuse();
+		iptNumber.selecte();
 
 		// region Output
 		const [isDataEntered] = await pGetResolved();
@@ -44063,7 +44281,7 @@ class InputUiUtil {
 		if (typeof isDataEntered === "symbol") return isDataEntered;
 
 		if (!isDataEntered) return null;
-		const outRaw = $iptNumber.val();
+		const outRaw = iptNumber.val();
 		if (!outRaw.trim()) return null;
 		let out = UiUtil.strToNumber(outRaw);
 		if (opts.min) out = Math.max(opts.min, out);
@@ -44633,8 +44851,7 @@ class InputUiUtil {
 				.appendTo($parent)
 				.keydown(evt => {
 					if (evt.key === "Escape") { $iptNum.blur(); return; }
-					// return key
-					if (evt.which === 13) doClose(true);
+					if (evt.key === "Enter") doClose(true);
 					evt.stopPropagation();
 				});
 			const $selFaces = ComponentUiUtil.$getSelEnum(this, "faces", {values: Renderer.dice.DICE})
@@ -44644,8 +44861,7 @@ class InputUiUtil {
 				.change(() => this._state.bonus = UiUtil.strToInt($iptBonus.val(), null, {fallbackOnNaN: null}))
 				.keydown(evt => {
 					if (evt.key === "Escape") { $iptBonus.blur(); return; }
-					// return key
-					if (evt.which === 13) doClose(true);
+					if (evt.key === "Enter") doClose(true);
 					evt.stopPropagation();
 				});
 			const hook = () => $iptBonus.val(this._state.bonus != null ? UiUtil.intToBonus(this._state.bonus) : this._state.bonus);
@@ -44961,7 +45177,8 @@ class DragReorderUiUtil {
 class SourceUiUtil {
 	static _getValidOptions (options) {
 		if (!options) throw new Error(`No options were specified!`);
-		if (!options.$parent || !options.cbConfirm || !options.cbConfirmExisting || !options.cbCancel) throw new Error(`Missing options!`);
+		if (!(options.$parent || options.eleParent) || !options.cbConfirm || !options.cbConfirmExisting || !options.cbCancel) throw new Error(`Missing options!`);
+		if (options.$parent && options.eleParent) throw new Error(`Only one of "$parent" and "eleParent" may be specified!`);
 		options.mode = options.mode || "add";
 		return options;
 	}
@@ -44969,6 +45186,7 @@ class SourceUiUtil {
 	/**
 	 * @param options Options object.
 	 * @param options.$parent Parent element.
+	 * @param options.eleParent Parent element.
 	 * @param options.cbConfirm Confirmation callback for inputting new sources.
 	 * @param options.cbConfirmExisting Confirmation callback for selecting existing sources.
 	 * @param options.cbCancel Cancellation callback.
@@ -44978,7 +45196,8 @@ class SourceUiUtil {
 	 */
 	static render (options) {
 		options = SourceUiUtil._getValidOptions(options);
-		options.$parent.empty();
+		const $parent = options.$parent || $(options.eleParent);
+		$parent.empty();
 		options.mode = options.mode || "select";
 
 		const isEditMode = options.mode === "edit";
@@ -45007,11 +45226,19 @@ class SourceUiUtil {
 		const $iptVersion = $(`<input class="form-control ui-source__ipt-named">`)
 			.keydown(evt => { if (evt.key === "Escape") $iptUrl.blur(); });
 		if (options.source) $iptVersion.val(options.source.version);
+
 		let hasColor = false;
 		const $iptColor = $(`<input type="color" class="w-100 b-0">`)
 			.keydown(evt => { if (evt.key === "Escape") $iptColor.blur(); })
 			.change(() => hasColor = true);
 		if (options.source?.color != null) { hasColor = true; $iptColor.val(`#${options.source.color}`); }
+
+		let hasColorNight = false;
+		const $iptColorNight = $(`<input type="color" class="w-100 b-0">`)
+			.keydown(evt => { if (evt.key === "Escape") $iptColorNight.blur(); })
+			.change(() => hasColorNight = true);
+		if (options.source?.colorNight != null) { hasColorNight = true; $iptColorNight.val(`#${options.source.colorNight}`); }
+
 		const $iptUrl = $(`<input class="form-control ui-source__ipt-named">`)
 			.keydown(evt => { if (evt.key === "Escape") $iptUrl.blur(); });
 		if (options.source) $iptUrl.val(options.source.url);
@@ -45055,6 +45282,7 @@ class SourceUiUtil {
 				if (convertedBy.length) source.convertedBy = convertedBy;
 
 				if (hasColor) source.color = $iptColor.val().trim().replace(/^#/, "");
+				if (hasColorNight) source.colorNight = $iptColorNight.val().trim().replace(/^#/, "");
 
 				await options.cbConfirm(source, options.mode !== "edit");
 			});
@@ -45095,6 +45323,10 @@ class SourceUiUtil {
 				${$iptColor}
 			</div></div>
 			<div class="ui-source__row mb-2"><div class="ve-col-12 ve-flex-v-center">
+				<span class="mr-2 ui-source__name help" title="A color which should be used when displaying the source abbreviation, when using a &quot;Night&quot; theme. If unspecified, &quot;Color&quot; will be used for both &quot;Day&quot; and &quot;Night&quot; themes.">Color (Night)</span>
+				${$iptColorNight}
+			</div></div>
+			<div class="ui-source__row mb-2"><div class="ve-col-12 ve-flex-v-center">
 				<span class="mr-2 ui-source__name help" title="A link to the original homebrew, e.g. a GM Binder page">Source URL</span>
 				${$iptUrl}
 			</div></div>
@@ -45110,7 +45342,7 @@ class SourceUiUtil {
 
 			${!isEditMode && BrewUtil2.getMetaLookup("sources")?.length ? $$`<div class="ve-flex-vh-center mb-3 mt-3"><span class="ui-source__divider"></span>or<span class="ui-source__divider"></span></div>
 			<div class="ve-flex-vh-center">${$btnUseExisting}</div>` : ""}
-		</div></div>`.appendTo(options.$parent);
+		</div></div>`.appendTo($parent);
 
 		const $selExisting = $$`<select class="form-control input-sm">
 			<option disabled>Select</option>
@@ -45146,7 +45378,7 @@ class SourceUiUtil {
 			<h3 class="ve-text-center">Select a Homebrew Source</h3>
 			<div class="mb-2"><div class="ve-col-12 ve-flex-vh-center">${$selExisting}</div></div>
 			<div class="ve-col-12 ve-flex-vh-center">${$btnBackExisting}${$btnConfirmExisting}</div>
-		</div></div>`.appendTo(options.$parent);
+		</div></div>`.appendTo($parent);
 	}
 }
 
@@ -45296,7 +45528,7 @@ function MixinBaseComponent (Cls) {
 					if (meta == null) continue;
 
 					meta.data = it; // update any existing pointers
-					if (!meta.$wrpRow && !meta.fnRemoveEles) throw new Error(`A "$wrpRow" or a "fnRemoveEles" property is required for deletes!`);
+					if (!meta.wrpRow && !meta.$wrpRow && !meta.fnRemoveEles) throw new Error(`A "wrpRow", "$wrpRow", or a "fnRemoveEles" property is required for deletes!`);
 
 					if (opts.isDiffMode) meta.__hash = this._getCollectionEntityHash(it);
 
@@ -45305,6 +45537,7 @@ function MixinBaseComponent (Cls) {
 			}
 
 			const doRemoveElements = meta => {
+				if (meta.wrpRow) meta.wrpRow.remove();
 				if (meta.$wrpRow) meta.$wrpRow.remove();
 				if (meta.fnRemoveEles) meta.fnRemoveEles();
 			};
@@ -45377,8 +45610,8 @@ function MixinBaseComponent (Cls) {
 					// If the "get new" function returns null, skip rendering this entity
 					if (meta == null) continue;
 
-					if (!opts.isMultiRender && !meta.$wrpRow && !meta.fnRemoveEles) throw new Error(`A "$wrpRow" or a "fnRemoveEles" property is required for deletes!`);
-					if (opts.isMultiRender && meta.some(it => !it.$wrpRow && !it.fnRemoveEles)) throw new Error(`A "$wrpRow" or a "fnRemoveEles" property is required for deletes!`);
+					if (!opts.isMultiRender && !meta.wrpRow && !meta.$wrpRow && !meta.fnRemoveEles) throw new Error(`A "wrpRow", "$wrpRow", or a "fnRemoveEles" property is required for deletes!`);
+					if (opts.isMultiRender && meta.some(it => !it.wrpRow && !it.$wrpRow && !it.fnRemoveEles)) throw new Error(`A "wrpRow", "$wrpRow", or a "fnRemoveEles" property is required for deletes!`);
 
 					if (opts.isDiffMode) meta.__hash = this._getCollectionEntityHash(it);
 
@@ -45387,6 +45620,7 @@ function MixinBaseComponent (Cls) {
 			}
 
 			const doRemoveElements = meta => {
+				if (meta.wrpRow) meta.wrpRow.remove();
 				if (meta.$wrpRow) meta.$wrpRow.remove();
 				if (meta.fnRemoveEles) meta.fnRemoveEles();
 			};
@@ -45417,7 +45651,7 @@ function MixinBaseComponent (Cls) {
 		_detachCollection (prop, namespace = null) {
 			const renderedLookupProp = namespace ? `${namespace}.${prop}` : prop;
 			const rendered = (this.__rendered[renderedLookupProp] = this.__rendered[renderedLookupProp] || {});
-			Object.values(rendered).forEach(it => it.$wrpRow.detach());
+			Object.values(rendered).forEach(it => (it.wrpRow || it.$wrpRow).detach());
 		}
 
 		/**
@@ -45429,7 +45663,7 @@ function MixinBaseComponent (Cls) {
 		_resetCollectionRenders (prop, namespace = null) {
 			const renderedLookupProp = namespace ? `${namespace}.${prop}` : prop;
 			const rendered = (this.__rendered[renderedLookupProp] = this.__rendered[renderedLookupProp] || {});
-			Object.values(rendered).forEach(it => it.$wrpRow.remove());
+			Object.values(rendered).forEach(it => (it.wrpRow || it.$wrpRow).remove());
 			delete this.__rendered[renderedLookupProp];
 		}
 
@@ -45568,10 +45802,12 @@ class RenderableCollectionBase {
 globalThis.RenderableCollectionBase = RenderableCollectionBase;
 
 class _RenderableCollectionGenericRowsSyncAsyncUtils {
-	constructor ({comp, prop, $wrpRows, namespace}) {
+	constructor ({comp, prop, wrpRows, $wrpRows, namespace}) {
 		this._comp = comp;
 		this._prop = prop;
-		this._$wrpRows = $wrpRows;
+		// TODO(jquery) migrate
+		if (wrpRows && $wrpRows) throw new Error(`Only one of "wrpRows" and "$wrpRows" may be specified!`);
+		this._$wrpRows = $wrpRows || $(wrpRows);
 		this._namespace = namespace;
 	}
 
@@ -45673,12 +45909,12 @@ class RenderableCollectionGenericRows extends RenderableCollectionBase {
 	 */
 	constructor (comp, prop, $wrpRows, opts) {
 		super(comp, prop, opts);
-		this._$wrpRows = $wrpRows;
+		this._$wrpRows = $wrpRows instanceof $ ? $wrpRows : $($wrpRows);
 
 		this._utils = new _RenderableCollectionGenericRowsSyncAsyncUtils({
 			comp,
 			prop,
-			$wrpRows,
+			$wrpRows: this._$wrpRows,
 			namespace: opts?.namespace,
 		});
 	}
@@ -45696,13 +45932,15 @@ class RenderableCollectionGenericRows extends RenderableCollectionBase {
 
 		const $wrpRow = this._$getWrpRow()
 			.appendTo(this._$wrpRows);
+		const wrpRow = e_($wrpRow[0]);
 
-		const renderAdditional = this._populateRow({comp, $wrpRow, entity});
+		const renderAdditional = this._populateRow({comp, $wrpRow, wrpRow, entity});
 
 		return {
 			...(renderAdditional || {}),
 			id: entity.id,
 			comp,
+			wrpRow,
 			$wrpRow,
 		};
 	}
@@ -45719,7 +45957,7 @@ class RenderableCollectionGenericRows extends RenderableCollectionBase {
 	 * @abstract
 	 * @return {?object}
 	 */
-	_populateRow ({comp, $wrpRow, entity}) {
+	_populateRow ({comp, $wrpRow, wrpRow, entity}) {
 		throw new Error(`Unimplemented!`);
 	}
 }
@@ -45997,7 +46235,7 @@ class ComponentUiUtil {
 						let proc = raw;
 						proc = proc.slice(1).trim();
 						const mod = fnConvert(proc, fallbackEmpty, opts);
-						const full = `${cur}${mUnary[0]}${mod}`;
+						const full = `${cur ?? 0}${mUnary[0]}${mod}`;
 						component._state[prop] = fnConvert(full, fallbackEmpty, opts) - opts.offset;
 					} else {
 						component._state[prop] = fnConvert(raw, fallbackEmpty, opts) - opts.offset;
@@ -46195,19 +46433,32 @@ class ComponentUiUtil {
 	 * @param component An instance of a class which extends BaseComponent.
 	 * @param prop Component to hook on.
 	 * @param [opts] Options Object.
+	 * @param [opts.ele] Element to use.
+	 * @param [opts.html] HTML to convert to element to use.
+	 * @return {HTMLElementExtended}
+	 */
+	static getIptColor (component, prop, opts) {
+		opts = opts || {};
+
+		const ipt = (opts.ele || e_({outer: opts.html || `<input class="form-control input-xs form-control--minimal ui__ipt-color" type="color">`}))
+			.onn("change", () => component._state[prop] = ipt.val());
+		const hook = () => ipt.val(component._state[prop]);
+		component._addHookBase(prop, hook);
+		hook();
+		return ipt;
+	}
+
+	/**
+	 * @param component An instance of a class which extends BaseComponent.
+	 * @param prop Component to hook on.
+	 * @param [opts] Options Object.
 	 * @param [opts.$ele] Element to use.
 	 * @param [opts.html] HTML to convert to element to use.
 	 * @return {jQuery}
 	 */
 	static $getIptColor (component, prop, opts) {
-		opts = opts || {};
-
-		const $ipt = (opts.$ele || $(opts.html || `<input class="form-control input-xs form-control--minimal ui__ipt-color" type="color">`))
-			.change(() => component._state[prop] = $ipt.val());
-		const hook = () => $ipt.val(component._state[prop]);
-		component._addHookBase(prop, hook);
-		hook();
-		return $ipt;
+		const ipt = this.getIptColor(component, prop, opts);
+		return $(ipt);
 	}
 
 	/**
@@ -46358,10 +46609,10 @@ class ComponentUiUtil {
 
 	static _SearchableDropdownComponent = class extends BaseComponent {
 		static _RenderState = class {
-			$iptDisplay;
-			$iptSearch;
-			$wrpChoices;
-			$wrp;
+			iptDisplay;
+			iptSearch;
+			wrpChoices;
+			wrp;
 
 			constructor (
 				{
@@ -46394,7 +46645,7 @@ class ComponentUiUtil {
 				this.optionMetas
 					.forEach((optionMeta, ix) => {
 						optionMeta.isVisible = optionMeta.searchTerm.includes(searchTerm);
-						optionMeta.$ele.toggleVe(optionMeta.isVisible && (this._fnFilter == null || this._fnFilter(optionMeta.value, ix)));
+						optionMeta.ele.toggleVe(optionMeta.isVisible && (this._fnFilter == null || this._fnFilter(optionMeta.value, ix)));
 					});
 			}
 		};
@@ -46496,53 +46747,54 @@ class ComponentUiUtil {
 			// TODO(Future) implement as required
 		}
 
-		_render_$iptDisplay () {
-			const $iptDisplay = $(`<input class="form-control input-xs form-control--minimal">`)
+		_render_iptDisplay () {
+			const iptDisplay = ee`<input class="form-control input-xs form-control--minimal">`
 				.addClass("ui-sel2__ipt-display")
 				.attr("tabindex", "-1")
-				.click(() => {
+				.onn("click", () => {
 					if (this._state.isDisabled) return;
 
-					this._rdState.$iptSearch.focus().select();
+					this._rdState.iptSearch.focuse().selecte();
 				})
 				.disableSpellcheck();
 
 			this._addHookBase("selected", () => {
 				if (!this._isMultiSelect) {
-					$iptDisplay
+					iptDisplay
 						.toggleClass("italic", this._state.selected == null)
 						.toggleClass("ve-muted", this._state.selected == null);
 
 					if (this._state.selected == null) {
-						$iptDisplay.val(this._displayNullAs || "\u2014");
+						iptDisplay.val(this._displayNullAs || "\u2014");
 						return;
 					}
 
-					$iptDisplay.val(this._fnDisplay ? this._fnDisplay(this._state.selected) : this._state.selected);
+					iptDisplay.val(this._fnDisplay ? this._fnDisplay(this._state.selected) : this._state.selected);
 				}
 
 				// TODO(Future) implement as required
 			})();
 
 			this._addHookBase("isDisabled", () => {
-				$iptDisplay.prop("disabled", !!this._state.isDisabled);
+				iptDisplay.prop("disabled", !!this._state.isDisabled);
 			})();
 
-			return $iptDisplay;
+			return iptDisplay;
 		}
 
 		_handleSearchChange () {
-			this._state.searchTerm = this.constructor._getSearchString(this._rdState.$iptSearch.val());
+			this._state.searchTerm = this.constructor._getSearchString(this._rdState.iptSearch.val());
 		}
 
-		_render_$iptSearch () {
-			const $iptSearch = $(`<input class="form-control input-xs form-control--minimal">`)
-				.addClass("absolute ui-sel2__ipt-search")
-				.keydown(evt => {
+		_render_iptSearch () {
+			const iptSearch = ee`<input class="form-control input-xs form-control--minimal">`
+				.addClass("absolute")
+				.addClass("ui-sel2__ipt-search")
+				.onn("keydown", evt => {
 					if (this._state.isDisabled) return;
 
 					switch (evt.key) {
-						case "Escape": evt.stopPropagation(); return $iptSearch.blur();
+						case "Escape": evt.stopPropagation(); return iptSearch.blure();
 
 						case "ArrowDown": {
 							evt.preventDefault();
@@ -46551,7 +46803,7 @@ class ComponentUiUtil {
 
 							const [visibleMetaOptionFirst] = visibleMetaOptions;
 
-							visibleMetaOptionFirst.$ele.focus();
+							visibleMetaOptionFirst.ele.focuse();
 							break;
 						}
 
@@ -46564,41 +46816,41 @@ class ComponentUiUtil {
 
 							this._addToSelection(visibleMetaOptionFirst.value);
 
-							$iptSearch.blur();
+							iptSearch.blure();
 							break;
 						}
 
 						default: this._handleSearchChangeDebounced();
 					}
 				})
-				.change(() => this._handleSearchChangeDebounced())
-				.click(() => {
+				.onn("change", () => this._handleSearchChangeDebounced())
+				.onn("click", () => {
 					if (this._state.isDisabled) return;
 
-					$iptSearch.focus().select();
+					iptSearch.focuse().selecte();
 				})
 				.disableSpellcheck();
 
 			this._addHookBase("isDisabled", () => {
-				$iptSearch.prop("disabled", !!this._state.isDisabled);
+				iptSearch.prop("disabled", !!this._state.isDisabled);
 			})();
 
-			return $iptSearch;
+			return iptSearch;
 		}
 
-		_render_$wrp ({$iptDisplay, $iptSearch}) {
-			const $wrpChoices = $(`<div class="absolute ui-sel2__wrp-options ve-overflow-y-scroll"></div>`);
+		_render_wrp ({iptDisplay, iptSearch}) {
+			const wrpChoices = ee`<div class="absolute ui-sel2__wrp-options ve-overflow-y-scroll"></div>`;
 
-			const $wrp = $$`<div class="ve-flex relative ui-sel2__wrp w-100">
-				${$iptDisplay}
-				${$iptSearch}
-				${$wrpChoices}
+			const wrp = ee`<div class="ve-flex relative ui-sel2__wrp w-100">
+				${iptDisplay}
+				${iptSearch}
+				${wrpChoices}
 				<div class="ui-sel2__disp-arrow absolute no-events bold"><span class="glyphicon glyphicon-menu-down"></span></div>
 			</div>`;
 
 			return {
-				$wrpChoices,
-				$wrp,
+				wrpChoices,
+				wrp,
 			};
 		}
 
@@ -46608,7 +46860,7 @@ class ComponentUiUtil {
 
 				this._rdState.optionMetas
 					.forEach(metaOption => {
-						metaOption.$ele.remove();
+						metaOption.ele.remove();
 					});
 
 				const procValues = this._isAllowNull
@@ -46620,23 +46872,23 @@ class ComponentUiUtil {
 						const display = v == null ? (this._displayNullAs || "\u2014") : this._fnDisplay ? this._fnDisplay(v) : v;
 						const additionalStyleClasses = this._fnGetAdditionalStyleClasses ? this._fnGetAdditionalStyleClasses(v) : null;
 
-						const $ele = $(`<div class="ve-flex-v-center py-1 px-1 clickable ui-sel2__disp-option ${v == null ? `italic` : ""} ${additionalStyleClasses ? additionalStyleClasses.join(" ") : ""}" tabindex="0">${display}</div>`)
-							.on("click", () => {
+						const ele = ee`<div class="ve-flex-v-center py-1 px-1 clickable ui-sel2__disp-option ${v == null ? `italic` : ""} ${additionalStyleClasses ? additionalStyleClasses.join(" ") : ""}" tabindex="0">${display}</div>`
+							.onn("click", () => {
 								if (this._state.isDisabled) return;
 
 								this._addToSelection(v);
 
-								$(document.activeElement).blur();
+								document.activeElement.blur();
 
 								// Temporarily remove pointer events from the dropdown, so it collapses thanks to its :hover CSS
-								this._rdState.$wrp.addClass("no-events");
-								setTimeout(() => this._rdState.$wrp.removeClass("no-events"), 50);
+								this._rdState.wrp.addClass("no-events");
+								setTimeout(() => this._rdState.wrp.removeClass("no-events"), 50);
 							})
-							.on("keydown", evt => {
+							.onn("keydown", evt => {
 								if (this._state.isDisabled) return;
 
 								switch (evt.key) {
-									case "Escape": evt.stopPropagation(); return $ele.blur();
+									case "Escape": evt.stopPropagation(); return ele.blur();
 
 									case "ArrowDown": {
 										evt.preventDefault();
@@ -46646,7 +46898,7 @@ class ComponentUiUtil {
 
 										const ixCur = visibleMetaOptions.indexOf(out);
 										const nxt = visibleMetaOptions[ixCur + 1];
-										if (nxt) nxt.$ele.focus();
+										if (nxt) nxt.ele.focuse();
 										break;
 									}
 
@@ -46658,26 +46910,27 @@ class ComponentUiUtil {
 
 										const ixCur = visibleMetaOptions.indexOf(out);
 										const prev = visibleMetaOptions[ixCur - 1];
-										if (prev) return prev.$ele.focus();
-										this._rdState.$iptSearch.focus();
+										if (prev) return prev.ele.focuse();
+										this._rdState.iptSearch.focuse();
 										break;
 									}
 
-									case "Enter": {
+									case "Enter":
+									case "Tab": {
 										this._addToSelection(v);
 
-										$ele.blur();
+										ele.blur();
 										break;
 									}
 								}
 							})
-							.appendTo(this._rdState.$wrpChoices);
+							.appendTo(this._rdState.wrpChoices);
 
 						const out = {
 							value: v,
 							isVisible: true,
 							searchTerm: this.constructor._getSearchString(display),
-							$ele,
+							ele,
 						};
 						return out;
 					});
@@ -46688,11 +46941,11 @@ class ComponentUiUtil {
 			this._addHookBase("selected", () => {
 				if (!this._isMultiSelect) {
 					this._rdState.optionMetas
-						.forEach(it => it.$ele.removeClass("active"));
+						.forEach(it => it.ele.removeClass("active"));
 
 					const optionMetaActive = this._rdState.optionMetas
 						.find(optionMeta => MiscUtil.isNearStrictlyEqual(optionMeta.value, this._state.selected));
-					if (optionMetaActive) optionMetaActive.$ele.addClass("active");
+					if (optionMetaActive) optionMetaActive.ele.addClass("active");
 				}
 
 				// TODO(Future) implement as required
@@ -46716,28 +46969,87 @@ class ComponentUiUtil {
 		}
 
 		render () {
-			this._rdState.$iptDisplay = this._render_$iptDisplay();
-			this._rdState.$iptSearch = this._render_$iptSearch();
+			this._rdState.iptDisplay = this._render_iptDisplay();
+			this._rdState.iptSearch = this._render_iptSearch();
 
 			(
 				{
-					$wrpChoices: this._rdState.$wrpChoices,
-					$wrp: this._rdState.$wrp,
-				} = this._render_$wrp({
-					$iptDisplay: this._rdState.$iptDisplay,
-					$iptSearch: this._rdState.$iptSearch,
+					wrpChoices: this._rdState.wrpChoices,
+					wrp: this._rdState.wrp,
+				} = this._render_wrp({
+					iptDisplay: this._rdState.iptDisplay,
+					iptSearch: this._rdState.iptSearch,
 				})
 			);
 
 			this._render_values();
 
 			return {
-				$wrp: this._rdState.$wrp,
-				$iptDisplay: this._rdState.$iptDisplay,
-				$iptSearch: this._rdState.$iptSearch,
+				wrp: this._rdState.wrp,
+				iptDisplay: this._rdState.iptDisplay,
+				iptSearch: this._rdState.iptSearch,
 			};
 		}
 	};
+
+	/**
+	 * A select2-style dropdown.
+	 * @param comp An instance of a class which extends BaseComponent.
+	 * @param prop Component to hook on.
+	 * @param opts Options Object.
+	 * @param opts.values Values to display.
+	 * @param [opts.fnFilter]
+	 * @param [opts.isAllowNull] If null is allowed.
+	 * @param [opts.fnDisplay] Value display function.
+	 * @param [opts.displayNullAs] If null values are allowed, display them as this string.
+	 * @param [opts.fnGetAdditionalStyleClasses] Function which converts an item into CSS classes.
+	 * @param [opts.asMeta] If a meta-object should be returned containing the hook and the select.
+	 * @param [opts.isDisabled] If the selector should be display-only
+	 * @return {HTMLElementExtended}
+	 */
+	static getSelSearchable (
+		comp,
+		prop,
+		{
+			values,
+			fnFilter,
+			isAllowNull,
+			fnDisplay,
+			displayNullAs,
+			fnGetAdditionalStyleClasses,
+			asMeta,
+			isDisabled,
+		} = {},
+	) {
+		const selComp = new this._SearchableDropdownComponent({
+			values,
+			isDisabled,
+			fnFilter,
+
+			isAllowNull,
+			fnDisplay,
+			displayNullAs,
+			fnGetAdditionalStyleClasses,
+		});
+
+		const hk = () => selComp.setSelected(comp._state[prop]);
+		comp._addHookBase(prop, hk)();
+
+		selComp.addHookSelected(() => comp._state[prop] = selComp.getSelected());
+
+		const {wrp, iptDisplay, iptSearch} = selComp.render();
+
+		return asMeta
+			? ({
+				wrp,
+				unhook: () => comp._removeHookBase(prop, hk),
+				iptDisplay,
+				iptSearch,
+				setFnFilter: selComp.setFnFilter.bind(selComp),
+				setValues: selComp.setValues.bind(selComp),
+			})
+			: wrp;
+	}
 
 	/**
 	 * A select2-style dropdown.
@@ -46768,34 +47080,27 @@ class ComponentUiUtil {
 			isDisabled,
 		} = {},
 	) {
-		const selComp = new this._SearchableDropdownComponent({
-			values,
-			isDisabled,
-			fnFilter,
-
-			isAllowNull,
-			fnDisplay,
-			displayNullAs,
-			fnGetAdditionalStyleClasses,
-		});
-
-		const hk = () => selComp.setSelected(comp._state[prop]);
-		comp._addHookBase(prop, hk)();
-
-		selComp.addHookSelected(() => comp._state[prop] = selComp.getSelected());
-
-		const {$wrp, $iptDisplay, $iptSearch} = selComp.render();
-
-		return asMeta
-			? ({
-				$wrp,
-				unhook: () => comp._removeHookBase(prop, hk),
-				$iptDisplay,
-				$iptSearch,
-				setFnFilter: selComp.setFnFilter.bind(selComp),
-				setValues: selComp.setValues.bind(selComp),
-			})
-			: $wrp;
+		const out = ComponentUiUtil.getSelSearchable(
+			comp,
+			prop,
+			{
+				values,
+				fnFilter,
+				isAllowNull,
+				fnDisplay,
+				displayNullAs,
+				fnGetAdditionalStyleClasses,
+				asMeta,
+				isDisabled,
+			},
+		);
+		if (!asMeta) return $(out);
+		return {
+			...out,
+			$wrp: $(out.wrp),
+			$iptDisplay: $(out.iptDisplay),
+			$iptSearch: $(out.iptSearch),
+		};
 	}
 
 	/* -------------------------------------------- */
@@ -47559,6 +47864,7 @@ class ComponentUiUtil {
 				const displayValue = opts.fnDisplay ? opts.fnDisplay(value, ixValueFrozen) : value;
 
 				rowMetas.push({
+					cb: $cb[0],
 					$cb,
 					displayValue,
 					value: value,
@@ -47607,17 +47913,24 @@ class ComponentUiUtil {
 			hkSearch();
 		}
 
+		const $ele = $$`<div class="ve-flex-col w-100 ve-overflow-y-auto min-h-40p">${$eles}</div>`;
+
 		// Always return this as a "meta" object
 		const unhook = () => rowMetas.forEach(it => it.unhook());
 		return {
-			$ele: $$`<div class="ve-flex-col w-100 ve-overflow-y-auto min-h-40p">${$eles}</div>`,
+			ele: $ele[0],
+			$ele: $ele,
+			iptSearch: $iptSearch?.[0],
 			$iptSearch,
 			rowMetas, // Return this to allow for creating custom UI
 			propIsAcceptable,
 			propPulse,
 			unhook,
-			cleanup: () => {
+			cleanup: ({isRetainState = false} = {}) => {
 				unhook();
+
+				if (isRetainState) return;
+
 				// This will trigger a final "pulse"
 				Object.keys(comp._state)
 					.filter(it => it.startsWith(`${prop}__`))
@@ -47683,6 +47996,47 @@ class ComponentUiUtil {
 		return slider.$get();
 	}
 
+	/**
+	 * @param comp An instance of a class which extends BaseComponent.
+	 * @param opts Options Object.
+	 * @param opts.propMin
+	 * @param opts.propMax
+	 * @param opts.propCurMin
+	 * @param [opts.propCurMax]
+	 * @param [opts.fnDisplay] Value display function.
+	 * @param [opts.fnDisplayTooltip]
+	 * @param [opts.sparseValues]
+	 */
+	static getSliderRange (comp, opts) {
+		opts = opts || {};
+		const slider = new ComponentUiUtil.RangeSlider({comp, ...opts});
+		return slider.get();
+	}
+
+	static getSliderNumber (
+		comp,
+		prop,
+		{
+			min,
+			max,
+			step,
+			ele,
+			asMeta,
+		} = {},
+	) {
+		const slider = (ele || ee`<input type="range">`)
+			.onn("change", () => comp._state[prop] = Number(slider.val()));
+
+		if (min != null) slider.attr("min", min);
+		if (max != null) slider.attr("max", max);
+		if (step != null) slider.attr("step", step);
+
+		const hk = comp._addHookBase(prop, () => slider.val(comp._state[prop]));
+		hk();
+
+		return asMeta ? ({slider, unhook: () => comp._removeHookBase(prop, hk)}) : slider;
+	}
+
 	static $getSliderNumber (
 		comp,
 		prop,
@@ -47694,18 +48048,26 @@ class ComponentUiUtil {
 			asMeta,
 		} = {},
 	) {
-		const $slider = ($ele || $(`<input type="range">`))
-			.change(() => comp._state[prop] = Number($slider.val()));
+		const ele = $ele?.length ? $ele[0] : undefined;
 
-		if (min != null) $slider.attr("min", min);
-		if (max != null) $slider.attr("max", max);
-		if (step != null) $slider.attr("step", step);
+		const out = this.getSliderNumber(
+			comp,
+			prop,
+			{
+				min,
+				max,
+				step,
+				ele,
+				asMeta,
+			},
+		);
 
-		const hk = () => $slider.val(comp._state[prop]);
-		comp._addHookBase(prop, hk);
-		hk();
+		if (!asMeta) return $(out);
 
-		return asMeta ? ({$slider, unhook: () => comp._removeHookBase(prop, hk)}) : $slider;
+		return {
+			...out,
+			$slider: $(out.slider),
+		};
 	}
 }
 ComponentUiUtil.RangeSlider = class {
@@ -47791,17 +48153,19 @@ ComponentUiUtil.RangeSlider = class {
 			].filter(Boolean),
 		});
 
+		const onDownWrpTrack = evt => {
+			const thumb = this._getClosestThumb(evt);
+			this._handleMouseDown(evt, thumb);
+		};
 		const wrpTrack = e_({
 			tag: "div",
 			clazz: `ve-flex-v-center w-100 h-100 ui-slidr__wrp-track clickable`,
-			mousedown: evt => {
-				const thumb = this._getClosestThumb(evt);
-				this._handleMouseDown(evt, thumb);
-			},
 			children: [
 				this._dispTrackOuter,
 			],
-		});
+		})
+			.onn("mousedown", evt => onDownWrpTrack(evt))
+			.onn("touchstart", evt => onDownWrpTrack(evt));
 
 		const wrpTop = e_({
 			tag: "div",
@@ -47815,14 +48179,16 @@ ComponentUiUtil.RangeSlider = class {
 		// endregion
 
 		// region Bottom part
+		const onDownWrpPips = evt => {
+			const thumb = this._getClosestThumb(evt);
+			this._handleMouseDown(evt, thumb);
+		};
 		const wrpPips = e_({
 			tag: "div",
 			clazz: `w-100 ve-flex relative clickable h-100 ui-slidr__wrp-pips`,
-			mousedown: evt => {
-				const thumb = this._getClosestThumb(evt);
-				this._handleMouseDown(evt, thumb);
-			},
-		});
+		})
+			.onn("mousedown", evt => onDownWrpPips(evt))
+			.onn("touchstart", evt => onDownWrpPips(evt));
 
 		const wrpBottom = e_({
 			tag: "div",
@@ -47917,7 +48283,7 @@ ComponentUiUtil.RangeSlider = class {
 
 		const wrp = e_({
 			tag: "div",
-			clazz: "ve-flex-col w-100 ui-slidr__wrp",
+			clazz: "ve-flex-col w-100 ui-slidr__wrp ve-touch-action-none",
 			children: [
 				wrpTop,
 				wrpBottom,
@@ -47935,7 +48301,7 @@ ComponentUiUtil.RangeSlider = class {
 	_getDispValue ({isVisible, side}) {
 		return e_({
 			tag: "div",
-			clazz: `ve-overflow-hidden ui-slidr__disp-value no-shrink no-grow ve-flex-vh-center bold no-select ${isVisible ? `ui-slidr__disp-value--visible` : ""} ui-slidr__disp-value--${side}`,
+			clazz: `ve-overflow-hidden ui-slidr__disp-value no-shrink no-grow no-wrap ve-flex-vh-center bold no-select ${isVisible ? `ui-slidr__disp-value--visible` : ""} ui-slidr__disp-value--${side}`,
 		});
 	}
 
@@ -47949,7 +48315,7 @@ ComponentUiUtil.RangeSlider = class {
 	_getThumb () {
 		const thumb = e_({
 			tag: "div",
-			clazz: "ui-slidr__thumb absolute clickable",
+			clazz: "ui-slidr__thumb absolute clickable ve-touch-action-none",
 			mousedown: evt => this._handleMouseDown(evt, thumb),
 		}).attr("draggable", true);
 
@@ -48128,17 +48494,24 @@ ComponentUiUtil.RangeSlider = class {
 
 	static _init () {
 		if (this._isInit) return;
-		document.addEventListener("mousemove", evt => {
+
+		const onMove = evt => {
 			for (const slider of this._ALL_SLIDERS) {
 				slider._handleMouseMove(evt);
 			}
-		});
+		};
 
-		document.addEventListener("mouseup", evt => {
+		const onUp = evt => {
 			for (const slider of this._ALL_SLIDERS) {
 				slider._handleMouseUp(evt);
 			}
-		});
+		};
+
+		document.addEventListener("mousemove", onMove);
+		document.addEventListener("touchmove", onMove);
+
+		document.addEventListener("mouseup", onUp);
+		document.addEventListener("touchend", onUp);
 	}
 };
 ComponentUiUtil.RangeSlider._isInit = false;
