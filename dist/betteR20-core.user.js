@@ -2,7 +2,7 @@
 // @name         betteR20-beta-core-death-jumpagate-import
 // @namespace    https://5e.tools/
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      1.35.186.14jp
+// @version      1.35.186.14jq
 // @updateURL    https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/betteR20-core.meta.js
 // @downloadURL  https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/betteR20-core.user.js
 // @description  Enhance your Roll20 experience
@@ -30,7 +30,7 @@ ART_HANDOUT = "betteR20-art";
 CONFIG_HANDOUT = "betteR20-config";
 
 B20_NAME = `core`;
-B20_VERSION = `1.35.186.14jp`;
+B20_VERSION = `1.35.186.14jq`;
 B20_REPO_URL = `https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/`;
 
 // TODO automate to use mirror if main site is unavailable
@@ -284,7 +284,7 @@ function baseUtil () {
 							in<span style="color: orange; font-family: monospace"> 5etools &gt; better20 &gt; #testing </span>thread
 						</p>
 					</h1>
-					<p>This version contains following changes<br><code>--Jumpgate Is Here?</code><br>Enables jumpgate support for some items<br>1.35.186.14jk - The Request<br>- Allow set default token via link<br>1.35.186.14jl - The Fourth Bar that breaks everything<br>- Fix token editing<br>1.35.186.14jm - 2024?<br>- Disable override for 2024, fixing some importing maybe, also try fix for module importer<br>1.35.186.14jn - Data?<br>- Update Data<br>1.35.186.14jo - HTML IS EVIL?<br>- Fix Html<br>1.35.186.14jp - DATA AND LIBS?<br>- DATA AND LIBS<br><br></p>
+					<p>This version contains following changes<br><code>--Jumpgate Is Here?</code><br>Enables jumpgate support for some items<br>1.35.186.14jk - The Request<br>- Allow set default token via link<br>1.35.186.14jl - The Fourth Bar that breaks everything<br>- Fix token editing<br>1.35.186.14jm - 2024?<br>- Disable override for 2024, fixing some importing maybe, also try fix for module importer<br>1.35.186.14jn - Data?<br>- Update Data<br>1.35.186.14jo - HTML IS EVIL?<br>- Fix Html<br>1.35.186.14jp - DATA AND LIBS?<br>- DATA AND LIBS<br>1.35.186.14jq - Map Importer?<br>- Fix Map Importer. Thank you @helenclarko<br><br></p>
 				</div>
 			`);
 			}, 6000);
