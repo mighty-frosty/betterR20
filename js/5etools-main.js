@@ -712,6 +712,7 @@ const betteR205etoolsMain = function () {
 
 			v.view.bindCompendiumDropTarget = function () {
 				if (this.popoutWindow) return;
+				if (!this.$compendiumDropTarget) return;
 				const e = this;
 
 				this.$compendiumDropTarget.droppable({
@@ -924,8 +925,11 @@ const betteR205etoolsMain = function () {
 			throw new Error("No character sheet selected!");
 		}
 		const firstSheet = d20.journal.customSheets ?? sheets.first();
+		// Modern Roll20 uses 'ogl5e' for the OGL sheet (works in both 2014 and 2024 games)
+		if (d20.journal.characterSheetsManager.sheets.ogl5e) d20plus.sheet = "ogl";
 		if (d20.journal.characterSheetsManager.sheets.shaped_d20) d20plus.sheet = "shaped";
 		if (d20.journal.characterSheetsManager.sheets.DnD5e_Character_Sheet) d20plus.sheet = "community";
+		// Note: dnd2024byroll20 uses a different architecture (relay system) - not yet supported
 		d20plus.ut.log(`Switched Character Sheet Template to ${d20plus.sheet}`);
 	};
 	// Return Initiative Tracker template with formulas
