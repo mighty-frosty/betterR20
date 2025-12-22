@@ -2052,7 +2052,8 @@
 						}
 					]
 				}
-			]
+			],
+			"hasFluffImages": true
 		},
 		{
 			"name": "Boon of Skill",
@@ -3079,24 +3080,6 @@
 						"When you make the extra attack of the {@itemProperty L|XPHB|Light} property, you can add your ability modifier to the damage of the extra attack if that attack is with a crossbow that has the {@itemProperty L|XPHB|Light} property and you aren't already adding that modifier to the damage."
 					]
 				}
-			]
-		},
-		{
-			"name": "Cruel",
-			"source": "TDCSR",
-			"page": 190,
-			"entries": [
-				"The challenges and struggles you've faced throughout your life have led you to delight in inflicting pain and anguish upon others. You gain a number of cruelty dice equal to your proficiency bonus. Your cruelty dice are {@dice d6|d6s}. You can roll only one cruelty die per turn, and a cruelty die is spent when you roll it.",
-				"You can roll a cruelty die under any of the following circumstances, with the indicated result:",
-				{
-					"type": "list",
-					"items": [
-						"When you deal damage to a creature, spend one cruelty die to deal extra damage to the creature equal to the roll.",
-						"When you score a critical hit, spend one cruelty die to gain temporary hit points equal to the roll.",
-						"When you make a Charisma ({@skill Intimidation}) check, spend one cruelty die and add the roll to your check."
-					]
-				},
-				"You regain all spent cruelty dice when you finish a {@quickref resting|PHB|2|0|long rest}."
 			]
 		},
 		{
@@ -4389,29 +4372,6 @@
 			]
 		},
 		{
-			"name": "Flash Recall",
-			"source": "TDCSR",
-			"page": 190,
-			"prerequisite": [
-				{
-					"spellcastingPrepared": true
-				}
-			],
-			"entries": [
-				"You've developed the ability to instantly recall an unprepared spell in moments of sudden necessity.",
-				"As a bonus action, you prepare a spell of 1st level or higher from your spellbook (if you're a {@class wizard}) or from your class spell list (if you're not a {@class wizard}). This spell must be of a level for which you have spell slots, and it replaces another spell of an equal or higher level that you had previously prepared.",
-				"Once you use this feat to recall a spell, you can't do so again until you complete a {@quickref resting|PHB|2|0|short or long rest}.",
-				{
-					"type": "inset",
-					"name": "Rules Tip: Prepared Spells",
-					"page": 190,
-					"entries": [
-						"The Flash Recall feat requires you to be a spellcaster who prepares spells. This includes classes such as {@class cleric||clerics}, {@class druid||druids}, and {@class paladin||paladins}, who prepare spells each day from their class list, and {@class wizard||wizards}, who prepare spells from a spellbook. Classes such as {@class bard||bards} and {@class sorcerer||sorcerers}, who inherently know their spells rather than preparing them, can't benefit from this feat."
-					]
-				}
-			]
-		},
-		{
 			"name": "Fury of the Frost Giant",
 			"source": "BGG",
 			"page": 17,
@@ -4848,7 +4808,8 @@
 						"When you use the Magical Detection benefit of your {@feat Mark of Detection|EFA} feat to cast {@spell See Invisibility|XPHB} without a spell slot, you can choose one creature you can see within 30 feet of yourself. That creature also gains the benefits of the spell for its duration."
 					]
 				}
-			]
+			],
+			"hasFluffImages": true
 		},
 		{
 			"name": "Greater Mark of Finding",
@@ -5047,7 +5008,7 @@
 				{
 					"level": 4,
 					"feat": [
-						"mark of passage|efa"
+						"mark of making|efa"
 					]
 				}
 			],
@@ -5076,12 +5037,13 @@
 				},
 				{
 					"type": "entries",
-					"name": "Improved Finding",
+					"name": "Improved Making",
 					"entries": [
 						"When you use the Spellsmith benefit of your {@feat Mark of Making|EFA} feat to cast {@spell Magic Weapon|XPHB} without a spell slot, you cast the spell as its level 3 version."
 					]
 				}
-			]
+			],
+			"hasFluffImages": true
 		},
 		{
 			"name": "Greater Mark of Passage",
@@ -5262,7 +5224,8 @@
 						"When you use the Shape Shadows benefit of your {@feat Mark of Shadow|EFA} feat to cast {@spell Invisibility|XPHB} without a spell slot, you cast the spell as its level 3 version."
 					]
 				}
-			]
+			],
+			"hasFluffImages": true
 		},
 		{
 			"name": "Greater Mark of Storm",
@@ -7196,7 +7159,8 @@
 						}
 					]
 				}
-			]
+			],
+			"hasFluffImages": true
 		},
 		{
 			"name": "Mark of Finding",
@@ -7814,7 +7778,8 @@
 						}
 					]
 				}
-			]
+			],
+			"hasFluffImages": true
 		},
 		{
 			"name": "Mark of Passage",
@@ -8306,7 +8271,8 @@
 						}
 					]
 				}
-			]
+			],
+			"hasFluffImages": true
 		},
 		{
 			"name": "Mark of Storm",
@@ -8908,34 +8874,6 @@
 					"name": "Encouraging Song",
 					"entries": [
 						"As you finish a {@variantrule Short Rest|XPHB|Short} or {@variantrule Long Rest|XPHB}, you can play a song on a {@item Musical Instrument|XPHB} with which you have proficiency and give {@variantrule Heroic Inspiration|XPHB} to allies who hear the song. The number of allies you can affect in this way equals your {@variantrule Proficiency|XPHB|Proficiency Bonus}."
-					]
-				}
-			]
-		},
-		{
-			"name": "Mystic Conflux",
-			"source": "TDCSR",
-			"page": 190,
-			"additionalSpells": [
-				{
-					"innate": {
-						"_": {
-							"daily": {
-								"1e": [
-									"identify"
-								]
-							}
-						}
-					}
-				}
-			],
-			"entries": [
-				"You possess an intuitive understanding of the way magic ebbs and flows within enchanted items. Such items attune easily to you, and you are able to sound out their secrets. You gain the following benefits:",
-				{
-					"type": "list",
-					"items": [
-						"You can attune to up to four magic items at once.",
-						"You can cast the {@spell identify} spell without expending a spell slot or material components. You must finish a {@quickref resting|PHB|2|0|long rest} before you can do so again."
 					]
 				}
 			]
@@ -9837,26 +9775,6 @@
 					"name": "Radiant Strike",
 					"entries": [
 						"When you make a damage roll that deals Radiant damage, you can cause one Huge or smaller creature taking the damage to have the {@condition Prone|XPHB} condition. Once you use this benefit, you can't use it again until you finish a {@variantrule Short Rest|XPHB|Short} or {@variantrule Long Rest|XPHB}."
-					]
-				}
-			]
-		},
-		{
-			"name": "Remarkable Recovery",
-			"source": "TDCSR",
-			"page": 190,
-			"ability": [
-				{
-					"con": 1
-				}
-			],
-			"entries": [
-				"Your body has the ability to recover quickly from terrible injuries, and is unusually receptive to healing magic. You gain the following benefits:",
-				{
-					"type": "list",
-					"items": [
-						"When you are successfully stabilized while dying, you regain hit points equal to your Constitution modifier (minimum of 1).",
-						"Whenever you regain hit points as a result of a spell, potion, or class feature (but not this feat), you regain additional hit points equal to your Constitution modifier (minimum of 1)."
 					]
 				}
 			]
@@ -11517,29 +11435,6 @@
 			]
 		},
 		{
-			"name": "Spelldriver",
-			"source": "TDCSR",
-			"page": 190,
-			"prerequisite": [
-				{
-					"level": 11,
-					"spellcasting2020": true
-				}
-			],
-			"entries": [
-				"Through intense focus, training, and dedication, you've harnessed the techniques of rapid spellcasting.",
-				"When you use your bonus action to cast a spell of 1st level or higher, you can also use your action to cast another spell of 1st level or higher. However, if you cast two or more spells in a single turn, only one of them can be 3rd level or higher.",
-				{
-					"type": "inset",
-					"name": "Rules Tip: Casting Multiple Spells",
-					"page": 190,
-					"entries": [
-						"Normally, when you cast a spell as a bonus action, you can't use your action to also cast a spell that turn unless that spell is a cantrip\u2014{@note see {@book PHB p202|PHB|10|Bonus Action}.} The Spelldriver feat removes that restriction, but the focus necessary to channel multiple spells in the same round still limits the overall power of those spells."
-					]
-				}
-			]
-		},
-		{
 			"name": "Spellfire Adept",
 			"source": "FRHoF",
 			"page": 41,
@@ -11859,6 +11754,170 @@
 						"The saving throw DC for these effects equals 8 + your proficiency bonus + your Strength or Constitution modifier.",
 						"You can use this feat a number of times equal to your proficiency bonus, and you regain all expended uses when you finish a long rest."
 					]
+				}
+			],
+			"_versions": [
+				{
+					"name": "Strike of the Giants; Cloud",
+					"source": "BGG",
+					"_mod": {
+						"entries": [
+							{
+								"mode": "replaceArr",
+								"replace": {
+									"index": 0
+								},
+								"items": [
+									"You have absorbed primeval magic that gives you an echo of the might of giants. Once per turn, when you hit a target with a melee weapon attack or a ranged weapon attack using a thrown weapon, you can imbue the attack with an additional effect:"
+								]
+							},
+							{
+								"mode": "removeArr",
+								"names": [
+									"Fire Strike",
+									"Frost Strike",
+									"Hill Strike",
+									"Stone Strike",
+									"Storm Strike"
+								]
+							}
+						]
+					}
+				},
+				{
+					"name": "Strike of the Giants; Fire",
+					"source": "BGG",
+					"_mod": {
+						"entries": [
+							{
+								"mode": "replaceArr",
+								"replace": {
+									"index": 0
+								},
+								"items": [
+									"You have absorbed primeval magic that gives you an echo of the might of giants. Once per turn, when you hit a target with a melee weapon attack or a ranged weapon attack using a thrown weapon, you can imbue the attack with an additional effect:"
+								]
+							},
+							{
+								"mode": "removeArr",
+								"names": [
+									"Cloud Strike",
+									"Frost Strike",
+									"Hill Strike",
+									"Stone Strike",
+									"Storm Strike"
+								]
+							}
+						]
+					}
+				},
+				{
+					"name": "Strike of the Giants; Frost",
+					"source": "BGG",
+					"_mod": {
+						"entries": [
+							{
+								"mode": "replaceArr",
+								"replace": {
+									"index": 0
+								},
+								"items": [
+									"You have absorbed primeval magic that gives you an echo of the might of giants. Once per turn, when you hit a target with a melee weapon attack or a ranged weapon attack using a thrown weapon, you can imbue the attack with an additional effect:"
+								]
+							},
+							{
+								"mode": "removeArr",
+								"names": [
+									"Cloud Strike",
+									"Fire Strike",
+									"Hill Strike",
+									"Stone Strike",
+									"Storm Strike"
+								]
+							}
+						]
+					}
+				},
+				{
+					"name": "Strike of the Giants; Hill",
+					"source": "BGG",
+					"_mod": {
+						"entries": [
+							{
+								"mode": "replaceArr",
+								"replace": {
+									"index": 0
+								},
+								"items": [
+									"You have absorbed primeval magic that gives you an echo of the might of giants. Once per turn, when you hit a target with a melee weapon attack or a ranged weapon attack using a thrown weapon, you can imbue the attack with an additional effect:"
+								]
+							},
+							{
+								"mode": "removeArr",
+								"names": [
+									"Cloud Strike",
+									"Fire Strike",
+									"Frost Strike",
+									"Stone Strike",
+									"Storm Strike"
+								]
+							}
+						]
+					}
+				},
+				{
+					"name": "Strike of the Giants; Stone",
+					"source": "BGG",
+					"_mod": {
+						"entries": [
+							{
+								"mode": "replaceArr",
+								"replace": {
+									"index": 0
+								},
+								"items": [
+									"You have absorbed primeval magic that gives you an echo of the might of giants. Once per turn, when you hit a target with a melee weapon attack or a ranged weapon attack using a thrown weapon, you can imbue the attack with an additional effect:"
+								]
+							},
+							{
+								"mode": "removeArr",
+								"names": [
+									"Cloud Strike",
+									"Fire Strike",
+									"Frost Strike",
+									"Hill Strike",
+									"Storm Strike"
+								]
+							}
+						]
+					}
+				},
+				{
+					"name": "Strike of the Giants; Storm",
+					"source": "BGG",
+					"_mod": {
+						"entries": [
+							{
+								"mode": "replaceArr",
+								"replace": {
+									"index": 0
+								},
+								"items": [
+									"You have absorbed primeval magic that gives you an echo of the might of giants. Once per turn, when you hit a target with a melee weapon attack or a ranged weapon attack using a thrown weapon, you can imbue the attack with an additional effect:"
+								]
+							},
+							{
+								"mode": "removeArr",
+								"names": [
+									"Cloud Strike",
+									"Fire Strike",
+									"Frost Strike",
+									"Hill Strike",
+									"Stone Strike"
+								]
+							}
+						]
+					}
 				}
 			]
 		},
@@ -12664,33 +12723,6 @@
 			]
 		},
 		{
-			"name": "Thrown Arms Master",
-			"source": "TDCSR",
-			"page": 191,
-			"ability": [
-				{
-					"choose": {
-						"from": [
-							"str",
-							"dex"
-						],
-						"amount": 1
-					}
-				}
-			],
-			"entries": [
-				"You've honed your ability to lob weaponry into the fray, including weapons not meant for ranged combat. You gain the following benefits:",
-				{
-					"type": "list",
-					"items": [
-						"Simple and martial melee weapons without the thrown property have the {@itemProperty T|PHB|thrown} property for you. One-handed weapons have a normal range of 20 feet and a long range of 60 feet, while two-handed weapons have a normal range of 15 feet and a long range of 30 feet.",
-						"Weapons that already have the {@itemProperty T|PHB|thrown} property increase their short range by 20 feet and their long range by 40 feet for you.",
-						"When you miss with a thrown weapon attack using a light weapon, the weapon returns to your grasp like a boomerang at the end of your turn, unless something prevents it from returning. You can catch and stow as many weapons as you threw in this way."
-					]
-				}
-			]
-		},
-		{
 			"name": "Thrown Weapon Fighting",
 			"source": "XPHB",
 			"page": 210,
@@ -13002,24 +13034,6 @@
 						}
 					]
 				}
-			]
-		},
-		{
-			"name": "Vital Sacrifice",
-			"source": "TDCSR",
-			"page": 191,
-			"entries": [
-				"You've learned secrets of {@variantrule hemocraft|TDCSR} that grant you esoteric power at the price of your own life force. As a bonus action, you can choose to take {@damage 1d6} necrotic damage to gain a blood boon. Your blood boon lasts for 1 hour or until expended.",
-				"You can expend this blood boon to gain one of the following benefits:",
-				{
-					"type": "list",
-					"items": [
-						"When you make an attack roll, you roll {@dice 1d6} and add it to the total.",
-						"When you hit with an attack or spell, you deal an additional {@damage 2d6} necrotic damage.",
-						"When you cause a creature to make a Strength, Dexterity, or Constitution {@quickref saving throws|PHB|2|1|saving throw}, roll a {@dice d4} and reduce their save by the amount rolled."
-					]
-				},
-				"The damage you take to gain a blood boon can't be reduced in any way."
 			]
 		},
 		{

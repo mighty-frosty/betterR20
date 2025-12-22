@@ -2,7 +2,7 @@
 // @name         betteR20-beta-core-death-jumpagate-import
 // @namespace    https://5e.tools/
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      1.35.186.14jq
+// @version      1.35.186.14jr
 // @updateURL    https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/betteR20-core.meta.js
 // @downloadURL  https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/betteR20-core.user.js
 // @description  Enhance your Roll20 experience
@@ -30,7 +30,7 @@ ART_HANDOUT = "betteR20-art";
 CONFIG_HANDOUT = "betteR20-config";
 
 B20_NAME = `core`;
-B20_VERSION = `1.35.186.14jq`;
+B20_VERSION = `1.35.186.14jr`;
 B20_REPO_URL = `https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/`;
 
 // TODO automate to use mirror if main site is unavailable
@@ -284,7 +284,7 @@ function baseUtil () {
 							in<span style="color: orange; font-family: monospace"> 5etools &gt; better20 &gt; #testing </span>thread
 						</p>
 					</h1>
-					<p>This version contains following changes<br><code>--Jumpgate Is Here?</code><br>Enables jumpgate support for some items<br>1.35.186.14jk - The Request<br>- Allow set default token via link<br>1.35.186.14jl - The Fourth Bar that breaks everything<br>- Fix token editing<br>1.35.186.14jm - 2024?<br>- Disable override for 2024, fixing some importing maybe, also try fix for module importer<br>1.35.186.14jn - Data?<br>- Update Data<br>1.35.186.14jo - HTML IS EVIL?<br>- Fix Html<br>1.35.186.14jp - DATA AND LIBS?<br>- DATA AND LIBS<br>1.35.186.14jq - Map Importer?<br>- Fix Map Importer. Thank you @helenclarko<br><br></p>
+					<p>This version contains following changes<br>1.35.186.14jq - Map Importer?<br>- Fix Map Importer. Thank you @helenclarko<br>1.35.186.14jr - Fix data error?<br>- Fix Import Error<br><br></p>
 				</div>
 			`);
 			}, 6000);
@@ -28279,9 +28279,9 @@ const betteR20Core = function () {
 
 			d20plus.engine.enhanceMarkdown();
 			d20plus.engine.addProFeatures();
-			//d20plus.engine.enhanceMouseDown();
-			//d20plus.engine.enhanceMouseMove();
-			//d20plus.engine.enhanceStatusEffects();
+			// d20plus.engine.enhanceMouseDown();
+			// d20plus.engine.enhanceMouseMove();
+			// d20plus.engine.enhanceStatusEffects();
 			// It doesn't work with current version of roll20
 			// d20plus.engine.addLineCutterTool();
 			d20plus.ui.addHtmlHeader();
@@ -28289,13 +28289,13 @@ const betteR20Core = function () {
 			d20plus.art.initArtFromUrlButtons();
 			if (window.is_gm) {
 				d20plus.journal.addJournalCommands();
-				//d20plus.menu.addSelectedTokenCommands();
+				// d20plus.menu.addSelectedTokenCommands();
 				d20plus.art.addCustomArtSearch();
-				//d20plus.engine.addTokenHover();
+				// d20plus.engine.addTokenHover();
 				d20plus.engine.enhanceTransmogrifier();
 				d20plus.engine.removeLinkConfirmation();
 				d20plus.artBrowse.initRepoBrowser();
-				//d20plus.ui.addQuickUiGm();
+				// d20plus.ui.addQuickUiGm();
 				d20plus.anim.animatorTool.init();
 				// Better20 jukebox tab
 				d20plus.remoteLibre.init();
@@ -28303,14 +28303,14 @@ const betteR20Core = function () {
 			}
 			d20plus.engine.enhancePathWidths();
 			// d20plus.ut.fix3dDice(); // FIXME(165) re-enable when we have a better solution
-			//d20plus.engine.addLayers();
-			//d20plus.weather.addWeather();
-			//d20plus.engine.repairPrototypeMethods();
-			//d20plus.engine.disableFrameRecorder();
-			//d20plus.engine.fixPolygonTool();
+			// d20plus.engine.addLayers();
+			// d20plus.weather.addWeather();
+			// d20plus.engine.repairPrototypeMethods();
+			// d20plus.engine.disableFrameRecorder();
+			// d20plus.engine.fixPolygonTool();
 			// d20plus.ut.fixSidebarLayout();
 			d20plus.chat.enhanceChat();
-			//d20plus.ba.initBetterActions();
+			// d20plus.ba.initBetterActions();
 
 			// apply config
 			if (window.is_gm) {
@@ -28827,7 +28827,7 @@ Parser.raceCreatureTypesToFull = function (creatureTypes) {
 };
 
 Parser.crToXp = function (cr, {isDouble = false} = {}) {
-	if (cr != null && cr.xp) return (isDouble ? cr.xp * 2 : cr.xp).toLocaleString();
+	if (cr != null && cr.xp) return (isDouble ? cr.xp * 2 : cr.xp).toLocaleStringVe();
 
 	const toConvert = cr ? (cr.cr || cr) : null;
 	if (toConvert === "Unknown" || toConvert == null || !Parser.XP_CHART_ALT[toConvert]) return "Unknown";
@@ -28835,7 +28835,7 @@ Parser.crToXp = function (cr, {isDouble = false} = {}) {
 	//   Exceptions, such as MM's Frog and Sea Horse, have their XP set to 0 on the creature
 	if (toConvert === "0") return "10";
 	const xp = Parser.XP_CHART_ALT[toConvert];
-	return (isDouble ? 2 * xp : xp).toLocaleString();
+	return (isDouble ? 2 * xp : xp).toLocaleStringVe();
 };
 
 Parser.crToXpNumber = function (cr) {
@@ -29209,7 +29209,7 @@ Parser._moneyToFull = function (it, prop, propMult, opts = {isShortForm: false, 
 	if (it[prop] == null && it[propMult] == null) return "";
 	if (it[prop] != null) {
 		const {coin, mult} = Parser.getCurrencyAndMultiplier(it[prop], it.currencyConversion);
-		return `${(it[prop] * mult).toLocaleString(undefined, {maximumFractionDigits: 5})}${opts.isSmallUnits ? `<span class="small ml-1">${coin}</span>` : ` ${coin}`}`;
+		return `${(it[prop] * mult).toLocaleStringVe()}${opts.isSmallUnits ? `<span class="small ml-1">${coin}</span>` : ` ${coin}`}`;
 	} else if (it[propMult] != null) return opts.isShortForm ? `×${it[propMult]}` : `base value ×${it[propMult]}`;
 	return "";
 };
@@ -29237,7 +29237,7 @@ Parser._moneyToFullMultiCurrency = function (it, prop, propMult, {isShortForm, m
 		return [...conversionTable]
 			.reverse()
 			.filter(meta => simplified[meta.coin])
-			.map(meta => `${simplified[meta.coin].toLocaleString(undefined, {maximumFractionDigits: 5})} ${styleHint === "classic" ? meta.coin : meta.coin.toUpperCase()}`)
+			.map(meta => `${simplified[meta.coin].toLocaleStringVe()} ${styleHint === "classic" ? meta.coin : meta.coin.toUpperCase()}`)
 			.join(", ");
 	}
 
@@ -29337,7 +29337,7 @@ Parser.getDisplayCurrency = function (currency, {isDisplayEmpty = false, styleHi
 	return [...Parser.COIN_ABVS]
 		.reverse()
 		.filter(abv => isDisplayEmpty ? currency[abv] != null : currency[abv])
-		.map(abv => `${currency[abv].toLocaleString()} ${styleHint === "classic" ? abv : abv.toUpperCase()}`)
+		.map(abv => `${currency[abv].toLocaleStringVe()} ${styleHint === "classic" ? abv : abv.toUpperCase()}`)
 		.join(", ");
 };
 
@@ -29353,7 +29353,7 @@ Parser.itemWeightToFull = function (item, isShortForm) {
 		if (vulgarGlyph) return `${integerPart || ""}${vulgarGlyph} lb.${(item.weightNote ? ` ${item.weightNote}` : "")}`;
 
 		// Fall back on decimal pounds or ounces
-		return `${(item.weight < 1 ? item.weight * 16 : item.weight).toLocaleString(undefined, {maximumFractionDigits: 5})} ${item.weight < 1 ? "oz" : "lb"}.${(item.weightNote ? ` ${item.weightNote}` : "")}`;
+		return `${(item.weight < 1 ? item.weight * 16 : item.weight).toLocaleStringVe()} ${item.weight < 1 ? "oz" : "lb"}.${(item.weightNote ? ` ${item.weightNote}` : "")}`;
 	}
 	if (item.weightMult) return isShortForm ? `×${item.weightMult}` : `base weight ×${item.weightMult}`;
 	return "";
@@ -29407,7 +29407,6 @@ Parser.ITM_PROP__TWO_HANDED = "2H";
 Parser.ITM_PROP__AMMUNITION = "A";
 Parser.ITM_PROP__AMMUNITION_FUTURISTIC = "AF|DMG";
 Parser.ITM_PROP__BURST_FIRE = "BF|DMG";
-Parser.ITM_PROP__EXTENDED_REACH = "ER|TDCSR";
 Parser.ITM_PROP__FINESSE = "F";
 Parser.ITM_PROP__HEAVY = "H";
 Parser.ITM_PROP__LIGHT = "L";
@@ -29418,7 +29417,6 @@ Parser.ITM_PROP__RELOAD = "RLD|DMG";
 Parser.ITM_PROP__SPECIAL = "S";
 Parser.ITM_PROP__THROWN = "T";
 Parser.ITM_PROP__VERSATILE = "V";
-Parser.ITM_PROP__VESTIGE_OF_DIVERGENCE = "Vst|TDCSR";
 
 Parser.ITM_PROP__ODND_TWO_HANDED = "2H|XPHB";
 Parser.ITM_PROP__ODND_AMMUNITION = "A|XPHB";
@@ -29481,7 +29479,6 @@ Parser.ITM_TYP__ADVENTURING_GEAR = "G";
 Parser.ITM_TYP__GAMING_SET = "GS";
 Parser.ITM_TYP__GENERIC_VARIANT = "GV|DMG";
 Parser.ITM_TYP__HEAVY_ARMOR = "HA";
-Parser.ITM_TYP__ILLEGAL_DRUG = "IDG|TDCSR";
 Parser.ITM_TYP__INSTRUMENT = "INS";
 Parser.ITM_TYP__LIGHT_ARMOR = "LA";
 Parser.ITM_TYP__MELEE_WEAPON = "M";
@@ -31674,7 +31671,6 @@ Parser.SRC_DoSI = "DoSI";
 Parser.SRC_DSotDQ = "DSotDQ";
 Parser.SRC_KftGV = "KftGV";
 Parser.SRC_BGG = "BGG";
-Parser.SRC_TDCSR = "TDCSR";
 Parser.SRC_PaBTSO = "PaBTSO";
 Parser.SRC_PAitM = "PAitM";
 Parser.SRC_SatO = "SatO";
@@ -31706,6 +31702,7 @@ Parser.SRC_ABH = "ABH";
 Parser.SRC_NF = "NF";
 Parser.SRC_LFL = "LFL";
 Parser.SRC_EFA = "EFA";
+Parser.SRC_FFotR = "FFotR";
 Parser.SRC_TD = "TD";
 Parser.SRC_SCREEN = "Screen";
 Parser.SRC_SCREEN_WILDERNESS_KIT = "ScreenWildernessKit";
@@ -31880,7 +31877,6 @@ Parser.SOURCE_JSON_TO_FULL[Parser.SRC_DoSI] = "Dragons of Stormwreck Isle";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_DSotDQ] = "Dragonlance: Shadow of the Dragon Queen";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_KftGV] = "Keys from the Golden Vault";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_BGG] = "Bigby Presents: Glory of the Giants";
-Parser.SOURCE_JSON_TO_FULL[Parser.SRC_TDCSR] = "Tal'Dorei Campaign Setting Reborn";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_PaBTSO] = "Phandelver and Below: The Shattered Obelisk";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_PAitM] = "Planescape: Adventures in the Multiverse";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_SatO] = "Sigil and the Outlands";
@@ -31912,6 +31908,7 @@ Parser.SOURCE_JSON_TO_FULL[Parser.SRC_ABH] = "Astarion's Book of Hungers";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_NF] = "Netheril's Fall";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_LFL] = "Lorwyn: First Light";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_EFA] = "Eberron: Forge of the Artificer";
+Parser.SOURCE_JSON_TO_FULL[Parser.SRC_FFotR] = "Fated Flight of the Recluse";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_TD] = "Tarot Deck";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_SCREEN] = "Dungeon Master's Screen";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_SCREEN_WILDERNESS_KIT] = "Dungeon Master's Screen: Wilderness Kit";
@@ -32061,7 +32058,6 @@ Parser.SOURCE_JSON_TO_ABV[Parser.SRC_DoSI] = "DoSI";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_DSotDQ] = "DSotDQ";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_KftGV] = "KftGV";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_BGG] = "BGG";
-Parser.SOURCE_JSON_TO_ABV[Parser.SRC_TDCSR] = "TDCSR";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_PaBTSO] = "PaBTSO";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_PAitM] = "PAitM";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_SatO] = "SatO";
@@ -32093,6 +32089,7 @@ Parser.SOURCE_JSON_TO_ABV[Parser.SRC_ABH] = "ABH";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_NF] = "NF";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_LFL] = "LFL";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_EFA] = "EFA";
+Parser.SOURCE_JSON_TO_ABV[Parser.SRC_FFotR] = "FFotR";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_TD] = "TD";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_SCREEN] = "Scr'14";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_SCREEN_WILDERNESS_KIT] = "ScrWild";
@@ -32241,7 +32238,6 @@ Parser.SOURCE_JSON_TO_DATE[Parser.SRC_DoSI] = "2022-07-31";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_DSotDQ] = "2022-11-22";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_KftGV] = "2023-02-21";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_BGG] = "2023-08-15";
-Parser.SOURCE_JSON_TO_DATE[Parser.SRC_TDCSR] = "2022-01-18";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_PaBTSO] = "2023-09-19";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_PAitM] = "2023-10-17";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_SatO] = "2023-10-17";
@@ -32273,6 +32269,7 @@ Parser.SOURCE_JSON_TO_DATE[Parser.SRC_ABH] = "2025-11-11";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_NF] = "2025-11-11";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_LFL] = "2025-11-18";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_EFA] = "2025-12-09";
+Parser.SOURCE_JSON_TO_DATE[Parser.SRC_FFotR] = "2025-12-09";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_TD] = "2022-05-24";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_SCREEN] = "2015-01-20";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_SCREEN_WILDERNESS_KIT] = "2020-11-17";
@@ -32427,7 +32424,7 @@ Parser.SOURCES_ADVENTURES = new Set([
 	Parser.SRC_DrDe_DotS,
 	Parser.SRC_HotB,
 	Parser.SRC_WttHC,
-
+	Parser.SRC_FFotR,
 	Parser.SRC_AWM,
 ]);
 Parser.SOURCES_CORE_SUPPLEMENTS = new Set(Object.keys(Parser.SOURCE_JSON_TO_FULL).filter(it => !Parser.SOURCES_ADVENTURES.has(it)));
@@ -32480,18 +32477,31 @@ Parser.SOURCES_NON_STANDARD_WOTC = new Set([
 	Parser.SRC_BQGT,
 ]);
 Parser.SOURCES_PARTNERED_WOTC = new Set([
-	Parser.SRC_RMBRE,
-	Parser.SRC_RMR,
-	Parser.SRC_EGW,
-	Parser.SRC_EGW_ToR,
-	Parser.SRC_EGW_DD,
-	Parser.SRC_EGW_FS,
-	Parser.SRC_EGW_US,
-	Parser.SRC_CRCotN,
-	Parser.SRC_TDCSR,
-	Parser.SRC_HftT,
-	Parser.SRC_TD,
-	Parser.SRC_LRDT,
+	/*
+	Previously marked as "Partnered" on D&D Beyond, but as of
+	  ~Dec 2025 marked as "Official" on https://www.dndbeyond.com/en/library?publisher=official
+	// Parser.SRC_RMBRE,
+	// Parser.SRC_RMR,
+	// Parser.SRC_EGW,
+	// Parser.SRC_EGW_ToR,
+	// Parser.SRC_EGW_DD,
+	// Parser.SRC_EGW_FS,
+	// Parser.SRC_EGW_US,
+	// Parser.SRC_CRCotN,
+	// Parser.SRC_HftT,
+	 */
+
+	/*
+	If we have Minecraft, we might as well have LEGO too.
+	// Parser.SRC_LRDT,
+	 */
+
+	/*
+	Previously marked as "Partnered", but is "officially licensed"; going by above
+	  official-izing of dubious sources, and as it doesn't contain any gameplay elements,
+	  this can be considered "official enough."
+	// Parser.SRC_TD,
+	 */
 ]);
 Parser.SOURCES_LEGACY_WOTC = new Set([
 	Parser.SRC_PHB,
@@ -32588,7 +32598,6 @@ Parser.SOURCES_NON_FR = new Set([
 	Parser.SRC_BAM,
 	Parser.SRC_LoX,
 	Parser.SRC_DSotDQ,
-	Parser.SRC_TDCSR,
 	Parser.SRC_PAitM,
 	Parser.SRC_SatO,
 	Parser.SRC_ToFW,
@@ -32603,6 +32612,7 @@ Parser.SOURCES_NON_FR = new Set([
 	Parser.SRC_WttHC,
 	Parser.SRC_LFL,
 	Parser.SRC_EFA,
+	Parser.SRC_FFotR,
 ]);
 
 // endregion
@@ -32639,7 +32649,6 @@ Parser.SOURCES_AVAILABLE_DOCS_BOOK = {};
 	Parser.SRC_SCREEN_DUNGEON_KIT,
 	Parser.SRC_SCREEN_SPELLJAMMER,
 	Parser.SRC_BGG,
-	Parser.SRC_TDCSR,
 	Parser.SRC_SatO,
 	Parser.SRC_MPP,
 	Parser.SRC_HF,
@@ -32770,6 +32779,7 @@ Parser.SOURCES_AVAILABLE_DOCS_ADVENTURE = {};
 	Parser.SRC_DrDe_DotS,
 	Parser.SRC_HotB,
 	Parser.SRC_WttHC,
+	Parser.SRC_FFotR,
 ].forEach(src => {
 	Parser.SOURCES_AVAILABLE_DOCS_ADVENTURE[src] = src;
 	Parser.SOURCES_AVAILABLE_DOCS_ADVENTURE[src.toLowerCase()] = src;
@@ -44058,7 +44068,8 @@ class SearchWidget {
 						q: subSpec.page,
 						s: src,
 						u: UrlUtil.URL_TO_HASH_BUILDER[subSpec.page](ent),
-						dP: SourceUtil.isPartneredSourceWotc(src),
+						dP: SourceUtil.isPartneredSourceWotc(src) ? 1 : 0,
+						dR: ent.reprintedAs || ent.isReprinted ? 1 : 0,
 					};
 					if (subSpec.pFnGetDocExtras) Object.assign(doc, await subSpec.pFnGetDocExtras({ent, doc, subSpec}));
 					index.addDoc(doc);
@@ -45901,6 +45912,7 @@ class _RenderableCollectionGenericRowsSyncAsyncUtils {
 		// TODO(jquery) migrate
 		if (wrpRows && $wrpRows) throw new Error(`Only one of "wrpRows" and "$wrpRows" may be specified!`);
 		this._$wrpRows = $wrpRows || $(wrpRows);
+		this._wrpRows = this._$wrpRows[0];
 		this._namespace = namespace;
 	}
 
@@ -46003,6 +46015,7 @@ class RenderableCollectionGenericRows extends RenderableCollectionBase {
 	constructor (comp, prop, $wrpRows, opts) {
 		super(comp, prop, opts);
 		this._$wrpRows = $wrpRows instanceof $ ? $wrpRows : $($wrpRows);
+		this._wrpRows = this._$wrpRows[0];
 
 		this._utils = new _RenderableCollectionGenericRowsSyncAsyncUtils({
 			comp,
@@ -46177,14 +46190,18 @@ class ComponentUiUtil {
 		hooks[prop].push(hook);
 	}
 
-	static $getDisp (comp, prop, {html, $ele, fnGetText} = {}) {
-		$ele = ($ele || $(html || `<div></div>`));
+	static getDisp (comp, prop, {html, ele, fnGetText} = {}) {
+		ele = (ele || e_({outer: html || `<div></div>`}));
 
-		const hk = () => $ele.text(fnGetText ? fnGetText(comp._state[prop]) : comp._state[prop]);
+		const hk = () => ele.txt(fnGetText ? fnGetText(comp._state[prop]) : comp._state[prop]);
 		comp._addHookBase(prop, hk);
 		hk();
 
-		return $ele;
+		return ele;
+	}
+
+	static $getDisp (comp, prop, {html, $ele, fnGetText} = {}) {
+		return this.getDisp(comp, prop, {html, ele: $ele?.[0], fnGetText});
 	}
 
 	/**
@@ -47568,6 +47585,15 @@ class ComponentUiUtil {
 	}
 
 	/* -------------------------------------------- */
+
+	static getPickEnum (comp, prop, opts) {
+		const out = this.$getPickEnum(comp, prop, opts);
+		if (!opts?.asMeta) return out[0];
+		return {
+			...out,
+			wrp: out.$wrp[0],
+		};
+	}
 
 	/**
 	 * @param comp An instance of a class which extends BaseComponent.
