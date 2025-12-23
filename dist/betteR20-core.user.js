@@ -3907,6 +3907,11 @@ function baseToolModule () {
 														defaulttoken: entry.blobDefaultToken,
 													});
 
+													// Create token actions from imported attributes if enabled
+													if (d20plus.cfg.getOrDefault("import", "tokenactions")) {
+														d20plus.importer._createTokenActionsFromCharacter(character);
+													}
+
 													addToJournal(entry.attributes.id, character.id);
 												},
 											},
