@@ -462,15 +462,29 @@ function d20plusImporter () {
 			return Object.values(entries);
 		};
 
-		// Create token actions for regular actions
+		// Create token actions for regular actions (including attacks)
 		const actions = getRepeatingSections("repeating_npcaction");
-		if (actions.length > 0 && d20plus.cfg.getOrDefault("import", "tokenactionsExpanded")) {
+		if (actions.length > 0) {
 			actions.forEach((action, i) => {
 				if (action.name) {
 					character.abilities.create({
 						name: `${i}: ${action.name}`,
 						istokenaction: true,
 						action: d20plus.macro.actionMacroAction("repeating_npcaction", i),
+					});
+				}
+			});
+		}
+
+		// Create token actions for bonus actions
+		const bonusActions = getRepeatingSections("repeating_npcbonusaction");
+		if (bonusActions.length > 0) {
+			bonusActions.forEach((action, i) => {
+				if (action.name) {
+					character.abilities.create({
+						name: `Bonus${i}: ${action.name}`,
+						istokenaction: true,
+						action: d20plus.macro.actionMacroAction("repeating_npcbonusaction", i),
 					});
 				}
 			});
