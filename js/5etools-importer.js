@@ -463,82 +463,73 @@ function d20plusImporter () {
 		};
 
 		// Create token actions for regular actions (including attacks)
-		const actions = getRepeatingSections("repeating_npcaction");
+		const actions = getRepeatingSections("repeating_npcaction").filter(a => a.name);
 		if (actions.length > 0) {
 			actions.forEach((action, i) => {
-				if (action.name) {
-					character.abilities.create({
-						name: `${i}: ${action.name}`,
-						istokenaction: true,
-						action: d20plus.macro.actionMacroAction("repeating_npcaction", i),
-					});
-				}
+				character.abilities.create({
+					name: `${i}: ${action.name}`,
+					istokenaction: true,
+					action: d20plus.macro.actionMacroAction("repeating_npcaction", i),
+				});
 			});
 		}
 
 		// Create token actions for bonus actions
-		const bonusActions = getRepeatingSections("repeating_npcbonusaction");
+		const bonusActions = getRepeatingSections("repeating_npcbonusaction").filter(a => a.name);
 		if (bonusActions.length > 0) {
 			bonusActions.forEach((action, i) => {
-				if (action.name) {
-					character.abilities.create({
-						name: `Bonus${i}: ${action.name}`,
-						istokenaction: true,
-						action: d20plus.macro.actionMacroAction("repeating_npcbonusaction", i),
-					});
-				}
+				character.abilities.create({
+					name: `Bonus${i}: ${action.name}`,
+					istokenaction: true,
+					action: d20plus.macro.actionMacroAction("repeating_npcbonusaction", i),
+				});
 			});
 		}
 
 		// Create token actions for reactions
-		const reactions = getRepeatingSections("repeating_npcreaction");
+		const reactions = getRepeatingSections("repeating_npcreaction").filter(r => r.name);
 		if (reactions.length > 0) {
 			reactions.forEach((reaction, i) => {
-				if (reaction.name) {
-					character.abilities.create({
-						name: `Reaction: ${reaction.name}`,
-						istokenaction: true,
-						action: d20plus.macro.actionMacroReaction(i),
-					});
-				}
+				character.abilities.create({
+					name: `Reaction: ${reaction.name}`,
+					istokenaction: true,
+					action: d20plus.macro.actionMacroReaction(i),
+				});
 			});
 		}
 
 		// Create token actions for traits
-		const traits = getRepeatingSections("repeating_npctrait");
+		const traits = getRepeatingSections("repeating_npctrait").filter(t => t.name);
 		if (traits.length > 0 && d20plus.cfg.getOrDefault("import", "tokenactionsTraits")) {
 			traits.forEach((trait, i) => {
-				if (trait.name) {
-					character.abilities.create({
-						name: `Trait: ${trait.name}`,
-						istokenaction: true,
-						action: d20plus.macro.actionMacroTrait(i),
-					});
-				}
+				character.abilities.create({
+					name: `Trait: ${trait.name}`,
+					istokenaction: true,
+					action: d20plus.macro.actionMacroTrait(i),
+				});
 			});
 		}
 
 		// Create token actions for legendary actions
-		const legendaryActions = getRepeatingSections("repeating_npcaction-l");
+		const legendaryActions = getRepeatingSections("repeating_npcaction-l").filter(a => a.name);
 		if (legendaryActions.length > 0) {
 			const expand = d20plus.cfg.getOrDefault("import", "tokenactionsExpanded");
 
 			if (expand) {
 				// Create individual token actions for each legendary action
 				legendaryActions.forEach((action, i) => {
-					if (action.name) {
-						character.abilities.create({
-							name: `Legendary${i}: ${action.name}`,
-							istokenaction: true,
-							action: d20plus.macro.actionMacroAction("repeating_npcaction-l", i),
-						});
-					}
+					character.abilities.create({
+						name: `Legendary${i}: ${action.name}`,
+						istokenaction: true,
+						action: d20plus.macro.actionMacroAction("repeating_npcaction-l", i),
+					});
 				});
 			} else {
 				// Create single token action with all legendary actions
-				const tokenactiontext = legendaryActions.map((action, i) => {
-					return `[${action.name}](~selected|repeating_npcaction-l_$${i}_npc_action)`;
-				}).join("\n\r");
+				const tokenactiontext = legendaryActions
+					.map((action, i) => {
+						return `[${action.name}](~selected|repeating_npcaction-l_$${i}_npc_action)`;
+					}).join("\n\r");
 
 				character.abilities.create({
 					name: "Legendary Actions",
@@ -549,26 +540,25 @@ function d20plusImporter () {
 		}
 
 		// Create token actions for mythic actions
-		const mythicActions = getRepeatingSections("repeating_npcaction-m");
+		const mythicActions = getRepeatingSections("repeating_npcaction-m").filter(a => a.name);
 		if (mythicActions.length > 0) {
 			const expand = d20plus.cfg.getOrDefault("import", "tokenactionsExpanded");
 
 			if (expand) {
 				// Create individual token actions for each mythic action
 				mythicActions.forEach((action, i) => {
-					if (action.name) {
-						character.abilities.create({
-							name: `Mythic${i}: ${action.name}`,
-							istokenaction: true,
-							action: d20plus.macro.actionMacroAction("repeating_npcaction-m", i),
-						});
-					}
+					character.abilities.create({
+						name: `Mythic${i}: ${action.name}`,
+						istokenaction: true,
+						action: d20plus.macro.actionMacroAction("repeating_npcaction-m", i),
+					});
 				});
 			} else {
 				// Create single token action with all mythic actions
-				const tokenactiontext = mythicActions.map((action, i) => {
-					return `[${action.name}](~selected|repeating_npcaction-m_$${i}_npc_action)`;
-				}).join("\n\r");
+				const tokenactiontext = mythicActions
+					.map((action, i) => {
+						return `[${action.name}](~selected|repeating_npcaction-m_$${i}_npc_action)`;
+					}).join("\n\r");
 
 				character.abilities.create({
 					name: "Mythic Actions",
