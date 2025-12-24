@@ -850,7 +850,7 @@ function d20plusEngine () {
 	};
 
 	d20plus.engine.enhanceTransmogrifier = () => {
-		JqueryUtil.addSelectors();
+		// JqueryUtil.addSelectors();
 
 		$("#transmogrifier").on("click", () => {
 			setTimeout(() => {
