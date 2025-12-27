@@ -15628,176 +15628,197 @@ function baseMenu () {
 			if (menu) menu.style.display = 'none';
 		}
 
-		// Function to add Set Light button
-		function addSetLightToMenu() {
+		// Function to add Better20 Tools submenu
+		function addBetter20ToolsToMenu() {
 			const contextMenu = document.querySelector('.context-menu');
 			if (!contextMenu) return;
 
 			// Check if already added
-			if (contextMenu.querySelector('.set-light-button')) return;
+			if (contextMenu.querySelector('.better20-tools-button')) return;
 
 			if (!window.is_gm) return;
 
-			// Create Set Light button
-			const lightBtn = document.createElement('button');
-			lightBtn.className = 'set-light-button';
-			lightBtn.type = 'button';
-			lightBtn.setAttribute('data-v-2aed8a8e', '');
-			lightBtn.setAttribute('data-v-060adf8b', '');
+			// Create Better20 Tools button with submenu
+			const toolsBtn = document.createElement('button');
+			toolsBtn.className = 'better20-tools-button';
+			toolsBtn.type = 'button';
+			toolsBtn.setAttribute('data-v-2aed8a8e', '');
+			toolsBtn.setAttribute('data-v-060adf8b', '');
 
-			lightBtn.innerHTML = `
+			toolsBtn.innerHTML = `
 				<div data-v-2aed8a8e="" class="submenu-button-outer">
 					<div data-v-2aed8a8e="" class="submenu-button-inner">
 						<div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 4px;">
 							<div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 8px;">
-								<span data-v-2aed8a8e="" style="flex: 1 1 0%; text-align: start;">Set Light</span>
+								<span data-v-2aed8a8e="" style="flex: 1 1 0%; text-align: start;">Better20 Tools</span>
 							</div>
 						</div>
 					</div>
+					<span data-v-2aed8a8e="" class="submenu-button-icon">
+						<span data-v-2f0bc668="" data-v-2aed8a8e="" class="grimoire__roll20-icon" style="--7353a950: 0.875rem;">chevronRight</span>
+					</span>
 				</div>
+				<div data-v-2aed8a8e="" class="submenu" style="position: absolute; will-change: transform; top: 0px; left: 0px; transform: translate3d(0px, 0px, 0px); display: none;" x-placement="right-start"></div>
 			`;
 
-			lightBtn.addEventListener('click', () => {
+			const submenu = toolsBtn.querySelector('.submenu');
+
+			// Helper to create submenu item
+			function createSubmenuItem(label, onClick) {
+				const btn = document.createElement('button');
+				btn.type = 'button';
+				btn.setAttribute('data-v-2aed8a8e', '');
+				btn.setAttribute('data-v-060adf8b', '');
+				btn.innerHTML = `
+					<div data-v-2aed8a8e="" class="submenu-button-outer">
+						<div data-v-2aed8a8e="" class="submenu-button-inner">
+							<div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 4px;">
+								<div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 8px;">
+									<span data-v-2aed8a8e="" style="flex: 1 1 0%; text-align: start;">${label}</span>
+								</div>
+							</div>
+						</div>
+					</div>
+				`;
+				btn.addEventListener('click', onClick);
+				return btn;
+			}
+
+			// Add Mass Roll with nested submenu
+			const massRollBtn = document.createElement('button');
+			massRollBtn.type = 'button';
+			massRollBtn.className = 'mass-roll-nested-btn';
+			massRollBtn.setAttribute('data-v-2aed8a8e', '');
+			massRollBtn.setAttribute('data-v-060adf8b', '');
+			massRollBtn.innerHTML = `
+				<div data-v-2aed8a8e="" class="submenu-button-outer">
+					<div data-v-2aed8a8e="" class="submenu-button-inner">
+						<div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 4px;">
+							<div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 8px;">
+								<span data-v-2aed8a8e="" style="flex: 1 1 0%; text-align: start;">Mass Roll</span>
+							</div>
+						</div>
+					</div>
+					<span data-v-2aed8a8e="" class="submenu-button-icon">
+						<span data-v-2f0bc668="" data-v-2aed8a8e="" class="grimoire__roll20-icon" style="--7353a950: 0.875rem;">chevronRight</span>
+					</span>
+				</div>
+				<div data-v-2aed8a8e="" class="submenu" data-mass-roll-submenu="true" style="position: absolute; will-change: transform; top: 0px; left: 0px; transform: translate3d(0px, 0px, 0px); display: none;" x-placement="right-start"></div>
+			`;
+
+			const massRollSubmenu = massRollBtn.querySelector('[data-mass-roll-submenu]');
+
+			// Add items to Mass Roll submenu
+			const initBtn = createSubmenuItem('Initiative', () => {
+				d20plus.menu.massRollInitiative();
+				closeContextMenu();
+			});
+			massRollSubmenu.appendChild(initBtn);
+
+			const savesBtn = createSubmenuItem('Save', () => {
+				d20plus.menu.massRollSaves();
+				closeContextMenu();
+			});
+			massRollSubmenu.appendChild(savesBtn);
+
+			const skillsBtn = createSubmenuItem('Skill', () => {
+				d20plus.menu.massRollSkills();
+				closeContextMenu();
+			});
+			massRollSubmenu.appendChild(skillsBtn);
+
+			// Click handler for Mass Roll to toggle its submenu
+			massRollBtn.addEventListener('click', (e) => {
+				e.stopPropagation();
+
+				// Simple positioning: just to the right of the button
+				const btnRect = massRollBtn.getBoundingClientRect();
+
+				// Position submenu to the right of the button at the same vertical level
+				const x = btnRect.width;
+				const y = 0;
+
+				massRollSubmenu.style.transform = `translate3d(${x}px, ${y}px, 0px)`;
+				massRollSubmenu.style.display = massRollSubmenu.style.display === 'block' ? 'none' : 'block';
+			});
+
+			submenu.appendChild(massRollBtn);
+
+			// Add Set Light
+			const lightBtn = createSubmenuItem('Set Light', () => {
 				d20plus.menu.setTokenLight();
 				closeContextMenu();
 			});
+			submenu.appendChild(lightBtn);
 
-			// Insert after Mass Roll button
-			const massRollBtn = contextMenu.querySelector('.mass-roll-button');
-			if (massRollBtn) {
-				massRollBtn.parentNode.insertBefore(lightBtn, massRollBtn.nextSibling);
-			} else {
-				contextMenu.insertBefore(lightBtn, contextMenu.firstChild);
-			}
-		}
-
-		// Function to add Flight Height button
-		function addFlightHeightToMenu() {
-			const contextMenu = document.querySelector('.context-menu');
-			if (!contextMenu) return;
-
-			// Check if already added
-			if (contextMenu.querySelector('.flight-height-button')) return;
-
-			if (!window.is_gm) return;
-
-			// Create Flight Height button
-			const flightBtn = document.createElement('button');
-			flightBtn.className = 'flight-height-button';
-			flightBtn.type = 'button';
-			flightBtn.setAttribute('data-v-2aed8a8e', '');
-			flightBtn.setAttribute('data-v-060adf8b', '');
-
-			flightBtn.innerHTML = `
-				<div data-v-2aed8a8e="" class="submenu-button-outer">
-					<div data-v-2aed8a8e="" class="submenu-button-inner">
-						<div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 4px;">
-							<div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 8px;">
-								<span data-v-2aed8a8e="" style="flex: 1 1 0%; text-align: start;">Flight Height</span>
-							</div>
-						</div>
-					</div>
-				</div>
-			`;
-
-			flightBtn.addEventListener('click', () => {
+			// Add Flight Height
+			const flightBtn = createSubmenuItem('Flight Height', () => {
 				d20plus.menu.setFlightHeight();
 				closeContextMenu();
 			});
+			submenu.appendChild(flightBtn);
 
-			// Insert after Set Light button
-			const lightBtn = contextMenu.querySelector('.set-light-button');
-			if (lightBtn) {
-				lightBtn.parentNode.insertBefore(flightBtn, lightBtn.nextSibling);
-			} else {
-				contextMenu.insertBefore(flightBtn, contextMenu.firstChild);
-			}
-		}
-
-		// Function to add Copy Token ID button
-		function addCopyTokenIdToMenu() {
-			const contextMenu = document.querySelector('.context-menu');
-			if (!contextMenu) return;
-
-			// Check if already added
-			if (contextMenu.querySelector('.copy-tokenid-button')) return;
-
-			if (!window.is_gm) return;
-
-			// Create Copy Token ID button
-			const copyBtn = document.createElement('button');
-			copyBtn.className = 'copy-tokenid-button';
-			copyBtn.type = 'button';
-			copyBtn.setAttribute('data-v-2aed8a8e', '');
-			copyBtn.setAttribute('data-v-060adf8b', '');
-
-			copyBtn.innerHTML = `
-				<div data-v-2aed8a8e="" class="submenu-button-outer">
-					<div data-v-2aed8a8e="" class="submenu-button-inner">
-						<div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 4px;">
-							<div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 8px;">
-								<span data-v-2aed8a8e="" style="flex: 1 1 0%; text-align: start;">Copy Token ID</span>
-							</div>
-						</div>
-					</div>
-				</div>
-			`;
-
-			copyBtn.addEventListener('click', () => {
+			// Add Copy Token ID
+			const copyBtn = createSubmenuItem('Copy Token ID', () => {
 				d20plus.menu.copyTokenId();
 				closeContextMenu();
 			});
+			submenu.appendChild(copyBtn);
 
-			// Insert after Flight Height button
-			const flightBtn = contextMenu.querySelector('.flight-height-button');
-			if (flightBtn) {
-				flightBtn.parentNode.insertBefore(copyBtn, flightBtn.nextSibling);
-			} else {
-				contextMenu.insertBefore(copyBtn, contextMenu.firstChild);
-			}
-		}
-
-		// Function to add Edit Token Images button
-		function addEditTokenImagesToMenu() {
-			const contextMenu = document.querySelector('.context-menu');
-			if (!contextMenu) return;
-
-			// Check if already added
-			if (contextMenu.querySelector('.edit-token-images-button')) return;
-
-			if (!window.is_gm) return;
-
-			// Create Edit Token Images button
-			const editBtn = document.createElement('button');
-			editBtn.className = 'edit-token-images-button';
-			editBtn.type = 'button';
-			editBtn.setAttribute('data-v-2aed8a8e', '');
-			editBtn.setAttribute('data-v-060adf8b', '');
-
-			editBtn.innerHTML = `
-				<div data-v-2aed8a8e="" class="submenu-button-outer">
-					<div data-v-2aed8a8e="" class="submenu-button-inner">
-						<div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 4px;">
-							<div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 8px;">
-								<span data-v-2aed8a8e="" style="flex: 1 1 0%; text-align: start;">Edit Token Images</span>
-							</div>
-						</div>
-					</div>
-				</div>
-			`;
-
-			editBtn.addEventListener('click', () => {
+			// Add Edit Token Images
+			const editBtn = createSubmenuItem('Edit Token Images', () => {
 				d20plus.menu.editToken();
 				closeContextMenu();
 			});
+			submenu.appendChild(editBtn);
 
-			// Insert after Copy Token ID button
-			const copyBtn = contextMenu.querySelector('.copy-tokenid-button');
-			if (copyBtn) {
-				copyBtn.parentNode.insertBefore(editBtn, copyBtn.nextSibling);
-			} else {
-				contextMenu.insertBefore(editBtn, contextMenu.firstChild);
+			// Add Animate Token (only if animations exist)
+			const hasAnims = d20plus.anim?.animatorTool?._anims
+				&& typeof d20plus.anim.animatorTool._anims === 'object'
+				&& Object.keys(d20plus.anim.animatorTool._anims).length > 0;
+
+			if (hasAnims) {
+				const animBtn = createSubmenuItem('Animate Token', () => {
+					d20plus.menu.tokenAnimate();
+					closeContextMenu();
+				});
+				submenu.appendChild(animBtn);
 			}
+
+			// Add Trigger Scene (only if scenes exist)
+			const hasScenes = d20plus.anim?.animatorTool?._scenes
+				&& typeof d20plus.anim.animatorTool._scenes === 'object'
+				&& Object.keys(d20plus.anim.animatorTool._scenes).length > 0;
+
+			if (hasScenes) {
+				const sceneBtn = createSubmenuItem('Trigger Scene', () => {
+					d20plus.menu.triggerScene();
+					closeContextMenu();
+				});
+				submenu.appendChild(sceneBtn);
+			}
+
+			// Click handler to toggle submenu
+			toolsBtn.addEventListener('click', (e) => {
+				e.stopPropagation();
+
+				// Calculate position to place submenu to the right
+				const rect = toolsBtn.getBoundingClientRect();
+				const contextRect = contextMenu.getBoundingClientRect();
+
+				// Position submenu to the right of the button
+				const x = rect.width;
+				const y = rect.top - contextRect.top;
+
+				submenu.style.transform = `translate3d(${x}px, ${y}px, 0px)`;
+
+				// Toggle display
+				const isVisible = submenu.style.display === 'block';
+				submenu.style.display = isVisible ? 'none' : 'block';
+			});
+
+			// Insert at the beginning
+			contextMenu.insertBefore(toolsBtn, contextMenu.firstChild);
 		}
 
 		// Watch for context menu appearing
@@ -15812,32 +15833,12 @@ function baseMenu () {
 
 				if (hasTokenOptions) {
 					// Add custom menu items for token menus
-					addMassRollToMenu();
-					addSetLightToMenu();
-					addFlightHeightToMenu();
-					addCopyTokenIdToMenu();
-					addEditTokenImagesToMenu();
+					addBetter20ToolsToMenu();
 				} else {
 					// Remove custom menu items from non-token menus
-					const existingMassRoll = menu.querySelector('.mass-roll-button');
-					if (existingMassRoll) {
-						existingMassRoll.remove();
-					}
-					const existingLight = menu.querySelector('.set-light-button');
-					if (existingLight) {
-						existingLight.remove();
-					}
-					const existingFlight = menu.querySelector('.flight-height-button');
-					if (existingFlight) {
-						existingFlight.remove();
-					}
-					const existingCopy = menu.querySelector('.copy-tokenid-button');
-					if (existingCopy) {
-						existingCopy.remove();
-					}
-					const existingEdit = menu.querySelector('.edit-token-images-button');
-					if (existingEdit) {
-						existingEdit.remove();
+					const existingBetter20 = menu.querySelector('.better20-tools-button');
+					if (existingBetter20) {
+						existingBetter20.remove();
 					}
 				}
 			}
@@ -16099,6 +16100,44 @@ function baseMenu () {
 
 		// Show prompt with token ID for copying
 		window.prompt("Copy to clipboard: Ctrl+C, Enter", tokenId);
+	};
+
+	// Token Animate
+	d20plus.menu.tokenAnimate = function() {
+		const sel = d20.engine.selected();
+		if (sel.length === 0) {
+			alert("Please select at least one token.");
+			return;
+		}
+
+		// Track last selected animation
+		if (!d20plus.menu._lastAnimUid) d20plus.menu._lastAnimUid = null;
+
+		d20plus.anim.animatorTool.pSelectAnimation(d20plus.menu._lastAnimUid).then(animUid => {
+			if (animUid == null) return;
+
+			d20plus.menu._lastAnimUid = animUid;
+			const selected = d20.engine.selected();
+			d20.engine.unselect();
+			selected.forEach(token => {
+				if (token._model) {
+					d20plus.anim.animator.startAnimation(token._model, animUid);
+				}
+			});
+		});
+	};
+
+	// Trigger Scene
+	d20plus.menu.triggerScene = function() {
+		// Track last selected scene
+		if (!d20plus.menu._lastSceneUid) d20plus.menu._lastSceneUid = null;
+
+		d20plus.anim.animatorTool.pSelectScene(d20plus.menu._lastSceneUid).then(sceneUid => {
+			if (sceneUid == null) return;
+
+			d20plus.menu._lastSceneUid = sceneUid;
+			d20plus.anim.animatorTool.doStartScene(sceneUid);
+		});
 	};
 
 	// Edit Token Images - Constants and helpers
