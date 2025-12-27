@@ -186,6 +186,135 @@ function baseMenu () {
 			if (menu) menu.style.display = 'none';
 		}
 
+		// Function to add Set Light button
+		function addSetLightToMenu() {
+			const contextMenu = document.querySelector('.context-menu');
+			if (!contextMenu) return;
+
+			// Check if already added
+			if (contextMenu.querySelector('.set-light-button')) return;
+
+			if (!window.is_gm) return;
+
+			// Create Set Light button
+			const lightBtn = document.createElement('button');
+			lightBtn.className = 'set-light-button';
+			lightBtn.type = 'button';
+			lightBtn.setAttribute('data-v-2aed8a8e', '');
+			lightBtn.setAttribute('data-v-060adf8b', '');
+
+			lightBtn.innerHTML = `
+				<div data-v-2aed8a8e="" class="submenu-button-outer">
+					<div data-v-2aed8a8e="" class="submenu-button-inner">
+						<div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 4px;">
+							<div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 8px;">
+								<span data-v-2aed8a8e="" style="flex: 1 1 0%; text-align: start;">Set Light</span>
+							</div>
+						</div>
+					</div>
+				</div>
+			`;
+
+			lightBtn.addEventListener('click', () => {
+				d20plus.menu.setTokenLight();
+				closeContextMenu();
+			});
+
+			// Insert after Mass Roll button
+			const massRollBtn = contextMenu.querySelector('.mass-roll-button');
+			if (massRollBtn) {
+				massRollBtn.parentNode.insertBefore(lightBtn, massRollBtn.nextSibling);
+			} else {
+				contextMenu.insertBefore(lightBtn, contextMenu.firstChild);
+			}
+		}
+
+		// Function to add Flight Height button
+		function addFlightHeightToMenu() {
+			const contextMenu = document.querySelector('.context-menu');
+			if (!contextMenu) return;
+
+			// Check if already added
+			if (contextMenu.querySelector('.flight-height-button')) return;
+
+			if (!window.is_gm) return;
+
+			// Create Flight Height button
+			const flightBtn = document.createElement('button');
+			flightBtn.className = 'flight-height-button';
+			flightBtn.type = 'button';
+			flightBtn.setAttribute('data-v-2aed8a8e', '');
+			flightBtn.setAttribute('data-v-060adf8b', '');
+
+			flightBtn.innerHTML = `
+				<div data-v-2aed8a8e="" class="submenu-button-outer">
+					<div data-v-2aed8a8e="" class="submenu-button-inner">
+						<div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 4px;">
+							<div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 8px;">
+								<span data-v-2aed8a8e="" style="flex: 1 1 0%; text-align: start;">Flight Height</span>
+							</div>
+						</div>
+					</div>
+				</div>
+			`;
+
+			flightBtn.addEventListener('click', () => {
+				d20plus.menu.setFlightHeight();
+				closeContextMenu();
+			});
+
+			// Insert after Set Light button
+			const lightBtn = contextMenu.querySelector('.set-light-button');
+			if (lightBtn) {
+				lightBtn.parentNode.insertBefore(flightBtn, lightBtn.nextSibling);
+			} else {
+				contextMenu.insertBefore(flightBtn, contextMenu.firstChild);
+			}
+		}
+
+		// Function to add Copy Token ID button
+		function addCopyTokenIdToMenu() {
+			const contextMenu = document.querySelector('.context-menu');
+			if (!contextMenu) return;
+
+			// Check if already added
+			if (contextMenu.querySelector('.copy-tokenid-button')) return;
+
+			if (!window.is_gm) return;
+
+			// Create Copy Token ID button
+			const copyBtn = document.createElement('button');
+			copyBtn.className = 'copy-tokenid-button';
+			copyBtn.type = 'button';
+			copyBtn.setAttribute('data-v-2aed8a8e', '');
+			copyBtn.setAttribute('data-v-060adf8b', '');
+
+			copyBtn.innerHTML = `
+				<div data-v-2aed8a8e="" class="submenu-button-outer">
+					<div data-v-2aed8a8e="" class="submenu-button-inner">
+						<div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 4px;">
+							<div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 8px;">
+								<span data-v-2aed8a8e="" style="flex: 1 1 0%; text-align: start;">Copy Token ID</span>
+							</div>
+						</div>
+					</div>
+				</div>
+			`;
+
+			copyBtn.addEventListener('click', () => {
+				d20plus.menu.copyTokenId();
+				closeContextMenu();
+			});
+
+			// Insert after Flight Height button
+			const flightBtn = contextMenu.querySelector('.flight-height-button');
+			if (flightBtn) {
+				flightBtn.parentNode.insertBefore(copyBtn, flightBtn.nextSibling);
+			} else {
+				contextMenu.insertBefore(copyBtn, contextMenu.firstChild);
+			}
+		}
+
 		// Watch for context menu appearing
 		const observer = new MutationObserver(() => {
 			const menu = document.querySelector('.context-menu');
@@ -197,13 +326,28 @@ function baseMenu () {
 				);
 
 				if (hasTokenOptions) {
-					// Add Mass Roll for token menus
+					// Add custom menu items for token menus
 					addMassRollToMenu();
+					addSetLightToMenu();
+					addFlightHeightToMenu();
+					addCopyTokenIdToMenu();
 				} else {
-					// Remove Mass Roll from non-token menus
-					const existingBtn = menu.querySelector('.mass-roll-button');
-					if (existingBtn) {
-						existingBtn.remove();
+					// Remove custom menu items from non-token menus
+					const existingMassRoll = menu.querySelector('.mass-roll-button');
+					if (existingMassRoll) {
+						existingMassRoll.remove();
+					}
+					const existingLight = menu.querySelector('.set-light-button');
+					if (existingLight) {
+						existingLight.remove();
+					}
+					const existingFlight = menu.querySelector('.flight-height-button');
+					if (existingFlight) {
+						existingFlight.remove();
+					}
+					const existingCopy = menu.querySelector('.copy-tokenid-button');
+					if (existingCopy) {
+						existingCopy.remove();
 					}
 				}
 			}
@@ -314,6 +458,245 @@ function baseMenu () {
 				}
 			}
 		});
+	};
+
+	// Set Token Light (Jumpgate)
+	d20plus.menu.setTokenLight = function() {
+		const LIGHT_SOURCES = {
+			"None (Blind)": {
+				emits_bright_light: false,
+				bright_light_distance: 0,
+				emits_low_light: false,
+				low_light_distance: 0,
+				has_night_vision: false,
+				night_vision_distance: 0
+			},
+			"Torch/Light (Spell)": {
+				emits_bright_light: true,
+				bright_light_distance: 20,
+				emits_low_light: true,
+				low_light_distance: 40,
+				has_night_vision: false
+			},
+			"Lamp": {
+				emits_bright_light: true,
+				bright_light_distance: 15,
+				emits_low_light: true,
+				low_light_distance: 45,
+				has_night_vision: false
+			},
+			"Lantern, Bullseye": {
+				emits_bright_light: true,
+				bright_light_distance: 60,
+				emits_low_light: true,
+				low_light_distance: 120,
+				has_directional_bright_light: true,
+				directional_bright_light_total: 60,
+				directional_bright_light_center: 0,
+				has_night_vision: false
+			},
+			"Lantern, Hooded": {
+				emits_bright_light: true,
+				bright_light_distance: 30,
+				emits_low_light: true,
+				low_light_distance: 60,
+				has_night_vision: false
+			},
+			"Lantern, Hooded (Dimmed)": {
+				emits_bright_light: false,
+				bright_light_distance: 0,
+				emits_low_light: true,
+				low_light_distance: 5,
+				has_night_vision: false
+			},
+			"Candle": {
+				emits_bright_light: true,
+				bright_light_distance: 5,
+				emits_low_light: true,
+				low_light_distance: 10,
+				has_night_vision: false
+			},
+			"Darkvision (60ft)": {
+				emits_bright_light: false,
+				bright_light_distance: 0,
+				emits_low_light: false,
+				low_light_distance: 0,
+				has_night_vision: true,
+				night_vision_distance: 60
+			},
+			"Darkvision (120ft)": {
+				emits_bright_light: false,
+				bright_light_distance: 0,
+				emits_low_light: false,
+				low_light_distance: 0,
+				has_night_vision: true,
+				night_vision_distance: 120
+			},
+			"Torch + Darkvision": {
+				emits_bright_light: true,
+				bright_light_distance: 20,
+				emits_low_light: true,
+				low_light_distance: 40,
+				has_night_vision: true,
+				night_vision_distance: 60
+			}
+		};
+
+		const sel = d20.engine.selected();
+		if (sel.length === 0) {
+			alert("Please select at least one token.");
+			return;
+		}
+
+		// Show dialog to select light type
+		const dialog = $(`<div><p style='font-size: 1.15em;'><strong>Select Light Source:</strong> <select style='width: 250px; margin-left: 5px;'>${Object.keys(LIGHT_SOURCES).map(o => `<option>${o}</option>`).join('')}</select></p></div>`);
+
+		dialog.dialog({
+			title: "Set Token Light",
+			buttons: {
+				Apply: function() {
+					const val = dialog.find("select").val();
+					const lightConfig = LIGHT_SOURCES[val];
+
+					sel.forEach(token => {
+						// Apply light emission settings
+						token._model.set("emits_bright_light", lightConfig.emits_bright_light || false);
+						token._model.set("bright_light_distance", lightConfig.bright_light_distance || 0);
+						token._model.set("emits_low_light", lightConfig.emits_low_light || false);
+						token._model.set("low_light_distance", lightConfig.low_light_distance || 0);
+
+						// Apply directional light if specified
+						if (lightConfig.has_directional_bright_light) {
+							token._model.set("has_directional_bright_light", true);
+							token._model.set("directional_bright_light_total", lightConfig.directional_bright_light_total);
+							token._model.set("directional_bright_light_center", lightConfig.directional_bright_light_center);
+						} else {
+							token._model.set("has_directional_bright_light", false);
+						}
+
+						// Apply vision settings
+						token._model.set("has_night_vision", lightConfig.has_night_vision || false);
+						if (lightConfig.night_vision_distance) {
+							token._model.set("night_vision_distance", lightConfig.night_vision_distance);
+						}
+
+						// Enable sight if any light or vision is set
+						const hasSight = lightConfig.emits_bright_light || lightConfig.emits_low_light || lightConfig.has_night_vision;
+						token._model.set("light_hassight", hasSight);
+
+						token._model.save();
+					});
+
+					dialog.dialog("destroy").remove();
+				},
+				Cancel: function() {
+					dialog.dialog("destroy").remove();
+				}
+			}
+		});
+	};
+
+	// Copy Token ID
+	d20plus.menu.copyTokenId = function() {
+		const sel = d20.engine.selected();
+		if (sel.length === 0) {
+			alert("Please select a token.");
+			return;
+		}
+
+		const token = sel[0];
+		const tokenId = token._model.id;
+
+		// Show prompt with token ID for copying
+		window.prompt("Copy to clipboard: Ctrl+C, Enter", tokenId);
+	};
+
+	// Set Flight Height
+	d20plus.menu.setFlightHeight = function() {
+		const sel = d20.engine.selected();
+		if (sel.length === 0) {
+			alert("Please select at least one token.");
+			return;
+		}
+
+		// Create dialog
+		const $dialog = $(`
+			<div title="Flight Height">
+				<p>Enter flight height (0 to clear):</p>
+				<input type="number" placeholder="Flight height" name="flight" style="width: 100%; padding: 5px; font-size: 14px;">
+			</div>
+		`).appendTo($("body"));
+
+		const $iptHeight = $dialog.find(`input[name="flight"]`);
+
+		const doHandleOk = () => {
+			const height = Number($iptHeight.val());
+			$dialog.dialog("close");
+			$dialog.remove();
+
+			if (isNaN(height)) {
+				alert(`Value "${$iptHeight.val()}" is not a valid number!`);
+				return;
+			}
+
+			const STATUS_PREFIX = `fluffy-wing@`;
+
+			sel.forEach(token => {
+				const existing = token._model.get("statusmarkers");
+
+				if (height === 0) {
+					// Clear flight height markers
+					if (existing && existing.trim()) {
+						const filtered = existing.split(",").filter(it => it && !it.startsWith(STATUS_PREFIX)).join(",");
+						token._model.set("statusmarkers", filtered);
+					}
+				} else {
+					// Set flight height markers (one marker per digit)
+					const statusString = `${height}`.split("").map(digit => `${STATUS_PREFIX}${digit}`).join(",");
+
+					if (existing && existing.trim()) {
+						// Remove old flight markers and add new ones
+						const otherMarkers = existing.split(",").filter(it => it && !it.startsWith(STATUS_PREFIX));
+						const newMarkers = [statusString, ...otherMarkers].join(",");
+						token._model.set("statusmarkers", newMarkers);
+					} else {
+						token._model.set("statusmarkers", statusString);
+					}
+				}
+
+				token._model.save();
+			});
+		};
+
+		// Handle Enter key
+		$iptHeight.on("keypress", evt => {
+			if (evt.which === 13) { // Enter key
+				doHandleOk();
+			}
+		});
+
+		$dialog.dialog({
+			dialogClass: "no-close",
+			width: 300,
+			buttons: [
+				{
+					text: "Cancel",
+					click: function () {
+						$(this).dialog("close");
+						$dialog.remove();
+					}
+				},
+				{
+					text: "OK",
+					click: function () {
+						doHandleOk();
+					}
+				}
+			]
+		});
+
+		// Focus input
+		setTimeout(() => $iptHeight.focus(), 100);
 	};
 }
 
