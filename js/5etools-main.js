@@ -759,12 +759,30 @@ const betteR205etoolsMain = function () {
 									handout._getLatestBlob("gmnotes", function (gmnotes) {
 										data = decodeIfURI(gmnotes);
 										handout.updateBlobs({gmnotes: gmnotes});
-										importData(character, JSON.parse(data), t);
+										if (data && data.trim()) {
+											try {
+												const parsedData = JSON.parse(data);
+												importData(character, parsedData, t);
+											} catch (e) {
+												console.error("Failed to parse handout JSON:", e);
+											}
+										} else {
+											console.warn("Handout gmnotes are empty or invalid, skipping import");
+										}
 									});
 								} else {
 									handout._getLatestBlob("notes", function (notes) {
 										data = $(decodeIfURI(notes)).filter("del").html();
-										importData(character, JSON.parse(data), t);
+										if (data && data.trim()) {
+											try {
+												const parsedData = JSON.parse(data);
+												importData(character, parsedData, t);
+											} catch (e) {
+												console.error("Failed to parse handout JSON:", e);
+											}
+										} else {
+											console.warn("Handout notes are empty or invalid, skipping import");
+										}
 									});
 								}
 							}
