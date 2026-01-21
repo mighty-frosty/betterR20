@@ -123,8 +123,8 @@ function initHTMLroll20EditorsMisc () {
 							</label>
 							<div>
 								<button class='btn character-json-export'>Export JSON</button>
-								<button class='btn character-json-import'>Import JSON</button>
-								<a class='showtip pictos' title='Export or import this character as JSON. Importing will overwrite this sheet&#39;s data.'>?</a>
+								<button class='btn character-json-import'>Overwrite JSON</button>
+								<a class='showtip pictos' title='Export or overwrite this character as JSON. Overwriting will replace this sheet&#39;s data.'>?</a>
 							</div>
 							<div class='clear'></div>
 							<hr>
