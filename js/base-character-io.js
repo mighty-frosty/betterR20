@@ -2,7 +2,10 @@ function baseCharacterIo () {
 	d20plus.characterIo = {};
 
 	const getCharacterFromEvent = (event) => {
-		const cId = $(event.currentTarget).closest(`[data-characterid]`).attr(`data-characterid`);
+		const $target = $(event.target);
+		const $characterRoot = $target.closest(`[data-characterid]`);
+		const $fallbackRoot = $characterRoot.length ? $characterRoot : $(event.currentTarget).closest(`[data-characterid]`);
+		const cId = $fallbackRoot.attr(`data-characterid`);
 		if (!cId) return null;
 		return d20.Campaign.characters.get(cId);
 	};
@@ -96,11 +99,11 @@ function baseCharacterIo () {
 				const character = getCharacterFromEvent(event);
 				if (!character) return alert("No character found.");
 
-				const $input = $(`<input type="file" accept="application/json">`);
+				const $input = $(`<input type="file" accept="application/json">`).appendTo("body");
 				$input.on("change", () => {
 					const fileList = $input[0] && $input[0].files;
 					const file = fileList && fileList[0];
-					if (!file) return;
+					if (!file) return $input.remove();
 
 					const reader = new FileReader();
 					reader.onload = () => {
@@ -109,20 +112,26 @@ function baseCharacterIo () {
 							payload = JSON.parse(reader.result);
 						} catch (err) {
 							alert("Invalid JSON file.");
+							$input.remove();
 							return;
 						}
 
 						const entry = getImportEntry(payload);
 						if (!entry || !entry.attribs) {
 							alert("No character data found in this JSON file.");
+							$input.remove();
 							return;
 						}
 
 						const name = (entry.attributes && entry.attributes.name) || character.get("name");
-						if (!confirm(`Import JSON into "${character.get("name")}"? This will overwrite the sheet data with "${name}".`)) return;
+						if (!confirm(`Import JSON into "${character.get("name")}"? This will overwrite the sheet data with "${name}".`)) {
+							$input.remove();
+							return;
+						}
 
 						applyCharacterImport(character, entry);
 						alert(`Imported JSON into "${character.get("name")}".`);
+						$input.remove();
 					};
 					reader.readAsText(file);
 				});
