@@ -12877,6 +12877,15 @@ function initHTMLroll20EditorsMisc () {
 							</label>
 							<input class='tags'>
 							<div class='clear'></div>
+							<label>
+								<strong>JSON Import/Export</strong>
+							</label>
+							<div>
+								<button class='btn character-json-export'>Export JSON</button>
+								<button class='btn character-json-import'>Import JSON</button>
+								<a class='showtip pictos' title='Export or import this character as JSON. Importing will overwrite this sheet&#39;s data.'>?</a>
+							</div>
+							<div class='clear'></div>
 							<hr>
 							<$ if(this.get("ownedBy")) { $>
 							<button class='removefromgame btn btn-danger' data-test='character-remove-from-game' style='float: right;'>
@@ -28289,6 +28298,7 @@ const betteR20Core = function () {
 			d20plus.ui.addHtmlHeader();
 			d20plus.ui.addHtmlFooter();
 			d20plus.art.initArtFromUrlButtons();
+			if (d20plus.characterIo && d20plus.characterIo.initCharacterJsonButtons) d20plus.characterIo.initCharacterJsonButtons();
 			if (window.is_gm) {
 				d20plus.journal.addJournalCommands();
 				// d20plus.menu.addSelectedTokenCommands();
