@@ -195,7 +195,7 @@ function d20plusVehicles () {
 						character.hp = data.hp;
 
 						const renderer = new Renderer();
-						renderer.setBaseUrl(BASE_SITE_URL);
+						renderer.setBaseUrl(LINK_BASE_URL);
 
 						character.attribs.create({name: "npc", current: 1});
 						character.attribs.create({name: "npc_options-flag", current: "on"});

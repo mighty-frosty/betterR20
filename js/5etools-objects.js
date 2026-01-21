@@ -113,7 +113,7 @@ function d20plusObjects () {
 						}
 
 						const renderer = new Renderer();
-						renderer.setBaseUrl(BASE_SITE_URL);
+						renderer.setBaseUrl(LINK_BASE_URL);
 						if (data.actionEntries) {
 							data.actionEntries.forEach((e, i) => {
 								const renderStack = [];
