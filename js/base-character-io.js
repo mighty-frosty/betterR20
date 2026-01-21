@@ -181,6 +181,7 @@ function baseCharacterIo () {
 
 						applyCharacterImport(character, entry);
 						alert(`Overwrote "${character.get("name")}" with JSON data.`);
+
 						$input.remove();
 					};
 					reader.readAsText(file);
