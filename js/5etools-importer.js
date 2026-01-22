@@ -255,6 +255,46 @@ function d20plusImporter () {
 			case "Below": defaulttoken.bar_location = "below"; break;
 		}
 
+		// Link token bars to character sheet attributes
+		if (character.attribs) {
+			// Bar 1 - link to configured attribute (default: npc_hpbase for HP)
+			const bar1AttrName = d20plus.cfg.getOrDefault("token", "bar1");
+			if (bar1AttrName) {
+				const bar1Attr = character.attribs.find(a => a.get("name").toLowerCase() === bar1AttrName.toLowerCase());
+				if (bar1Attr) {
+					defaulttoken.bar1_link = bar1Attr.id;
+					defaulttoken.bar1_value = bar1Attr.get("current");
+					if (d20plus.cfg.getOrDefault("token", "bar1_max")) {
+						defaulttoken.bar1_max = bar1Attr.get("max") || bar1Attr.get("current");
+					}
+				}
+			}
+			// Bar 2 - link to configured attribute (default: npc_ac for AC)
+			const bar2AttrName = d20plus.cfg.getOrDefault("token", "bar2");
+			if (bar2AttrName) {
+				const bar2Attr = character.attribs.find(a => a.get("name").toLowerCase() === bar2AttrName.toLowerCase());
+				if (bar2Attr) {
+					defaulttoken.bar2_link = bar2Attr.id;
+					defaulttoken.bar2_value = bar2Attr.get("current");
+					if (d20plus.cfg.getOrDefault("token", "bar2_max")) {
+						defaulttoken.bar2_max = bar2Attr.get("max") || bar2Attr.get("current");
+					}
+				}
+			}
+			// Bar 3 - link to configured attribute (default: passive for Passive Perception)
+			const bar3AttrName = d20plus.cfg.getOrDefault("token", "bar3");
+			if (bar3AttrName) {
+				const bar3Attr = character.attribs.find(a => a.get("name").toLowerCase() === bar3AttrName.toLowerCase());
+				if (bar3Attr) {
+					defaulttoken.bar3_link = bar3Attr.id;
+					defaulttoken.bar3_value = bar3Attr.get("current");
+					if (d20plus.cfg.getOrDefault("token", "bar3_max")) {
+						defaulttoken.bar3_max = bar3Attr.get("max") || bar3Attr.get("current");
+					}
+				}
+			}
+		}
+
 		// ensure any portrait URL exists
 		let outPortraitUrl = portraitUrl || avatar;
 		if (portraitUrl) {
