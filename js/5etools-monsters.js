@@ -301,7 +301,7 @@ function d20plusMonsters () {
 			const pType = Parser.monTypeToFullObj(data.type);
 
 			const renderer = new Renderer();
-			renderer.setBaseUrl(BASE_SITE_URL);
+			renderer.setBaseUrl(LINK_BASE_URL);
 
 			let fluff;
 			if (data.fluff) fluff = data.fluff;
