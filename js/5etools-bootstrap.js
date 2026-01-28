@@ -85,6 +85,8 @@ const betteR205etools = function () {
 			if (window.is_gm) {
 				d20plus.cfg.baseHandleConfigChange();
 				d20plus.cfg5e.handleConfigChange();
+				// Initialize auto-backup system (GM only)
+				d20plus.autoBackup.init();
 			} else {
 				d20plus.cfg.startPlayerConfigHandler();
 			}
