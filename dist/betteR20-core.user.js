@@ -4287,7 +4287,20 @@ function baseToolAutoBackup() {
 	d20plus.autoBackup = {};
 
 	const BACKUP_HANDOUT_PREFIX = "BetteR20 Backup - ";
-	const MAX_BACKUPS = 5;
+	const BACKUP_PART_SUFFIX = " - Part ";
+	const DEFAULT_MAX_BACKUPS = 3;
+	const MAX_CHUNK_SIZE = 9 * 1024 * 1024; // 9 MB (leave 1 MB buffer under 10 MB limit)
+
+	// Add config options for auto-backup
+	addConfigOptions("autoBackup", {
+		"_name": "Auto Backup",
+		"maxBackups": {
+			"name": "Maximum Backups to Keep",
+			"default": DEFAULT_MAX_BACKUPS,
+			"_type": "_enum",
+			"__values": ["1", "2", "3", "4", "5"],
+		},
+	});
 
 	// ===========================
 	// CORE BACKUP FUNCTIONS
@@ -4433,7 +4446,63 @@ function baseToolAutoBackup() {
 	};
 
 	/**
+	 * Split a string into chunks of specified max size
+	 * @param {string} str - String to split
+	 * @param {number} maxSize - Maximum chunk size in bytes
+	 * @returns {Array<string>} Array of chunks
+	 */
+	d20plus.autoBackup.splitIntoChunks = (str, maxSize) => {
+		const chunks = [];
+		const encoder = new TextEncoder();
+		let currentChunk = "";
+		let currentSize = 0;
+
+		for (let i = 0; i < str.length; i++) {
+			const char = str[i];
+			const charBytes = encoder.encode(char).length;
+
+			if (currentSize + charBytes > maxSize && currentChunk.length > 0) {
+				chunks.push(currentChunk);
+				currentChunk = char;
+				currentSize = charBytes;
+			} else {
+				currentChunk += char;
+				currentSize += charBytes;
+			}
+		}
+
+		if (currentChunk.length > 0) {
+			chunks.push(currentChunk);
+		}
+
+		return chunks;
+	};
+
+	/**
+	 * Create a handout and return a promise
+	 * @param {string} name - Handout name
+	 * @param {boolean} archived - Whether to archive the handout
+	 * @returns {Promise<Object>} Created handout
+	 */
+	d20plus.autoBackup.createHandout = (name, archived = true) => {
+		return new Promise((resolve, reject) => {
+			d20.Campaign.handouts.create({
+				name: name,
+				archived: archived
+			}, {
+				success: function(handout) {
+					resolve(handout);
+				},
+				error: function(handout, error) {
+					reject(new Error(`Failed to create handout "${name}": ${error}`));
+				}
+			});
+		});
+	};
+
+	/**
 	 * Create a backup handout with campaign data
+	 * Automatically splits into multiple handouts if data exceeds 10 MB limit
 	 * @param {boolean} isManual - Whether this is a manual backup
 	 * @returns {Promise<void>}
 	 */
@@ -4447,38 +4516,63 @@ function baseToolAutoBackup() {
 			// Create timestamp and handout name
 			const timestamp = new Date();
 			const dateStr = timestamp.toISOString().slice(0, 19).replace('T', ' ');
-			const name = `${BACKUP_HANDOUT_PREFIX}${dateStr}`;
+			const baseName = `${BACKUP_HANDOUT_PREFIX}${dateStr}`;
 
-			// Create backup handout
-			await new Promise((resolve, reject) => {
-				d20.Campaign.handouts.create({
-					name: name,
-					archived: true
-				}, {
-					success: function(handout) {
-						try {
-							// Add backup metadata
-							const backupData = {
-								...data,
-								timestamp: timestamp.getTime(),
-								backupType: isManual ? "manual" : "auto"
-							};
+			// Add backup metadata
+			const backupData = {
+				...data,
+				timestamp: timestamp.getTime(),
+				backupType: isManual ? "manual" : "auto"
+			};
 
-							const json = JSON.stringify(backupData);
-							handout.updateBlobs({gmnotes: json});
-							handout.save({notes: timestamp.getTime(), inplayerjournals: ""});
+			const json = JSON.stringify(backupData);
+			const jsonSize = new TextEncoder().encode(json).length;
 
-							d20plus.ut.log(`Backup created: ${name}`);
-							resolve(handout);
-						} catch (e) {
-							reject(e);
-						}
-					},
-					error: function(handout, error) {
-						reject(new Error(`Failed to create backup handout: ${error}`));
-					}
+			d20plus.ut.log(`Backup data size: ${(jsonSize / 1024 / 1024).toFixed(2)} MB`);
+
+			if (jsonSize <= MAX_CHUNK_SIZE) {
+				// Single handout backup (under size limit)
+				d20plus.ut.log("Creating single-handout backup...");
+
+				const handout = await d20plus.autoBackup.createHandout(baseName);
+				handout.updateBlobs({gmnotes: json});
+				handout.save({notes: timestamp.getTime(), inplayerjournals: ""});
+
+				d20plus.ut.log(`Backup created: ${baseName}`);
+			} else {
+				// Split into multiple handouts
+				const chunks = d20plus.autoBackup.splitIntoChunks(json, MAX_CHUNK_SIZE);
+				d20plus.ut.log(`Backup requires ${chunks.length} parts (data exceeds 9 MB limit)`);
+
+				// Create main handout with metadata
+				const mainHandout = await d20plus.autoBackup.createHandout(baseName);
+				const mainMetadata = JSON.stringify({
+					isSplitBackup: true,
+					partCount: chunks.length,
+					timestamp: timestamp.getTime(),
+					backupType: isManual ? "manual" : "auto",
+					totalSize: jsonSize
 				});
-			});
+				mainHandout.updateBlobs({gmnotes: mainMetadata});
+				mainHandout.save({notes: timestamp.getTime(), inplayerjournals: ""});
+
+				// Create part handouts with delay to avoid rate limiting
+				for (let i = 0; i < chunks.length; i++) {
+					const partName = `${baseName}${BACKUP_PART_SUFFIX}${i + 1}`;
+					d20plus.ut.log(`Creating backup part ${i + 1}/${chunks.length}...`);
+
+					const partHandout = await d20plus.autoBackup.createHandout(partName);
+					partHandout.updateBlobs({gmnotes: chunks[i]});
+					partHandout.save({notes: i + 1, inplayerjournals: ""});
+
+					// Small delay between parts to avoid overwhelming Roll20
+					if (i < chunks.length - 1) {
+						await d20plus.ut.promiseDelay(d20plus.cfg.getOrDefault("import", "importIntervalHandout") || 100);
+					}
+				}
+
+				d20plus.ut.log(`Split backup created: ${baseName} (${chunks.length} parts)`);
+			}
 
 			// Update config with last backup timestamp
 			if (d20plus.cfg && d20plus.cfg.setCfgVal) {
@@ -4497,7 +4591,7 @@ function baseToolAutoBackup() {
 			await d20plus.autoBackup.cleanupOldBackups();
 
 			// Show success message
-			d20plus.ut.chatLog(`Backup created successfully: ${name}`);
+			d20plus.ut.chatLog(`Backup created successfully: ${baseName}`);
 
 		} catch (e) {
 			d20plus.ut.error("Backup failed:", e);
@@ -4507,34 +4601,138 @@ function baseToolAutoBackup() {
 	};
 
 	/**
-	 * List all backup handouts
-	 * @returns {Array} Array of backup handout models
+	 * List all backup handouts (excludes part handouts)
+	 * @returns {Array} Array of backup handout models (main backups only)
 	 */
 	d20plus.autoBackup.listBackups = () => {
 		return d20.Campaign.handouts.models.filter(h =>
-			h.attributes.name.startsWith(BACKUP_HANDOUT_PREFIX)
+			h.attributes.name.startsWith(BACKUP_HANDOUT_PREFIX) &&
+			!h.attributes.name.includes(BACKUP_PART_SUFFIX)
 		);
 	};
 
 	/**
-	 * Delete backups beyond the 5 most recent
+	 * Get all part handouts for a given backup
+	 * @param {string} baseName - The main backup handout name
+	 * @returns {Array} Array of part handout models, sorted by part number
+	 */
+	d20plus.autoBackup.getBackupParts = (baseName) => {
+		const parts = d20.Campaign.handouts.models.filter(h =>
+			h.attributes.name.startsWith(baseName + BACKUP_PART_SUFFIX)
+		);
+
+		// Sort by part number
+		parts.sort((a, b) => {
+			const aNum = parseInt(a.attributes.name.split(BACKUP_PART_SUFFIX)[1]) || 0;
+			const bNum = parseInt(b.attributes.name.split(BACKUP_PART_SUFFIX)[1]) || 0;
+			return aNum - bNum;
+		});
+
+		return parts;
+	};
+
+	/**
+	 * Load and merge backup data from a backup handout
+	 * Handles both single-handout and split backups
+	 * @param {Object} backupHandout - The main backup handout
+	 * @returns {Promise<string>} The merged backup JSON string
+	 */
+	d20plus.autoBackup.loadBackupData = (backupHandout) => {
+		return new Promise((resolve, reject) => {
+			backupHandout._getLatestBlob("gmnotes", async (gmnotes) => {
+				try {
+					// Check if this is a split backup
+					let metadata;
+					try {
+						metadata = JSON.parse(gmnotes);
+					} catch (e) {
+						// Not JSON metadata, this is a single-handout backup
+						resolve(gmnotes);
+						return;
+					}
+
+					if (!metadata.isSplitBackup) {
+						// Single-handout backup (the gmnotes IS the backup data)
+						resolve(gmnotes);
+						return;
+					}
+
+					// Split backup - need to fetch and merge parts
+					d20plus.ut.log(`Loading split backup with ${metadata.partCount} parts...`);
+
+					const parts = d20plus.autoBackup.getBackupParts(backupHandout.attributes.name);
+
+					if (parts.length !== metadata.partCount) {
+						reject(new Error(`Backup corrupted: expected ${metadata.partCount} parts, found ${parts.length}`));
+						return;
+					}
+
+					// Fetch all parts
+					const partData = [];
+					for (let i = 0; i < parts.length; i++) {
+						const partContent = await new Promise((res, rej) => {
+							parts[i]._getLatestBlob("gmnotes", (data) => {
+								if (data) {
+									res(data);
+								} else {
+									rej(new Error(`Failed to load part ${i + 1}`));
+								}
+							});
+						});
+						partData.push(partContent);
+						d20plus.ut.log(`Loaded part ${i + 1}/${parts.length}`);
+					}
+
+					// Merge parts
+					const mergedData = partData.join("");
+					d20plus.ut.log(`Merged ${parts.length} parts (${(mergedData.length / 1024 / 1024).toFixed(2)} MB)`);
+
+					resolve(mergedData);
+				} catch (e) {
+					reject(e);
+				}
+			});
+		});
+	};
+
+	/**
+	 * Delete a backup and all its parts (if split)
+	 * @param {Object} backup - The main backup handout to delete
+	 */
+	d20plus.autoBackup.deleteBackup = (backup) => {
+		const baseName = backup.attributes.name;
+
+		// Delete any associated parts first
+		const parts = d20plus.autoBackup.getBackupParts(baseName);
+		parts.forEach(part => {
+			d20plus.ut.log(`Deleting backup part: ${part.attributes.name}`);
+			part.destroy();
+		});
+
+		// Delete the main backup handout
+		d20plus.ut.log(`Deleting backup: ${baseName}`);
+		backup.destroy();
+	};
+
+	/**
+	 * Delete backups beyond the configured maximum
 	 * @returns {Promise<void>}
 	 */
 	d20plus.autoBackup.cleanupOldBackups = async () => {
 		try {
 			const backups = d20plus.autoBackup.listBackups();
+			const maxBackups = parseInt(d20plus.cfg.getOrDefault("autoBackup", "maxBackups", DEFAULT_MAX_BACKUPS));
 
 			// Sort by name (which includes timestamp) - newest first
 			backups.sort((a, b) => b.attributes.name.localeCompare(a.attributes.name));
 
-			// Delete backups beyond MAX_BACKUPS
-			if (backups.length > MAX_BACKUPS) {
-				const toDelete = backups.slice(MAX_BACKUPS);
-				d20plus.ut.log(`Cleaning up ${toDelete.length} old backups...`);
+			// Delete backups beyond maxBackups
+			if (backups.length > maxBackups) {
+				const toDelete = backups.slice(maxBackups);
+				d20plus.ut.log(`Cleaning up ${toDelete.length} old backups (keeping ${maxBackups})...`);
 
 				toDelete.forEach(backup => {
-					d20plus.ut.log(`Deleting old backup: ${backup.attributes.name}`);
-					backup.destroy();
+					d20plus.autoBackup.deleteBackup(backup);
 				});
 			}
 		} catch (e) {
@@ -4617,7 +4815,7 @@ function baseToolAutoBackup() {
 			<div id="d20plus-autobackup" title="BetteR20 - Auto Backup" style="position: relative">
 				<h3>Auto Backup Configuration</h3>
 				<p>Backups are stored as archived handouts named "BetteR20 Backup - [date]"</p>
-				<p>Only the 5 most recent backups are kept. Older backups are automatically deleted.</p>
+				<p>Older backups beyond the configured limit are automatically deleted.</p>
 
 				<hr>
 
@@ -4668,36 +4866,63 @@ function baseToolAutoBackup() {
 						const name = backup.attributes.name;
 						const dateStr = name.replace(BACKUP_HANDOUT_PREFIX, "");
 
-						const $li = $(`<li style="padding: 5px; cursor: pointer;" title="Click to download backup JSON"></li>`);
-						$li.text(dateStr);
+						const $li = $(`<li style="padding: 5px; display: flex; justify-content: space-between; align-items: center;"></li>`);
+						const $label = $(`<span></span>`).text(dateStr);
+						const $buttons = $(`<span style="white-space: nowrap;"></span>`);
 
-						$li.on("click", () => {
-							// Download the backup JSON
-							$backupStatus.text("Downloading backup...");
+						const $downloadBtn = $(`<button class="btn btn-sm" style="margin-left: 10px;" title="Download backup"><i class="fa fa-download"></i></button>`);
+						const $deleteBtn = $(`<button class="btn btn-sm btn-danger" style="margin-left: 5px;" title="Delete backup"><i class="fa fa-trash"></i></button>`);
 
-							backup._getLatestBlob("gmnotes", (gmnotes) => {
+						$downloadBtn.on("click", async (e) => {
+							e.stopPropagation();
+							$backupStatus.text("Loading backup data...");
+
+							try {
+								// Use loadBackupData to handle both single and split backups
+								const backupJson = await d20plus.autoBackup.loadBackupData(backup);
+
+								// Create filename from backup name
+								const filename = name.replace(/[^-\w\s]/g, "_") + ".json";
+
+								// Create blob and download
+								const blob = new Blob([backupJson], {type: "application/json"});
+								d20plus.ut.saveAs(blob, filename);
+
+								$backupStatus.text("Download started!");
+								setTimeout(() => {
+									$backupStatus.text("");
+								}, 2000);
+							} catch (e) {
+								d20plus.ut.error("Failed to download backup:", e);
+								$backupStatus.text("Download failed: " + e.message);
+								setTimeout(() => {
+									$backupStatus.text("");
+								}, 5000);
+							}
+						});
+
+						$deleteBtn.on("click", (e) => {
+							e.stopPropagation();
+							if (confirm(`Are you sure you want to delete this backup?\n\n${dateStr}`)) {
 								try {
-									// Create filename from backup name
-									const filename = name.replace(/[^-\w\s]/g, "_") + ".json";
-
-									// Create blob and download
-									const blob = new Blob([gmnotes], {type: "application/json"});
-									d20plus.ut.saveAs(blob, filename);
-
-									$backupStatus.text("Download started!");
+									d20plus.autoBackup.deleteBackup(backup);
+									$backupStatus.text("Backup deleted!");
+									populateBackupList();
 									setTimeout(() => {
 										$backupStatus.text("");
 									}, 2000);
 								} catch (e) {
-									d20plus.ut.error("Failed to download backup:", e);
-									$backupStatus.text("Download failed!");
+									d20plus.ut.error("Failed to delete backup:", e);
+									$backupStatus.text("Delete failed: " + e.message);
 									setTimeout(() => {
 										$backupStatus.text("");
-									}, 3000);
+									}, 5000);
 								}
-							});
+							}
 						});
 
+						$buttons.append($downloadBtn).append($deleteBtn);
+						$li.append($label).append($buttons);
 						$backupList.append($li);
 					});
 				}
