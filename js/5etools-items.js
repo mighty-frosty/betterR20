@@ -8,7 +8,7 @@ function d20plusItems () {
 
 		return `
 		<span class="name col-3" title="name">${it.name}</span>
-		<span class="type col-5" title="type">${(it._typeListText || []).map(t => `TYP[${t.trim()}]`).join(", ")}</span>
+		<span class="type col-5" title="type">${(it._textTypes || []).map(t => `TYP[${t.trim()}]`).join(", ")}</span>
 		<span class="rarity col-2" title="rarity">RAR[${it.rarity}]</span>
 		<span title="source [Full source name is ${Parser.sourceJsonToFull(it.source)}]" class="source col-2">SRC[${Parser.sourceJsonToAbv(it.source)}]</span>`;
 	};
@@ -16,8 +16,8 @@ function d20plusItems () {
 		if (!it._isEnhanced) Renderer.item.enhanceItem(it);
 		return {
 			name: (it.name || "").toLowerCase(),
-			// Check if _typeListText exists, otherwise return an empty array
-			type: it._typeListText ? it._typeListText.map(t => t.toLowerCase()) : [],
+			// Check if _textTypes exists, otherwise return an empty array
+			type: it._textTypes ? it._textTypes.map(t => t.toLowerCase()) : [],
 			rarity: (it.rarity || "").toLowerCase(),
 			source: it.source ? Parser.sourceJsonToAbv(it.source).toLowerCase() : "",
 		};
@@ -140,7 +140,7 @@ function d20plusItems () {
 			name: name,
 			tags: d20plus.importer.getTagString([
 				`rarity ${data.rarity}`,
-				...(data._typeListText || []), // <--- If undefined, it spreads an empty array instead of crashing
+				...(data._textTypes || []), // <--- If undefined, it spreads an empty array instead of crashing
 				Parser.sourceJsonToFull(data.source),
 			], "item"),
 		}, {
@@ -192,8 +192,8 @@ function d20plusItems () {
 		let type = data.type;
 		if (data.type) {
 			roll20Data.data["Item Type"] = d20plus.items.parseType(data.type);
-		} else if (data._typeListText) {
-			roll20Data.data["Item Type"] = data._typeListText.join(", ");
+		} else if (data._textTypes) {
+			roll20Data.data["Item Type"] = data._textTypes.join(", ");
 		}
 
 		const cleanDmg1 = removeDiceTags(data.dmg1);
