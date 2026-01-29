@@ -139,7 +139,7 @@ function d20plusImporter () {
 		if (d.content) g.Content = d.content;
 		if (n !== undefined) g.dropSubhead = n;
 
-		// First pass: Set all values WITHOUT triggering sheet workers
+		// Set values AND trigger sheet worker for each field (like original Roll20 code)
 		e.$currentDropTarget.find("*[accept]").each(function() {
 			const v = $(this), C = v.attr("accept");
 			if (g[C]) {
@@ -153,29 +153,17 @@ function d20plusImporter () {
 				} else {
 					v.val(g[C]);
 				}
+				// Trigger sheet worker for each field like original Roll20 code
+				e.saveSheetValues(this, "compendium");
 			}
 		});
-
-		// Trigger sheet worker ONCE for all changes by calling on the last element only
-		let lastElement = null;
-		e.$currentDropTarget.find("*[accept]").each(function() {
-			const C = $(this).attr("accept");
-			if (g[C]) {
-				lastElement = this;
-			}
-		});
-
-		// Only trigger the sheet worker on the LAST element to avoid multiple firings
-		if (lastElement) {
-			e.saveSheetValues(lastElement, "compendium");
-		}
 		// END ROLL20 CODE
 
 		/* eslint-enable */
 
 		// reset the drag UI
 		characterView.activeDrop = false;
-		characterView.compendiumDragOver()
+		characterView.compendiumDragOver();
 	};
 
 	// caller should run `$iptFilter.off("keydown").off("keyup");` before calling this
