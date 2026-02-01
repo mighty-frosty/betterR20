@@ -479,8 +479,24 @@ function baseToolModule () {
 											{
 												success: function (character) {
 													character.attribs.reset();
-													const toSave = entry.attribs.map(a => character.attribs.push(a));
-													toSave.forEach(s => s.syncedSave());
+
+													// Check if 2024 import is available (only in 5etools build)
+													const use2024 = typeof d20plus.importer?.shouldUse2024 === "function" && d20plus.importer.shouldUse2024();
+													const isNpc = entry.attribs && entry.attribs.some(a => a.name === "npc" && a.current === "1");
+
+													if (use2024 && isNpc) {
+														// Use 2024 sheet format for NPCs
+														const store = d20plus.importer.translateOGLTo2024Store(entry.attribs);
+														const toSave = [
+															{ name: "appState", current: "npc" },
+															{ name: "store", current: store },  // Store as object, NOT stringified
+														].map(a => character.attribs.push(a));
+														toSave.forEach(s => s.syncedSave());
+													} else {
+														// Use OGL format
+														const toSave = entry.attribs.map(a => character.attribs.push(a));
+														toSave.forEach(s => s.syncedSave());
+													}
 
 													character.abilities.reset();
 													if (entry.abilities) entry.abilities.map(a => character.abilities.push(a)).forEach(s => s.save());
