@@ -180,7 +180,7 @@ function d20plusClass () {
 
 	d20plus.classes._getHandoutData = function (data) {
 		const renderer = new Renderer();
-		renderer.setBaseUrl(BASE_SITE_URL);
+		renderer.setBaseUrl(LINK_BASE_URL);
 
 		const renderStack = [];
 		// make a copy of the data to modify
@@ -223,7 +223,7 @@ function d20plusClass () {
 		const maxLevel = Math.max(...levels);
 
 		const clss = data.Vetoolscontent;
-		const renderer = Renderer.get().setBaseUrl(BASE_SITE_URL);
+		const renderer = Renderer.get().setBaseUrl(LINK_BASE_URL);
 		const shapedSheetPreFilledFeaturesByClass = {
 			"Artificer": [
 				"Magic Item Analysis",
@@ -583,7 +583,7 @@ function d20plusClass () {
 
 	d20plus.subclasses._getHandoutData = function (data) {
 		const renderer = new Renderer();
-		renderer.setBaseUrl(BASE_SITE_URL);
+		renderer.setBaseUrl(LINK_BASE_URL);
 
 		const renderStack = [];
 
@@ -622,7 +622,7 @@ function d20plusClass () {
 		if (!levels || !levels.size) return;
 
 		const renderer = new Renderer();
-		renderer.setBaseUrl(BASE_SITE_URL);
+		renderer.setBaseUrl(LINK_BASE_URL);
 		let firstFeatures = true;
 		for (let i = 0; i < sc.subclassFeatures.length; i++) {
 			const lvlFeatureList = sc.subclassFeatures[i];

@@ -36,6 +36,9 @@ B20_REPO_URL = `https://raw.githubusercontent.com/DeathStalker471/betterR20/refs
 // TODO automate to use mirror if main site is unavailable
 BASE_SITE_URL = `https://5e.tools/`; // "https://5e.tools/";
 
+// Separate URL for rendered links (book.html, etc.) - main site has CORS but HTML pages exist there
+LINK_BASE_URL = `https://5e.tools/`;
+
 SITE_JS_URL = `${BASE_SITE_URL}js/`;
 DATA_URL = `${BASE_SITE_URL}data/`;
 
@@ -38114,7 +38117,7 @@ class _DataUtilPropConfigMultiSource extends _DataUtilPropConfig {
 	static _P_INDEX = null;
 
 	static pLoadIndex () {
-		this._P_INDEX = this._P_INDEX || DataUtil.loadJSON(`${Renderer.get().baseUrl}data/${this._DIR}/${this._isFluff ? `fluff-` : ""}index.json`);
+		this._P_INDEX = this._P_INDEX || DataUtil.loadJSON(`${DATA_URL}${this._DIR}/${this._isFluff ? `fluff-` : ""}index.json`);
 		return this._P_INDEX;
 	}
 
@@ -38149,7 +38152,7 @@ class _DataUtilPropConfigMultiSource extends _DataUtilPropConfig {
 
 		const fnLoad = isUnmerged ? DataUtil.loadRawJSON.bind(DataUtil) : DataUtil.loadJSON.bind(DataUtil);
 
-		let data = await fnLoad(`${Renderer.get().baseUrl}data/${this._DIR}/${file}`);
+		let data = await fnLoad(`${DATA_URL}${this._DIR}/${file}`);
 		data = (data[this._PROP] || []).filter(MultiSourceUtil.isEntityIndexKeyMatch.bind(this, indexKey, this._PROP));
 
 		if (!this._IS_MUT_ENTITIES) return data;
@@ -40165,7 +40168,7 @@ globalThis.DataUtil = class {
 		// endregion
 
 		static async _pInitPreData_ () {
-			this._SPELL_SOURCE_LOOKUP = await DataUtil.loadRawJSON(`${Renderer.get().baseUrl}data/generated/gendata-spell-source-lookup.json`);
+			this._SPELL_SOURCE_LOOKUP = await DataUtil.loadRawJSON(`${DATA_URL}generated/gendata-spell-source-lookup.json`);
 		}
 
 		static _mutEntity (sp, {sourcesLookup = null} = {}) {

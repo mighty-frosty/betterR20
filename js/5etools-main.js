@@ -136,55 +136,57 @@ const betteR205etoolsMain = function () {
 	 * defaultSource: if there are multiple sources, the one to be shown by default
 	 * finalText: any text to be shown after the buttons
 	 */
+	// Use getters for baseUrl so values are evaluated at access time, not definition time
+	// This allows updateBaseSiteUrl() to change the URLs and have IMPORT_CATEGORIES reflect those changes
 	const IMPORT_CATEGORIES = [
 		{
 			name: "adventure",
 			plural: "adventures",
-			baseUrl: ADVENTURE_DATA_DIR,
+			get baseUrl() { return ADVENTURE_DATA_DIR; },
 			uniqueImport: true,
 		},
 		{
 			name: "background",
 			plural: "backgrounds",
 			playerImport: true,
-			baseUrl: BACKGROUND_DATA_URL,
+			get baseUrl() { return BACKGROUND_DATA_URL; },
 		},
 		{
 			name: "class",
 			plural: "classes",
 			playerImport: true,
-			baseUrl: CLASS_DATA_DIR,
+			get baseUrl() { return CLASS_DATA_DIR; },
 		},
 		{
 			name: "deity",
 			plural: "deities",
-			baseUrl: DEITY_DATA_URL,
+			get baseUrl() { return DEITY_DATA_URL; },
 		},
 		{
 			name: "feat",
 			plural: "feats",
 			playerImport: true,
-			baseUrl: FEAT_DATA_URL,
+			get baseUrl() { return FEAT_DATA_URL; },
 		},
 		{
 			name: "item",
 			plural: "items",
 			playerImport: true,
-			baseUrl: ITEM_DATA_URL,
+			get baseUrl() { return ITEM_DATA_URL; },
 		},
 		{
 			name: "monster",
 			plural: "monsters",
 			allImport: true,
 			fileImport: true,
-			baseUrl: MONSTER_DATA_DIR,
+			get baseUrl() { return MONSTER_DATA_DIR; },
 			defaultSource: "MM",
 			finalText: ` WARNING: Importing huge numbers of character sheets slows the game down. We recommend you import them as needed.<br>The "Import Monsters From All Sources" button presents a list containing monsters from official sources only.<br>To import from third-party sources, either individually select one available in the list, enter a custom URL, or upload a custom file, and "Import Monsters."`,
 		},
 		{
 			name: "object",
 			plural: "objects",
-			baseUrl: OBJECT_DATA_URL,
+			get baseUrl() { return OBJECT_DATA_URL; },
 		},
 		{
 			name: "optionalfeature",
@@ -192,36 +194,36 @@ const betteR205etoolsMain = function () {
 			titleSing: "Optional Feature (Invocations, etc.)",
 			titlePl: "Optional Features (Invocations, etc.)",
 			playerImport: true,
-			baseUrl: OPT_FEATURE_DATA_URL,
+			get baseUrl() { return OPT_FEATURE_DATA_URL; },
 		},
 		{
 			name: "psionic",
 			plural: "psionics",
 			playerImport: true,
-			baseUrl: PSIONIC_DATA_URL,
+			get baseUrl() { return PSIONIC_DATA_URL; },
 		},
 		{
 			name: "race",
 			plural: "races",
 			playerImport: true,
-			baseUrl: RACE_DATA_URL,
+			get baseUrl() { return RACE_DATA_URL; },
 		},
 		{
 			name: "spell",
 			plural: "spells",
 			playerImport: true,
-			baseUrl: SPELL_DATA_DIR,
+			get baseUrl() { return SPELL_DATA_DIR; },
 		},
 		{
 			name: "subclass",
 			plural: "subclasses",
 			playerImport: true,
-			baseUrl: "",
+			get baseUrl() { return ""; },
 		},
 		{
 			name: "vehicle",
 			plural: "vehicles",
-			baseUrl: VEHICLE_DATA_URL,
+			get baseUrl() { return VEHICLE_DATA_URL; },
 		},
 	]
 
@@ -307,20 +309,24 @@ const betteR205etoolsMain = function () {
 		// d20plus.js.scripts.push({name: "5etoolsScalecreature", url: `${SITE_JS_URL}scalecreature.js`});
 	}
 
-	d20plus.json = [
-		{name: "class index", url: `${CLASS_DATA_DIR}index.json`},
-		{name: "spell index", url: `${SPELL_DATA_DIR}index.json`},
-		{name: "spell metadata", url: SPELL_META_URL},
-		{name: "bestiary index", url: `${MONSTER_DATA_DIR}index.json`},
-		{name: "bestiary fluff index", url: `${MONSTER_DATA_DIR}fluff-index.json`},
-		{name: "bestiary metadata", url: `${MONSTER_DATA_DIR}legendarygroups.json`},
-		{name: "adventures index", url: `${DATA_URL}adventures.json`},
-		{name: "base items", url: `${DATA_URL}items-base.json`},
-		{name: "item modifiers", url: `https://5e.tools/data/roll20-items.json`},
-	];
+	// Build JSON URLs dynamically (called after config is loaded so custom base URL is used)
+	d20plus.initJsonUrls = function () {
+		d20plus.json = [
+			{name: "class index", url: `${CLASS_DATA_DIR}index.json`},
+			{name: "spell index", url: `${SPELL_DATA_DIR}index.json`},
+			{name: "spell metadata", url: SPELL_META_URL},
+			{name: "bestiary index", url: `${MONSTER_DATA_DIR}index.json`},
+			{name: "bestiary fluff index", url: `${MONSTER_DATA_DIR}fluff-index.json`},
+			{name: "bestiary metadata", url: `${MONSTER_DATA_DIR}legendarygroups.json`},
+			{name: "adventures index", url: `${DATA_URL}adventures.json`},
+			{name: "base items", url: `${DATA_URL}items-base.json`},
+			{name: "item modifiers", url: `https://5e.tools/data/roll20-items.json`},
+		];
+	};
 
 	// add JSON index/metadata
 	d20plus.pAddJson = async function () {
+		d20plus.initJsonUrls(); // Build URLs using current config
 		d20plus.ut.log("Load JSON");
 
 		try {
