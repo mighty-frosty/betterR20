@@ -520,6 +520,188 @@ function d20plusImporter () {
 		d20plus.importer._baseAddAction(character, "repeating_vehicleactions", name, actionText, "Vehicle", index, expand);
 	};
 
+	// Create token actions from an already-imported character's attributes
+	// Used by module importer to generate token actions after character import
+	d20plus.importer._createTokenActionsFromCharacter = function (character) {
+		// Get all attributes
+		const attribs = character.attribs.toJSON();
+
+		// Helper to extract repeating section entries
+		const getRepeatingSections = (prefix) => {
+			const entries = {};
+			attribs.forEach(attr => {
+				const match = attr.name.match(new RegExp(`^${prefix}_([-\\w]+)_(\\w+)$`));
+				if (match) {
+					const rowId = match[1];
+					const field = match[2];
+					if (!entries[rowId]) entries[rowId] = {};
+					entries[rowId][field] = attr.current;
+				}
+			});
+			return Object.values(entries);
+		};
+
+		// Create token actions for regular actions (including attacks)
+		const actions = getRepeatingSections("repeating_npcaction").filter(a => a.name);
+		if (actions.length > 0) {
+			actions.forEach((action, i) => {
+				character.abilities.create({
+					name: `${i}: ${action.name}`,
+					istokenaction: true,
+					action: d20plus.macro.actionMacroAction("repeating_npcaction", i),
+				});
+			});
+		}
+
+		// Create token actions for bonus actions
+		const bonusActions = getRepeatingSections("repeating_npcbonusaction").filter(a => a.name);
+		if (bonusActions.length > 0) {
+			bonusActions.forEach((action, i) => {
+				character.abilities.create({
+					name: `Bonus${i}: ${action.name}`,
+					istokenaction: true,
+					action: d20plus.macro.actionMacroAction("repeating_npcbonusaction", i),
+				});
+			});
+		}
+
+		// Create token actions for reactions
+		const reactions = getRepeatingSections("repeating_npcreaction").filter(r => r.name);
+		if (reactions.length > 0) {
+			reactions.forEach((reaction, i) => {
+				character.abilities.create({
+					name: `Reaction: ${reaction.name}`,
+					istokenaction: true,
+					action: d20plus.macro.actionMacroReaction(i),
+				});
+			});
+		}
+
+		// Create token actions for traits
+		const traits = getRepeatingSections("repeating_npctrait").filter(t => t.name);
+		if (traits.length > 0 && d20plus.cfg.getOrDefault("import", "tokenactionsTraits")) {
+			traits.forEach((trait, i) => {
+				character.abilities.create({
+					name: `Trait: ${trait.name}`,
+					istokenaction: true,
+					action: d20plus.macro.actionMacroTrait(i),
+				});
+			});
+		}
+
+		// Create token actions for legendary actions
+		const legendaryActions = getRepeatingSections("repeating_npcaction-l").filter(a => a.name);
+		if (legendaryActions.length > 0) {
+			const expand = d20plus.cfg.getOrDefault("import", "tokenactionsExpanded");
+
+			if (expand) {
+				// Create individual token actions for each legendary action
+				legendaryActions.forEach((action, i) => {
+					character.abilities.create({
+						name: `Legendary${i}: ${action.name}`,
+						istokenaction: true,
+						action: d20plus.macro.actionMacroAction("repeating_npcaction-l", i),
+					});
+				});
+			} else {
+				// Create single token action with all legendary actions
+				const tokenactiontext = legendaryActions
+					.map((action, i) => {
+						return `[${action.name}](~selected|repeating_npcaction-l_$${i}_npc_action)`;
+					}).join("\n\r");
+
+				character.abilities.create({
+					name: "Legendary Actions",
+					istokenaction: true,
+					action: d20plus.macro.actionMacroLegendary(tokenactiontext),
+				});
+			}
+		}
+
+		// Create token actions for mythic actions
+		const mythicActions = getRepeatingSections("repeating_npcaction-m").filter(a => a.name);
+		if (mythicActions.length > 0) {
+			const expand = d20plus.cfg.getOrDefault("import", "tokenactionsExpanded");
+
+			if (expand) {
+				// Create individual token actions for each mythic action
+				mythicActions.forEach((action, i) => {
+					character.abilities.create({
+						name: `Mythic${i}: ${action.name}`,
+						istokenaction: true,
+						action: d20plus.macro.actionMacroAction("repeating_npcaction-m", i),
+					});
+				});
+			} else {
+				// Create single token action with all mythic actions
+				const tokenactiontext = mythicActions
+					.map((action, i) => {
+						return `[${action.name}](~selected|repeating_npcaction-m_$${i}_npc_action)`;
+					}).join("\n\r");
+
+				character.abilities.create({
+					name: "Mythic Actions",
+					istokenaction: true,
+					action: d20plus.macro.actionMacroMythic(tokenactiontext),
+				});
+			}
+		}
+
+		// Create common token actions (skills, perception, saves, initiative, ability checks)
+		if (d20plus.cfg.getOrDefault("import", "tokenactionsSkills")) {
+			character.abilities.create({
+				name: "Skill Check",
+				istokenaction: true,
+				action: d20plus.macro.actionMacroSkillCheck,
+			});
+		}
+
+		if (d20plus.cfg.getOrDefault("import", "tokenactionsPerception")) {
+			character.abilities.create({
+				name: "Perception",
+				istokenaction: true,
+				action: d20plus.macro.actionMacroPerception,
+			});
+		}
+
+		if (d20plus.cfg.getOrDefault("import", "tokenactionsSaves")) {
+			character.abilities.create({
+				name: "Saving Throw",
+				istokenaction: true,
+				action: d20plus.macro.actionMacroSaves,
+			});
+		}
+
+		if (d20plus.cfg.getOrDefault("import", "tokenactionsInitiative")) {
+			character.abilities.create({
+				name: "Initiative",
+				istokenaction: true,
+				action: d20plus.macro.actionMacroInit,
+			});
+		}
+
+		if (d20plus.cfg.getOrDefault("import", "tokenactionsChecks")) {
+			character.abilities.create({
+				name: "Ability Check",
+				istokenaction: true,
+				action: d20plus.macro.actionMacroAbilityCheck,
+			});
+		}
+
+		if (d20plus.cfg.getOrDefault("import", "tokenactionsOther")) {
+			character.abilities.create({
+				name: "DR/Immunities",
+				istokenaction: true,
+				action: d20plus.macro.actionMacroDrImmunities,
+			});
+			character.abilities.create({
+				name: "Stats",
+				istokenaction: true,
+				action: d20plus.macro.actionMacroStats,
+			});
+		}
+	};
+
 	// Add individual weapons to the npc ship stat block
 	d20plus.importer._addVehicleWeapon = function (character, weapon, renderer, prefix) {
 		const newRowId = d20plus.ut.generateRowId();

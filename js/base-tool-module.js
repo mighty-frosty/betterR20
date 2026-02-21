@@ -482,8 +482,18 @@ function baseToolModule () {
 													const toSave = entry.attribs.map(a => character.attribs.push(a));
 													toSave.forEach(s => s.syncedSave());
 
-													character.abilities.reset();
-													if (entry.abilities) entry.abilities.map(a => character.abilities.push(a)).forEach(s => s.save());
+													// Fetch existing abilities first, then clear them all before creating new ones
+													character.abilities.fetch({
+														success: function() {
+															// Destroy all existing abilities (including old token actions)
+															character.abilities.models.slice().forEach(ability => ability.destroy());
+
+															// Create token actions from imported attributes if enabled
+															if (d20plus.cfg.getOrDefault("import", "tokenactions")) {
+																d20plus.importer._createTokenActionsFromCharacter(character);
+															}
+														}
+													});
 
 													character.updateBlobs({
 														bio: entry.blobBio,
