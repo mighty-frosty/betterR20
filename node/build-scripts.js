@@ -110,6 +110,8 @@ const LIB_SCRIPTS = {
 		"list.min.js",
 		"jszip.min.js",
 		"localforage.min.js",
+		"pdf.worker.min.js",
+		"pdf.min.js",
 
 		"parser.js",
 		"utils.js",
