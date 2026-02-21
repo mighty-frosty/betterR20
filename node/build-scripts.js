@@ -12,7 +12,8 @@ const SCRIPT_BETA_DESCRIPTION = `This version contains following changes
 - Fix Import Error
 1.35.186.14js - HUH?
 - Fix 2024 rolling
-
+1.36.1.1ja - The Merge Collapse?
+- Too many Changes
 `;
 
 const AUTHORS_CORE = `TheGiddyLimit/Redweller`;

@@ -287,7 +287,7 @@ function baseUtil () {
 							in<span style="color: orange; font-family: monospace"> 5etools &gt; better20 &gt; #testing </span>thread
 						</p>
 					</h1>
-					<p>This version contains following changes<br>1.35.186.14jq - Map Importer?<br>- Fix Map Importer. Thank you @helenclarko<br>1.35.186.14jr - Fix data error?<br>- Fix Import Error<br>1.35.186.14js - Fix data error?<br>- Fix Import Error<br>1.35.186.14js - HUH?<br>- Fix 2024 rolling<br><br></p>
+					<p>This version contains following changes<br>1.35.186.14jq - Map Importer?<br>- Fix Map Importer. Thank you @helenclarko<br>1.35.186.14jr - Fix data error?<br>- Fix Import Error<br>1.35.186.14js - Fix data error?<br>- Fix Import Error<br>1.35.186.14js - HUH?<br>- Fix 2024 rolling<br>1.36.1.1ja - The Merge Collapse?<br>- Too many Changes<br></p>
 				</div>
 			`);
 			}, 6000);
