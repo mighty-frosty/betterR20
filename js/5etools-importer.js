@@ -1114,8 +1114,8 @@ function d20plusImporter () {
 					default:
 						if (it.type) {
 							folderName = Renderer.item.getItemTypeName(it.type);
-						} else if (it._typeListText) {
-							folderName = it._typeListText.join(", ");
+						} else if (it._textTypes) {
+							folderName = it._textTypes.join(", ");
 						} else {
 							folderName = "Unknown";
 						}
