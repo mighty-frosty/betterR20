@@ -108,23 +108,62 @@ function d20plusImporter () {
 		/* eslint-disable */
 
 		// BEGIN ROLL20 CODE
-		const d = !!o.data ? o : JSON.parse(o);
+		let d;
+		if (!!o.data) {
+			d = o;
+		} else {
+			// Validate JSON before parsing
+			if (typeof o === 'string' && o.trim()) {
+				try {
+					d = JSON.parse(o);
+				} catch (e) {
+					console.error('Failed to parse drop data:', e);
+					return;
+				}
+			} else {
+				console.warn('Invalid drop data received, skipping import');
+				return;
+			}
+		}
+
+		// Validate that the parsed data has the required structure
+		if (!d || !d.data) {
+			console.warn('Drop data missing required "data" property, skipping import');
+			return;
+		}
+
 		const g = _.clone(d.data);
-		g.Name = d.name, g.data = JSON.stringify(d.data), g.uniqueName = t, g.Content = d.content, g.dropSubhead = n,
+		g.Name = d.name;
+		g.data = JSON.stringify(d.data);
+		g.uniqueName = t;
+		if (d.content) g.Content = d.content;
+		if (n !== undefined) g.dropSubhead = n;
+
+		// Set values AND trigger sheet worker for each field (like original Roll20 code)
 		e.$currentDropTarget.find("*[accept]").each(function() {
 			const v = $(this), C = v.attr("accept");
-			g[C] && (v[0].tagName.toLowerCase() === "input" && v.attr("type") === "checkbox" || v[0].tagName.toLowerCase() === "input" && v.attr("type") === "radio" ? v.val() === g[C] ? v.prop("checked", !0) : v.prop("checked", !1) : v[0].tagName.toLowerCase() === "select" ? v.find("option").each(function() {
-				const E = $(this);
-				(E.val() === g[C] || E.text() === g[C]) && E.prop("selected", !0)
-			}) : $(this).val(g[C]), e.saveSheetValues(this, "compendium"))
-		})
+			if (g[C]) {
+				if (v[0].tagName.toLowerCase() === "input" && v.attr("type") === "checkbox" || v[0].tagName.toLowerCase() === "input" && v.attr("type") === "radio") {
+					v.prop("checked", v.val() === g[C]);
+				} else if (v[0].tagName.toLowerCase() === "select") {
+					v.find("option").each(function() {
+						const E = $(this);
+						if (E.val() === g[C] || E.text() === g[C]) E.prop("selected", !0);
+					});
+				} else {
+					v.val(g[C]);
+				}
+				// Trigger sheet worker for each field like original Roll20 code
+				e.saveSheetValues(this, "compendium");
+			}
+		});
 		// END ROLL20 CODE
 
 		/* eslint-enable */
 
 		// reset the drag UI
 		characterView.activeDrop = false;
-		characterView.compendiumDragOver()
+		characterView.compendiumDragOver();
 	};
 
 	// caller should run `$iptFilter.off("keydown").off("keyup");` before calling this

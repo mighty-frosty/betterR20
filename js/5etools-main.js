@@ -735,9 +735,10 @@ const betteR205etoolsMain = function () {
 						const character = d20.Campaign.characters.get(characterid).view;
 						const $hlpr = $(i.helper[0]);
 
-						if ($hlpr.hasClass("handout")) {
-							console.log("Handout item dropped onto target!");
+						if ($hlpr.hasClass("handout") || $hlpr.hasClass("Vetools-draggable")) {
 							t.originalEvent.dropHandled = !0;
+							t.stopPropagation();
+							t.preventDefault();
 							if (e.activeDrop) {
 								e.dragOver = !1;
                             	e.childWindow.d20.deactivateDrop();
@@ -745,7 +746,11 @@ const betteR205etoolsMain = function () {
 
 							if ($hlpr.hasClass(`player-imported`)) {
 								const data = d20plus.importer.retrievePlayerImport($hlpr.attr("data-playerimportid"));
-								importData(character, data, t);
+								if (data) {
+									importData(character, data, t);
+								} else {
+									console.warn("Player import data not found (session expired?). Please re-import the item.");
+								}
 							} else {
 								var id = $hlpr.attr("data-itemid");
 								var handout = d20.Campaign.handouts.get(id);
@@ -764,12 +769,30 @@ const betteR205etoolsMain = function () {
 									handout._getLatestBlob("gmnotes", function (gmnotes) {
 										data = decodeIfURI(gmnotes);
 										handout.updateBlobs({gmnotes: gmnotes});
-										importData(character, JSON.parse(data), t);
+										if (data && data.trim()) {
+											try {
+												const parsedData = JSON.parse(data);
+												importData(character, parsedData, t);
+											} catch (e) {
+												console.error("Failed to parse handout JSON:", e);
+											}
+										} else {
+											console.warn("Handout gmnotes are empty or invalid, skipping import");
+										}
 									});
 								} else {
 									handout._getLatestBlob("notes", function (notes) {
 										data = $(decodeIfURI(notes)).filter("del").html();
-										importData(character, JSON.parse(data), t);
+										if (data && data.trim()) {
+											try {
+												const parsedData = JSON.parse(data);
+												importData(character, parsedData, t);
+											} catch (e) {
+												console.error("Failed to parse handout JSON:", e);
+											}
+										} else {
+											console.warn("Handout notes are empty or invalid, skipping import");
+										}
 									});
 								}
 							}
