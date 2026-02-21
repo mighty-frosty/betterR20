@@ -302,7 +302,7 @@ function d20plusImporter () {
 
 		character.attributes.avatar = outPortraitUrl;
 		character.updateBlobs({avatar: outPortraitUrl, defaulttoken: JSON.stringify(defaulttoken)});
-		character.save({defaulttoken: (new Date()).getTime()});
+		character.save();
 	};
 
 	d20plus.importer._baseAddAction = function (character, baseAction, name, actionText, prefix, index, expand) {

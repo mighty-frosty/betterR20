@@ -475,7 +475,9 @@ function baseToolModule () {
 										break;
 									}
 									case "characters": {
-										d20.Campaign.characters.create(entry.attributes,
+										// Force use of OGL 5e sheet (works in both 2014 and 2024 games)
+										const charAttrs = {...entry.attributes, charactersheetname: "ogl5e"};
+										d20.Campaign.characters.create(charAttrs,
 											{
 												success: function (character) {
 													character.attribs.reset();

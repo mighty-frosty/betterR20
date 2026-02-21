@@ -34,6 +34,8 @@ function d20plusObjects () {
 					Parser.sizeAbvToFull(data.size),
 					Parser.sourceJsonToFull(data.source),
 				], "object"),
+				// Force use of OGL 5e sheet (works in both 2014 and 2024 games)
+				charactersheetname: "ogl5e",
 			},
 			{
 				success: function (character) {
