@@ -1,6 +1,6 @@
 const fs = require("fs");
 
-const SCRIPT_VERSION = "1.36.1.1jb";
+const SCRIPT_VERSION = "1.36.1.1jc";
 const SCRIPT_REPO = "https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/";
 
 const SCRIPT_BETA_DESCRIPTION = `This version contains following changes
@@ -14,7 +14,7 @@ const SCRIPT_BETA_DESCRIPTION = `This version contains following changes
 - Fix 2024 rolling
 1.36.1.1ja - The Merge Collapse?
 - Too many Changes
-1.36.1.1jb - The Merge Collapse?
+1.36.1.1jc - The Merge Collapse?
 - Fix all Sources
 `;
 
