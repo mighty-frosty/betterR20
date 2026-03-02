@@ -1117,6 +1117,265 @@ function d20plus2024Import() {
 	d20plus.monsters.shouldUse2024 = function() {
 		return true; // This file is only loaded in the 5etools (2024) build
 	};
+
+	// ========================================
+	// 2024 Drag-Drop Import Support
+	// ========================================
+
+	function make2024Id () {
+		// Keep IDs short (8 chars) so shortID === full ID — the 2024 sheet indexes by shortID
+		const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+		let id = "";
+		for (let i = 0; i < 8; i++) id += chars.charAt(Math.floor(Math.random() * chars.length));
+		return id;
+	}
+
+	function make2024IntegrantBase (type, arrayPosition) {
+		const id = make2024Id();
+		return {
+			id,
+			base: {
+				_enabled: true,
+				_label: "",
+				type,
+				childIDs: "[]",
+				parentID: "",
+				parentDisabled: false,
+				overwriteDisabled: false,
+				builderDisplayName: "",
+				createdTime: Date.now(),
+				arrayPosition: arrayPosition !== undefined ? arrayPosition : 0,
+				shortID: id, // must equal the full ID — sheet indexes by shortID
+				source: "",
+			},
+		};
+	}
+
+	// Returns next safe arrayPosition — one above the current max in the store.
+	// All new integrants in the same save MUST use distinct positions to avoid
+	// Roll20 deduplicating them when multiple are written at once.
+	function getNextArrayPos (store) {
+		const ints = (store.integrants && store.integrants.integrants) || {};
+		let max = 0;
+		Object.values(ints).forEach(function (i) {
+			if ((i.arrayPosition || 0) > max) max = i.arrayPosition;
+		});
+		return max + 1;
+	}
+
+	function get2024Store (charModel) {
+		const storeAttr = charModel.attribs.find(a => a.get("name") === "store");
+		if (!storeAttr) return {attr: null, store: null};
+		let store = storeAttr.get("current");
+		if (typeof store === "string") store = JSON.parse(store);
+		return {attr: storeAttr, store};
+	}
+
+	function save2024Store (charModel, storeAttr, store) {
+		const storeClone = JSON.parse(JSON.stringify(store));
+		try {
+			if (storeAttr) storeAttr.destroy();
+			charModel.attribs.push({name: "store", current: storeClone}).syncedSave();
+		} catch (e) {
+			console.error("betterR20 save2024Store error:", e);
+		}
+	}
+
+	/**
+	 * Import a single spell into a 2024 character sheet's store attribute.
+	 */
+	d20plus.importer.import2024Spell = function (charModel, spellData) {
+		const d = spellData.data;
+		const {attr: storeAttr, store: rawStore} = get2024Store(charModel);
+
+		const levelStr = d["Level"] || "0";
+		let levelIdx = levelStr === "cantrip" ? 0 : (parseInt(levelStr, 10) || 0);
+		if (levelIdx > 9) levelIdx = 9;
+
+		// Parse "V, S, M" string into the object the 2024 sheet expects
+		const compStr = (d["Components"] || "").toUpperCase();
+		const components = {
+			verbal: compStr.includes("V"),
+			somatic: compStr.includes("S"),
+			material: compStr.includes("M"),
+		};
+
+		// Strip units from numeric fields — 2024 sheet stores range/duration as bare numbers
+		const parseNum = str => String(parseInt(str, 10) || 0);
+
+		const {id, base} = make2024IntegrantBase("Spell");
+		const spellEntry = {
+			...base,
+			_prepared: true,
+			alwaysPrepared: false,
+			aoe: {shape: "Cube", size: "0"},
+			concentration: (d["Duration"] || "").toLowerCase().includes("concentration"),
+			name: spellData.name,
+			level: levelIdx,
+			school: d["School"] || "Evocation",
+			castingTime: d["Casting Time"] || "Action",
+			range: parseNum(d["Range"]),
+			components,
+			duration: parseNum(d["Duration"]),
+			description: d["data-description"] || "",
+			relations: {},
+			ritual: false,
+			target: "0",
+			upcastText: "",
+		};
+
+		// Deep clone to avoid mutating the live reference
+		const store = rawStore ? JSON.parse(JSON.stringify(rawStore)) : {
+			integrants: {integrants: {}},
+			spells: {displayOrder: ["[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]"]},
+		};
+
+		if (!store.integrants) store.integrants = {integrants: {}};
+		if (!store.integrants.integrants) store.integrants.integrants = {};
+		if (!store.spells) store.spells = {displayOrder: ["[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]"]};
+		if (!store.spells.displayOrder) store.spells.displayOrder = ["[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]"];
+
+		spellEntry.arrayPosition = getNextArrayPos(store);
+		store.integrants.integrants[id] = spellEntry;
+
+		const order = JSON.parse(store.spells.displayOrder[levelIdx] || "[]");
+		order.push(id);
+		store.spells.displayOrder[levelIdx] = JSON.stringify(order);
+
+		save2024Store(charModel, storeAttr, store);
+	};
+
+	/**
+	 * Import a single item into a 2024 character sheet's store attribute.
+	 * Weapons also create Attack + Damage integrants.
+	 */
+	d20plus.importer.import2024Item = function (charModel, itemData) {
+		const d = itemData.data || {};
+		const {attr: storeAttr, store: rawStore} = get2024Store(charModel);
+
+		const store = rawStore ? JSON.parse(JSON.stringify(rawStore)) : {
+			integrants: {integrants: {}},
+			inventory: {equipmentDisplayOrder: "[]", incrementalQuantityEditing: true, otherPossessionsDisplayOrder: "[]"},
+			attacks: {attackDisplayOrder: "[]"},
+		};
+		if (!store.integrants) store.integrants = {integrants: {}};
+		if (!store.integrants.integrants) store.integrants.integrants = {};
+		if (!store.inventory) store.inventory = {equipmentDisplayOrder: "[]", incrementalQuantityEditing: true, otherPossessionsDisplayOrder: "[]"};
+		if (!store.attacks) store.attacks = {attackDisplayOrder: "[]"};
+
+		// Parse magic item bonus from name e.g. "+1 Longsword" → 1
+		const bonusMatch = itemData.name.match(/^\+(\d+)/);
+		const magicBonus = bonusMatch ? parseInt(bonusMatch[1], 10) : 0;
+
+		// All new integrants in this save need distinct arrayPositions to prevent
+		// Roll20 from deduplicating them during the Firebase write.
+		let pos = getNextArrayPos(store);
+
+		// Item integrant — always added to inventory
+		const {id: itemId, base: itemBase} = make2024IntegrantBase("Item", pos++);
+		store.integrants.integrants[itemId] = {
+			...itemBase,
+			name: itemData.name,
+			quantity: 1,
+			weight: parseFloat(d["Weight"] || "0") || 0,
+			cost: "",
+			equipData: {equippable: true, equipped: false},
+			description: itemData.content || "",
+		};
+		const invOrder = JSON.parse(store.inventory.equipmentDisplayOrder || "[]");
+		invOrder.push(itemId);
+		store.inventory.equipmentDisplayOrder = JSON.stringify(invOrder);
+
+		// Weapon — also create Attack + Damage integrants
+		if (d["Damage"]) {
+			const itemType = (d["Item Type"] || "").toLowerCase();
+			const isRanged = itemType.includes("ranged");
+			const atkAbility = isRanged ? "Dexterity" : "Strength";
+			const atkType = isRanged ? "Ranged" : "Melee";
+
+			const parseDice = (str) => {
+				const m = (str || "").match(/(\d+)d(\d+)/i);
+				return m ? {diceCount: parseInt(m[1], 10), diceSize: `d${m[2]}`} : {diceCount: 1, diceSize: "d4"};
+			};
+
+			const {id: attackId, base: attackBase} = make2024IntegrantBase("Attack", pos++);
+			const damageIds = [];
+
+			// Primary damage
+			const {id: dmg1Id, base: dmg1Base} = make2024IntegrantBase("Damage", pos++);
+			const {diceCount: dc1, diceSize: ds1} = parseDice(d["Damage"]);
+			store.integrants.integrants[dmg1Id] = {
+				...dmg1Base,
+				name: `${itemData.name} Damage`,
+				damageType: d["Damage Type"] || "Slashing",
+				diceCount: dc1,
+				diceSize: ds1,
+				_bonus: magicBonus,
+				ability: atkAbility,
+				critDiceSize: "",
+				overrideCrit: false,
+				parentID: attackId,
+			};
+			damageIds.push(dmg1Id);
+
+			// Alternate/versatile damage
+			if (d["Alternate Damage"]) {
+				const {id: dmg2Id, base: dmg2Base} = make2024IntegrantBase("Damage", pos++);
+				const {diceCount: dc2, diceSize: ds2} = parseDice(d["Alternate Damage"]);
+				store.integrants.integrants[dmg2Id] = {
+					...dmg2Base,
+					name: `${itemData.name} Damage (Versatile)`,
+					damageType: d["Alternate Damage Type"] || d["Damage Type"] || "Slashing",
+					diceCount: dc2,
+					diceSize: ds2,
+					_bonus: magicBonus,
+					ability: atkAbility,
+					critDiceSize: "",
+					overrideCrit: false,
+					parentID: attackId,
+				};
+				damageIds.push(dmg2Id);
+			}
+
+			store.integrants.integrants[attackId] = {
+				...attackBase,
+				name: itemData.name,
+				actionType: "Action",
+				description: itemData.content || "",
+				_reach: false,
+				_reachText: "",
+				attack: {
+					bonus: magicBonus,
+					proficiencyLevel: "Proficient",
+					type: atkType,
+				},
+				childIDs: JSON.stringify(damageIds),
+			};
+			const atkOrder = JSON.parse(store.attacks.attackDisplayOrder || "[]");
+			atkOrder.push(attackId);
+			store.attacks.attackDisplayOrder = JSON.stringify(atkOrder);
+		}
+
+		save2024Store(charModel, storeAttr, store);
+	};
+
+	/**
+	 * Route a drag-drop import to the appropriate 2024 handler.
+	 * Falls back to the standard importData path for unhandled categories.
+	 */
+	d20plus.importer.import2024Data = function (charView, data, event, importDataFallback) {
+		const charModel = charView.model;
+		const category = data.data && data.data.Category;
+
+		if (category === "Spells") {
+			d20plus.importer.import2024Spell(charModel, data);
+		} else if (category === "Items") {
+			d20plus.importer.import2024Item(charModel, data);
+		} else {
+			// For other categories fall back to the standard path
+			importDataFallback(charView, data, event);
+		}
+	};
 }
 
 SCRIPT_EXTENSIONS.push(d20plus2024Import);

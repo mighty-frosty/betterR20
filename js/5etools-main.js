@@ -712,6 +712,7 @@ const betteR205etoolsMain = function () {
 
 			v.view.bindCompendiumDropTarget = function () {
 				if (this.popoutWindow) return;
+				if (!this.$compendiumDropTarget) return; // 2024 sheet doesn't have this
 				const e = this;
 
 				this.$compendiumDropTarget.droppable({
@@ -819,6 +820,95 @@ const betteR205etoolsMain = function () {
 
 			/* eslint-enable */
 		});
+
+		// region 2024 Jumpgate sheet drag-drop support
+		// The 2024 sheet is an iframe with id="advanced-charsheet-dialog__charsheet"
+		// and name="iframe_<characterId>" - we make the parent droppable
+		function bind2024SheetDropTarget ($iframe) {
+			const $dropTarget = $iframe.parent();
+			if ($dropTarget.data("b20-droppable-2024")) return;
+			$dropTarget.data("b20-droppable-2024", true);
+
+			$dropTarget.droppable({
+				accept: ".compendium-item",
+				tolerance: "pointer",
+				drop (t, i) {
+					t.originalEvent.dropHandled = true;
+
+					// Extract character ID from iframe name: "iframe_-OmXOQN5oXtFp-BQBa0A" -> "-OmXOQN5oXtFp-BQBa0A"
+					const charId = $iframe.attr("name").replace("iframe_", "");
+					const charModel = d20.Campaign.characters.get(charId);
+					if (!charModel) {
+						console.warn("betterR20: Could not find character for 2024 sheet drop, ID:", charId);
+						return;
+					}
+					const charView = charModel.view;
+					const $hlpr = $(i.helper[0]);
+
+					function decodeIfURI (notes) {
+						if (!notes) return "";
+						return notes.charAt(0) === "%" ? decodeURIComponent(notes) : notes;
+					}
+
+					function dispatch (charView, data, t) {
+						if (typeof d20plus.importer.import2024Data === "function") {
+							d20plus.importer.import2024Data(charView, data, t, importData);
+						} else {
+							importData(charView, data, t);
+						}
+					}
+
+					if ($hlpr.hasClass("player-imported")) {
+						const data = d20plus.importer.retrievePlayerImport($hlpr.attr("data-playerimportid"));
+						if (data) dispatch(charView, data, t);
+						else console.warn("betterR20: Player import data not found. Please re-import.");
+						return;
+					}
+
+					if (!$hlpr.hasClass("handout")) return;
+
+					const handoutId = $hlpr.attr("data-itemid");
+					const handout = d20.Campaign.handouts.get(handoutId);
+					if (window.is_gm) {
+						handout._getLatestBlob("gmnotes", function (gmnotes) {
+							dispatch(charView, JSON.parse(decodeIfURI(gmnotes)), t);
+						});
+					} else {
+						handout._getLatestBlob("notes", function (notes) {
+							dispatch(charView, JSON.parse($(decodeIfURI(notes)).filter("del").html()), t);
+						});
+					}
+				},
+			});
+		}
+
+		// Store so MutationObserver always calls the latest (captures importData closure)
+		d20plus._bind2024SheetDropTarget = bind2024SheetDropTarget;
+
+		// Bind any already-open 2024 sheets
+		$("iframe[id='advanced-charsheet-dialog__charsheet']").each(function () {
+			bind2024SheetDropTarget($(this));
+		});
+
+		// Watch for new 2024 sheet iframes being added to the DOM
+		if (!d20plus._observer2024) {
+			d20plus._observer2024 = new MutationObserver(function (mutations) {
+				mutations.forEach(function (m) {
+					m.addedNodes.forEach(function (node) {
+						if (node.nodeType !== 1) return;
+						const $n = $(node);
+						if ($n.is("iframe[id='advanced-charsheet-dialog__charsheet']")) {
+							d20plus._bind2024SheetDropTarget($n);
+						}
+						$n.find("iframe[id='advanced-charsheet-dialog__charsheet']").each(function () {
+							d20plus._bind2024SheetDropTarget($(this));
+						});
+					});
+				});
+			});
+			d20plus._observer2024.observe(document.body, {childList: true, subtree: true});
+		}
+		// endregion
 	};
 
 	// Create editable HP variable and autocalculate + or -
