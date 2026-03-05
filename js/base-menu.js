@@ -82,10 +82,9 @@ function baseMenu () {
 			if (!window.is_gm) return;
 
 			// Only show Mass Roll when right-clicking on a token (not empty canvas)
-			// Check for token-specific menu options as primary indicator
-			// (currentRadialTarget is false when multiple tokens are selected)
-			const hasTokenOptions = Array.from(contextMenu.querySelectorAll('span')).some(
-				span => span.textContent.includes('Character Sheet') || span.textContent.includes('Add Turn')
+			// Use icon identifiers (language-independent) rather than translated label text
+			const hasTokenOptions = Array.from(contextMenu.querySelectorAll('.grimoire__roll20-icon')).some(
+				icon => icon.textContent === 'characterSheet' || icon.textContent === 'turnOrderAdd'
 			);
 			if (!hasTokenOptions) {
 				return;
@@ -383,10 +382,9 @@ function baseMenu () {
 		const observer = new MutationObserver(() => {
 			const menu = document.querySelector('.context-menu');
 			if (menu && menu.style.display !== 'none') {
-				// Check if this is a token context menu
-				// Check if this is a token menu by looking for token-specific options
-				const hasTokenOptions = Array.from(menu.querySelectorAll('span')).some(
-					span => span.textContent.includes('Character Sheet') || span.textContent.includes('Add Turn')
+				// Check if this is a token context menu using icon identifiers (language-independent)
+				const hasTokenOptions = Array.from(menu.querySelectorAll('.grimoire__roll20-icon')).some(
+					icon => icon.textContent === 'characterSheet' || icon.textContent === 'turnOrderAdd'
 				);
 
 				if (hasTokenOptions) {
