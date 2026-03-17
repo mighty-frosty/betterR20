@@ -1,6 +1,6 @@
 const fs = require("fs");
 
-const SCRIPT_VERSION = "1.35.186.14jt";
+const SCRIPT_VERSION = "1.36.1.1jc";
 const SCRIPT_REPO = "https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/";
 
 const SCRIPT_BETA_DESCRIPTION = `This version contains following changes
@@ -12,7 +12,10 @@ const SCRIPT_BETA_DESCRIPTION = `This version contains following changes
 - Fix Import Error
 1.35.186.14js - HUH?
 - Fix 2024 rolling
-
+1.36.1.1ja - The Merge Collapse?
+- Too many Changes
+1.36.1.1jc - The Merge Collapse?
+- Fix all Sources
 `;
 
 const AUTHORS_CORE = `TheGiddyLimit/Redweller`;
@@ -110,6 +113,8 @@ const LIB_SCRIPTS = {
 		"list.min.js",
 		"jszip.min.js",
 		"localforage.min.js",
+		"pdf.worker.min.js",
+		"pdf.min.js",
 
 		"parser.js",
 		"utils.js",
@@ -148,6 +153,7 @@ const SCRIPTS = {
 		"base-config",
 		"base-tool",
 		"base-tool-module",
+		"base-tool-autobackup",
 		"base-tool-unlock",
 		"base-tool-animator",
 		"base-tool-dlimport",
@@ -194,6 +200,7 @@ const SCRIPTS = {
 		"base-config",
 		"base-tool",
 		"base-tool-module",
+		"base-tool-autobackup",
 		"base-tool-unlock",
 		"base-tool-animator",
 		"base-tool-table",

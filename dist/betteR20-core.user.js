@@ -2,7 +2,7 @@
 // @name         betteR20-beta-core-death-jumpagate-import
 // @namespace    https://5e.tools/
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      1.35.186.14jt
+// @version      1.36.1.1jc
 // @updateURL    https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/betteR20-core.meta.js
 // @downloadURL  https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/betteR20-core.user.js
 // @description  Enhance your Roll20 experience
@@ -30,11 +30,14 @@ ART_HANDOUT = "betteR20-art";
 CONFIG_HANDOUT = "betteR20-config";
 
 B20_NAME = `core`;
-B20_VERSION = `1.35.186.14jt`;
+B20_VERSION = `1.36.1.1jc`;
 B20_REPO_URL = `https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/`;
 
 // TODO automate to use mirror if main site is unavailable
 BASE_SITE_URL = `https://5e.tools/`; // "https://5e.tools/";
+
+// Separate URL for rendered links (book.html, etc.) - main site has CORS but HTML pages exist there
+LINK_BASE_URL = `https://5e.tools/`;
 
 SITE_JS_URL = `${BASE_SITE_URL}js/`;
 DATA_URL = `${BASE_SITE_URL}data/`;
@@ -284,7 +287,7 @@ function baseUtil () {
 							in<span style="color: orange; font-family: monospace"> 5etools &gt; better20 &gt; #testing </span>thread
 						</p>
 					</h1>
-					<p>This version contains following changes<br>1.35.186.14jq - Map Importer?<br>- Fix Map Importer. Thank you @helenclarko<br>1.35.186.14jr - Fix data error?<br>- Fix Import Error<br>1.35.186.14js - Fix data error?<br>- Fix Import Error<br>1.35.186.14js - HUH?<br>- Fix 2024 rolling<br><br></p>
+					<p>This version contains following changes<br>1.35.186.14jq - Map Importer?<br>- Fix Map Importer. Thank you @helenclarko<br>1.35.186.14jr - Fix data error?<br>- Fix Import Error<br>1.35.186.14js - Fix data error?<br>- Fix Import Error<br>1.35.186.14js - HUH?<br>- Fix 2024 rolling<br>1.36.1.1ja - The Merge Collapse?<br>- Too many Changes<br>1.36.1.1jc - The Merge Collapse?<br>- Fix all Sources<br></p>
 				</div>
 			`);
 			}, 6000);
@@ -1901,6 +1904,26 @@ function baseConfig () {
 			"_type": "integer",
 		},
 	});
+	addConfigOptions("autoBackup", {
+		"_name": "Auto Backup",
+		"schedule": {
+			"name": "Backup Schedule",
+			"default": "off",
+			"_type": "_enum",
+			"__values": ["off", "weekly", "biweekly", "monthly"],
+			"__texts": ["Off", "Weekly", "Bi-Weekly", "Monthly"],
+		},
+		"lastBackupTimestamp": {
+			"name": "Last Backup Time",
+			"default": 0,
+			"_type": "integer",
+		},
+		"enabled": {
+			"name": "Enable Auto Backup",
+			"default": true,
+			"_type": "boolean",
+		},
+	});
 	addConfigOptions("interface", {
 		"_name": "Interface",
 		"_player": true,
@@ -3370,6 +3393,110 @@ function baseTool () {
 					});
 			},
 		},
+		{
+			name: "Upload D&D Beyond Character",
+			desc: "Import a D&D Beyond character sheet from a PDF export.",
+			html: `
+				<div id="d20plus-dndbeyond-import" title="BetteR20 - D&D Beyond Importer">
+					<p>Upload a PDF export from D&D Beyond to import a character sheet.</p>
+					<p style="margin-top: 10px;">
+						<input type="file" id="dndb-pdf-upload" accept=".pdf" style="width: 100%;"/>
+					</p>
+					<hr>
+					<div id="dndb-import-status" style="margin-top: 10px; min-height: 100px;">
+						<p>Select a PDF file to begin import.</p>
+					</div>
+					<hr>
+					<p style="margin-top: 10px;">
+						<button id="dndb-btn-import" class="btn" disabled>Import Character</button>
+					</p>
+				</div>
+			`,
+			dialogFn: () => {
+				$("#d20plus-dndbeyond-import").dialog({
+					autoOpen: false,
+					resizable: true,
+					width: 600,
+					height: 500,
+				});
+			},
+			openFn: async function() {
+				const $win = $("#d20plus-dndbeyond-import");
+				$win.dialog("open");
+
+				const $fileInput = $("#dndb-pdf-upload");
+				const $status = $("#dndb-import-status");
+				const $btnImport = $("#dndb-btn-import");
+
+				let characterData = null;
+
+				// Initialize PDF.js (bundled in build)
+				try {
+					await d20plus.importer.loadPdfJs();
+				} catch (error) {
+					console.error("Error initializing PDF.js:", error);
+					$status.html(`<p style="color: red;">PDF library not available: ${error.message}</p>`);
+					return;
+				}
+
+				// Handle file selection
+				$fileInput.off("change").on("change", async function(e) {
+					const file = e.target.files[0];
+					if (!file) return;
+
+					$status.html("<p>Reading PDF...</p>");
+					$btnImport.prop("disabled", true);
+
+					try {
+						// Read the PDF file
+						const arrayBuffer = await file.arrayBuffer();
+
+						// Parse the PDF and extract character data
+						characterData = await d20plus.importer.parseDnDBeyondPDF(arrayBuffer);
+
+						// Display extracted data
+						$status.html(`
+							<p><strong>Character Found:</strong></p>
+							<ul style="margin-left: 20px;">
+								<li><strong>Name:</strong> ${characterData.name || "Unknown"}</li>
+								<li><strong>Class:</strong> ${characterData.class || "Unknown"}</li>
+								<li><strong>Level:</strong> ${characterData.level || "1"}</li>
+								<li><strong>Species:</strong> ${characterData.species || "Unknown"}</li>
+							</ul>
+							<p style="margin-top: 10px; color: green;">Ready to import!</p>
+						`);
+
+						$btnImport.prop("disabled", false);
+					} catch (error) {
+						console.error("Error parsing PDF:", error);
+						$status.html(`<p style="color: red;">Error reading PDF: ${error.message}</p>`);
+						$btnImport.prop("disabled", true);
+					}
+				});
+
+				// Handle import button
+				$btnImport.off("click").on("click", async function() {
+					if (!characterData) {
+						alert("No character data loaded!");
+						return;
+					}
+
+					$btnImport.prop("disabled", true);
+					$status.html("<p>Creating character in Roll20...</p>");
+
+					try {
+						await d20plus.importer.importDnDBeyondCharacter(characterData);
+						$status.html("<p style='color: green;'>Character imported successfully!</p>");
+						alert("Character imported successfully!");
+					} catch (error) {
+						console.error("Error importing character:", error);
+						$status.html(`<p style="color: red;">Error importing: ${error.message}</p>`);
+						alert(`Error importing character: ${error.message}`);
+						$btnImport.prop("disabled", false);
+					}
+				});
+			},
+		},
 	];
 
 	d20plus.tool.get = (toolId) => {
@@ -3891,15 +4018,27 @@ function baseToolModule () {
 										break;
 									}
 									case "characters": {
-										d20.Campaign.characters.create(entry.attributes,
+										// Force use of OGL 5e sheet (works in both 2014 and 2024 games)
+										const charAttrs = {...entry.attributes, charactersheetname: "ogl5e"};
+										d20.Campaign.characters.create(charAttrs,
 											{
 												success: function (character) {
 													character.attribs.reset();
 													const toSave = entry.attribs.map(a => character.attribs.push(a));
 													toSave.forEach(s => s.syncedSave());
 
-													character.abilities.reset();
-													if (entry.abilities) entry.abilities.map(a => character.abilities.push(a)).forEach(s => s.save());
+													// Fetch existing abilities first, then clear them all before creating new ones
+													character.abilities.fetch({
+														success: function() {
+															// Destroy all existing abilities (including old token actions)
+															character.abilities.models.slice().forEach(ability => ability.destroy());
+
+															// Create token actions from imported attributes if enabled
+															if (d20plus.cfg.getOrDefault("import", "tokenactions")) {
+																d20plus.importer._createTokenActionsFromCharacter(character);
+															}
+														}
+													});
 
 													character.updateBlobs({
 														bio: entry.blobBio,
@@ -4261,6 +4400,680 @@ function baseToolModule () {
 }
 
 SCRIPT_EXTENSIONS.push(baseToolModule);
+
+
+function baseToolAutoBackup() {
+	d20plus.autoBackup = {};
+
+	const BACKUP_HANDOUT_PREFIX = "BetteR20 Backup - ";
+	const BACKUP_PART_SUFFIX = " - Part ";
+	const DEFAULT_MAX_BACKUPS = 3;
+	const MAX_CHUNK_SIZE = 9 * 1024 * 1024; // 9 MB (leave 1 MB buffer under 10 MB limit)
+
+	// Add config options for auto-backup
+	addConfigOptions("autoBackup", {
+		"_name": "Auto Backup",
+		"maxBackups": {
+			"name": "Maximum Backups to Keep",
+			"default": DEFAULT_MAX_BACKUPS,
+			"_type": "_enum",
+			"__values": ["1", "2", "3", "4", "5"],
+		},
+	});
+
+	// ===========================
+	// CORE BACKUP FUNCTIONS
+	// ===========================
+
+	/**
+	 * Extract full campaign data for backup
+	 * @returns {Promise<Object>} Campaign data object
+	 */
+	d20plus.autoBackup.getBackupData = async () => {
+		try {
+			d20plus.ut.log("Gathering campaign data for backup...");
+
+			const journal = d20plus.journal.getExportableJournal();
+
+			// Export maps with graphics/paths/text/doors/windows
+			d20plus.ut.log("Exporting maps...");
+			const maps = await Promise.all(d20.Campaign.pages.models.map(async map => {
+				if (!map.thegraphics) {
+					await map.fullyLoadPage();
+				}
+
+				const getOut = () => {
+					return {
+						attributes: map.attributes,
+						graphics: (map.thegraphics || []).map(g => g.attributes),
+						text: (map.thetexts || []).map(t => t.attributes),
+						paths: (map.thepaths || []).map(p => p.attributes),
+						doors: (map.doors || []).map(d => d.attributes),
+						windows: (map.windows || []).map(w => w.attributes),
+					};
+				};
+
+				if (map.get("archived")) {
+					map.set({archived: false});
+					await d20plus.ut.promiseDelay(d20plus.cfg.getOrDefault("import", "importIntervalHandout") * 2);
+					const out = getOut();
+					map.set({archived: true});
+					return out;
+				} else {
+					return getOut();
+				}
+			}));
+
+			// Export roll tables
+			d20plus.ut.log("Exporting rolltables...");
+			const rolltables = d20.Campaign.rollabletables.models.map(rolltable => ({
+				attributes: rolltable.attributes,
+				tableitems: (rolltable.tableitems.models || []).map(tableitem => tableitem.attributes),
+			}));
+
+			// Export decks (filter out "Playing Cards")
+			d20plus.ut.log("Exporting decks...");
+			const decks = d20.Campaign.decks.models.map(deck => {
+				if (deck.name && deck.name.toLowerCase() === "playing cards") return;
+				return {
+					attributes: deck.attributes,
+					cards: (deck.cards.models || []).map(card => card.attributes),
+				};
+			}).filter(it => it);
+
+			// Export jukebox playlists and tracks
+			d20plus.ut.log("Exporting jukebox...");
+			const playlists = d20plus.jukebox.getExportablePlaylists();
+			const tracks = d20plus.jukebox.getExportableTracks();
+
+			// Export characters and handouts with blob data
+			let blobCount = 0;
+			let onBlobsReady = null;
+
+			const handleBlob = (addTo, asKey, data) => {
+				addTo[asKey] = data;
+				blobCount--;
+				if (onBlobsReady && blobCount === 0) onBlobsReady();
+			};
+
+			// Export characters
+			d20plus.ut.log("Exporting characters...");
+			const characters = d20.Campaign.characters.models.map(character => {
+				character.attribs.fetch(character.attribs);
+				const out = {
+					attributes: character.attributes,
+					attribs: character.attribs,
+				};
+				const abilities = (character.abilities || {models: []}).models.map(ability => ability.attributes);
+				if (abilities && abilities.length) out.abilities = abilities;
+				blobCount += 3;
+				character._getLatestBlob("bio", (data) => handleBlob(out, "blobBio", data));
+				character._getLatestBlob("gmnotes", (data) => handleBlob(out, "blobGmNotes", data));
+				character._getLatestBlob("defaulttoken", (data) => handleBlob(out, "blobDefaultToken", data));
+				return out;
+			});
+
+			// Export handouts (filter out system handouts)
+			d20plus.ut.log("Exporting handouts...");
+			const handouts = d20.Campaign.handouts.models.map(handout => {
+				// Filter out system handouts and backup handouts
+				if (handout.attributes.name === ART_HANDOUT ||
+					handout.attributes.name === CONFIG_HANDOUT ||
+					handout.attributes.name.startsWith(BACKUP_HANDOUT_PREFIX)) {
+					return;
+				}
+
+				const out = {
+					attributes: handout.attributes,
+				};
+				blobCount += 2;
+				handout._getLatestBlob("notes", (data) => handleBlob(out, "blobNotes", data));
+				handout._getLatestBlob("gmnotes", (data) => handleBlob(out, "blobGmNotes", data));
+				return out;
+			}).filter(it => it);
+
+			// Wait for all blobs to load
+			d20plus.ut.log("Waiting for blobs...");
+			await new Promise(resolve => {
+				onBlobsReady = () => {
+					d20plus.ut.log("Blobs are ready!");
+					resolve();
+				};
+				if (blobCount === 0) onBlobsReady();
+			});
+
+			// Build final payload
+			const payload = {
+				schema_version: 1,
+				maps,
+				rolltables,
+				decks,
+				journal,
+				handouts,
+				characters,
+				playlists,
+				tracks,
+			};
+
+			d20plus.ut.log("Backup data gathered successfully");
+			return payload;
+
+		} catch (e) {
+			d20plus.ut.error("Failed to gather backup data:", e);
+			throw e;
+		}
+	};
+
+	/**
+	 * Split a string into chunks of specified max size
+	 * @param {string} str - String to split
+	 * @param {number} maxSize - Maximum chunk size in bytes
+	 * @returns {Array<string>} Array of chunks
+	 */
+	d20plus.autoBackup.splitIntoChunks = (str, maxSize) => {
+		const chunks = [];
+		const encoder = new TextEncoder();
+		let currentChunk = "";
+		let currentSize = 0;
+
+		for (let i = 0; i < str.length; i++) {
+			const char = str[i];
+			const charBytes = encoder.encode(char).length;
+
+			if (currentSize + charBytes > maxSize && currentChunk.length > 0) {
+				chunks.push(currentChunk);
+				currentChunk = char;
+				currentSize = charBytes;
+			} else {
+				currentChunk += char;
+				currentSize += charBytes;
+			}
+		}
+
+		if (currentChunk.length > 0) {
+			chunks.push(currentChunk);
+		}
+
+		return chunks;
+	};
+
+	/**
+	 * Create a handout and return a promise
+	 * @param {string} name - Handout name
+	 * @param {boolean} archived - Whether to archive the handout
+	 * @returns {Promise<Object>} Created handout
+	 */
+	d20plus.autoBackup.createHandout = (name, archived = true) => {
+		return new Promise((resolve, reject) => {
+			d20.Campaign.handouts.create({
+				name: name,
+				archived: archived
+			}, {
+				success: function(handout) {
+					resolve(handout);
+				},
+				error: function(handout, error) {
+					reject(new Error(`Failed to create handout "${name}": ${error}`));
+				}
+			});
+		});
+	};
+
+	/**
+	 * Create a backup handout with campaign data
+	 * Automatically splits into multiple handouts if data exceeds 10 MB limit
+	 * @param {boolean} isManual - Whether this is a manual backup
+	 * @returns {Promise<void>}
+	 */
+	d20plus.autoBackup.createBackup = async (isManual = false) => {
+		try {
+			d20plus.ut.log(`Creating ${isManual ? "manual" : "automatic"} backup...`);
+
+			// Get campaign data
+			const data = await d20plus.autoBackup.getBackupData();
+
+			// Create timestamp and handout name
+			const timestamp = new Date();
+			const dateStr = timestamp.toISOString().slice(0, 19).replace('T', ' ');
+			const baseName = `${BACKUP_HANDOUT_PREFIX}${dateStr}`;
+
+			// Add backup metadata
+			const backupData = {
+				...data,
+				timestamp: timestamp.getTime(),
+				backupType: isManual ? "manual" : "auto"
+			};
+
+			const json = JSON.stringify(backupData);
+			const jsonSize = new TextEncoder().encode(json).length;
+
+			d20plus.ut.log(`Backup data size: ${(jsonSize / 1024 / 1024).toFixed(2)} MB`);
+
+			if (jsonSize <= MAX_CHUNK_SIZE) {
+				// Single handout backup (under size limit)
+				d20plus.ut.log("Creating single-handout backup...");
+
+				const handout = await d20plus.autoBackup.createHandout(baseName);
+				handout.updateBlobs({gmnotes: json});
+				handout.save({notes: timestamp.getTime(), inplayerjournals: ""});
+
+				d20plus.ut.log(`Backup created: ${baseName}`);
+			} else {
+				// Split into multiple handouts
+				const chunks = d20plus.autoBackup.splitIntoChunks(json, MAX_CHUNK_SIZE);
+				d20plus.ut.log(`Backup requires ${chunks.length} parts (data exceeds 9 MB limit)`);
+
+				// Create main handout with metadata
+				const mainHandout = await d20plus.autoBackup.createHandout(baseName);
+				const mainMetadata = JSON.stringify({
+					isSplitBackup: true,
+					partCount: chunks.length,
+					timestamp: timestamp.getTime(),
+					backupType: isManual ? "manual" : "auto",
+					totalSize: jsonSize
+				});
+				mainHandout.updateBlobs({gmnotes: mainMetadata});
+				mainHandout.save({notes: timestamp.getTime(), inplayerjournals: ""});
+
+				// Create part handouts with delay to avoid rate limiting
+				for (let i = 0; i < chunks.length; i++) {
+					const partName = `${baseName}${BACKUP_PART_SUFFIX}${i + 1}`;
+					d20plus.ut.log(`Creating backup part ${i + 1}/${chunks.length}...`);
+
+					const partHandout = await d20plus.autoBackup.createHandout(partName);
+					partHandout.updateBlobs({gmnotes: chunks[i]});
+					partHandout.save({notes: i + 1, inplayerjournals: ""});
+
+					// Small delay between parts to avoid overwhelming Roll20
+					if (i < chunks.length - 1) {
+						await d20plus.ut.promiseDelay(d20plus.cfg.getOrDefault("import", "importIntervalHandout") || 100);
+					}
+				}
+
+				d20plus.ut.log(`Split backup created: ${baseName} (${chunks.length} parts)`);
+			}
+
+			// Update config with last backup timestamp
+			if (d20plus.cfg && d20plus.cfg.setCfgVal) {
+				d20plus.cfg.setCfgVal("autoBackup", "lastBackupTimestamp", timestamp.getTime());
+
+				// Save config
+				const configHandout = d20plus.cfg.getConfigHandout();
+				if (configHandout) {
+					const gmnotes = JSON.stringify(d20plus.cfg.current).replace(/%/g, "%25");
+					configHandout.updateBlobs({gmnotes: gmnotes});
+					configHandout.save({notes: timestamp.getTime()});
+				}
+			}
+
+			// Cleanup old backups
+			await d20plus.autoBackup.cleanupOldBackups();
+
+			// Show success message
+			d20plus.ut.chatLog(`Backup created successfully: ${baseName}`);
+
+		} catch (e) {
+			d20plus.ut.error("Backup failed:", e);
+			d20plus.ut.chatLog("Backup failed! Check console for details.");
+			throw e;
+		}
+	};
+
+	/**
+	 * List all backup handouts (excludes part handouts)
+	 * @returns {Array} Array of backup handout models (main backups only)
+	 */
+	d20plus.autoBackup.listBackups = () => {
+		return d20.Campaign.handouts.models.filter(h =>
+			h.attributes.name.startsWith(BACKUP_HANDOUT_PREFIX) &&
+			!h.attributes.name.includes(BACKUP_PART_SUFFIX)
+		);
+	};
+
+	/**
+	 * Get all part handouts for a given backup
+	 * @param {string} baseName - The main backup handout name
+	 * @returns {Array} Array of part handout models, sorted by part number
+	 */
+	d20plus.autoBackup.getBackupParts = (baseName) => {
+		const parts = d20.Campaign.handouts.models.filter(h =>
+			h.attributes.name.startsWith(baseName + BACKUP_PART_SUFFIX)
+		);
+
+		// Sort by part number
+		parts.sort((a, b) => {
+			const aNum = parseInt(a.attributes.name.split(BACKUP_PART_SUFFIX)[1]) || 0;
+			const bNum = parseInt(b.attributes.name.split(BACKUP_PART_SUFFIX)[1]) || 0;
+			return aNum - bNum;
+		});
+
+		return parts;
+	};
+
+	/**
+	 * Load and merge backup data from a backup handout
+	 * Handles both single-handout and split backups
+	 * @param {Object} backupHandout - The main backup handout
+	 * @returns {Promise<string>} The merged backup JSON string
+	 */
+	d20plus.autoBackup.loadBackupData = (backupHandout) => {
+		return new Promise((resolve, reject) => {
+			backupHandout._getLatestBlob("gmnotes", async (gmnotes) => {
+				try {
+					// Check if this is a split backup
+					let metadata;
+					try {
+						metadata = JSON.parse(gmnotes);
+					} catch (e) {
+						// Not JSON metadata, this is a single-handout backup
+						resolve(gmnotes);
+						return;
+					}
+
+					if (!metadata.isSplitBackup) {
+						// Single-handout backup (the gmnotes IS the backup data)
+						resolve(gmnotes);
+						return;
+					}
+
+					// Split backup - need to fetch and merge parts
+					d20plus.ut.log(`Loading split backup with ${metadata.partCount} parts...`);
+
+					const parts = d20plus.autoBackup.getBackupParts(backupHandout.attributes.name);
+
+					if (parts.length !== metadata.partCount) {
+						reject(new Error(`Backup corrupted: expected ${metadata.partCount} parts, found ${parts.length}`));
+						return;
+					}
+
+					// Fetch all parts
+					const partData = [];
+					for (let i = 0; i < parts.length; i++) {
+						const partContent = await new Promise((res, rej) => {
+							parts[i]._getLatestBlob("gmnotes", (data) => {
+								if (data) {
+									res(data);
+								} else {
+									rej(new Error(`Failed to load part ${i + 1}`));
+								}
+							});
+						});
+						partData.push(partContent);
+						d20plus.ut.log(`Loaded part ${i + 1}/${parts.length}`);
+					}
+
+					// Merge parts
+					const mergedData = partData.join("");
+					d20plus.ut.log(`Merged ${parts.length} parts (${(mergedData.length / 1024 / 1024).toFixed(2)} MB)`);
+
+					resolve(mergedData);
+				} catch (e) {
+					reject(e);
+				}
+			});
+		});
+	};
+
+	/**
+	 * Delete a backup and all its parts (if split)
+	 * @param {Object} backup - The main backup handout to delete
+	 */
+	d20plus.autoBackup.deleteBackup = (backup) => {
+		const baseName = backup.attributes.name;
+
+		// Delete any associated parts first
+		const parts = d20plus.autoBackup.getBackupParts(baseName);
+		parts.forEach(part => {
+			d20plus.ut.log(`Deleting backup part: ${part.attributes.name}`);
+			part.destroy();
+		});
+
+		// Delete the main backup handout
+		d20plus.ut.log(`Deleting backup: ${baseName}`);
+		backup.destroy();
+	};
+
+	/**
+	 * Delete backups beyond the configured maximum
+	 * @returns {Promise<void>}
+	 */
+	d20plus.autoBackup.cleanupOldBackups = async () => {
+		try {
+			const backups = d20plus.autoBackup.listBackups();
+			const maxBackups = parseInt(d20plus.cfg.getOrDefault("autoBackup", "maxBackups", DEFAULT_MAX_BACKUPS));
+
+			// Sort by name (which includes timestamp) - newest first
+			backups.sort((a, b) => b.attributes.name.localeCompare(a.attributes.name));
+
+			// Delete backups beyond maxBackups
+			if (backups.length > maxBackups) {
+				const toDelete = backups.slice(maxBackups);
+				d20plus.ut.log(`Cleaning up ${toDelete.length} old backups (keeping ${maxBackups})...`);
+
+				toDelete.forEach(backup => {
+					d20plus.autoBackup.deleteBackup(backup);
+				});
+			}
+		} catch (e) {
+			d20plus.ut.error("Failed to cleanup old backups:", e);
+		}
+	};
+
+	/**
+	 * Check if backup is due and run if needed
+	 * @returns {Promise<void>}
+	 */
+	d20plus.autoBackup.checkAndRunScheduledBackup = async () => {
+		try {
+			const schedule = d20plus.cfg.getOrDefault("autoBackup", "schedule", "off");
+			if (schedule === "off") {
+				d20plus.ut.log("Auto-backup is disabled");
+				return;
+			}
+
+			const enabled = d20plus.cfg.getOrDefault("autoBackup", "enabled", true);
+			if (!enabled) {
+				d20plus.ut.log("Auto-backup is disabled via config");
+				return;
+			}
+
+			const lastBackup = d20plus.cfg.getOrDefault("autoBackup", "lastBackupTimestamp", 0);
+			const now = Date.now();
+
+			// Calculate interval in milliseconds
+			const intervals = {
+				weekly: 7 * 24 * 60 * 60 * 1000,
+				biweekly: 14 * 24 * 60 * 60 * 1000,
+				monthly: 30 * 24 * 60 * 60 * 1000
+			};
+
+			const interval = intervals[schedule];
+			if (!interval) {
+				d20plus.ut.log(`Unknown backup schedule: ${schedule}`);
+				return;
+			}
+
+			if (now - lastBackup >= interval) {
+				d20plus.ut.log("Auto-backup is due, creating backup...");
+				await d20plus.autoBackup.createBackup(false);
+			} else {
+				const nextBackup = new Date(lastBackup + interval);
+				d20plus.ut.log(`Next auto-backup scheduled for: ${nextBackup.toISOString()}`);
+			}
+		} catch (e) {
+			d20plus.ut.error("Failed to check scheduled backup:", e);
+		}
+	};
+
+	/**
+	 * Initialize auto-backup system
+	 */
+	d20plus.autoBackup.init = () => {
+		if (!window.is_gm) {
+			d20plus.ut.log("Auto-backup is GM-only, skipping initialization");
+			return;
+		}
+
+		d20plus.ut.log("Initializing Auto-Backup system");
+
+		// Wait 5 seconds after page load to check for scheduled backup
+		setTimeout(() => {
+			d20plus.autoBackup.checkAndRunScheduledBackup();
+		}, 5000);
+	};
+
+	// ===========================
+	// TOOL UI
+	// ===========================
+
+	d20plus.tool.tools.push({
+		toolId: "AUTO_BACKUP",
+		name: "Auto Backup",
+		desc: "Configure automatic campaign backups and manage backup history",
+		html: `
+			<div id="d20plus-autobackup" title="BetteR20 - Auto Backup" style="position: relative">
+				<h3>Auto Backup Configuration</h3>
+				<p>Backups are stored as archived handouts named "BetteR20 Backup - [date]"</p>
+				<p>Older backups beyond the configured limit are automatically deleted.</p>
+
+				<hr>
+
+				<h4>Manual Backup</h4>
+				<button class="btn" name="backup-now">Backup Now</button>
+				<span name="backup-status" style="margin-left: 10px; font-style: italic;"></span>
+
+				<hr>
+
+				<h4>Backup List</h4>
+				<div id="backup-list-container">
+					<ul class="list backuplist" style="max-height: 400px; overflow-y: auto; display: block; margin: 0;">
+						<!-- populated by JS -->
+					</ul>
+				</div>
+
+				<hr>
+
+				<p><i>Schedule and retention settings are in the Config Editor (Settings > Edit Config > Auto Backup tab)</i></p>
+			</div>
+		`,
+		dialogFn: () => {
+			$("#d20plus-autobackup").dialog({
+				autoOpen: false,
+				width: 600,
+				height: 500,
+			});
+		},
+		openFn: () => {
+			const $win = $("#d20plus-autobackup");
+			$win.dialog("open");
+
+			const $btnBackupNow = $win.find(`[name="backup-now"]`);
+			const $backupStatus = $win.find(`[name="backup-status"]`);
+			const $backupList = $win.find(".backuplist");
+
+			// Populate backup list
+			const populateBackupList = () => {
+				const backups = d20plus.autoBackup.listBackups();
+				backups.sort((a, b) => b.attributes.name.localeCompare(a.attributes.name));
+
+				$backupList.empty();
+
+				if (backups.length === 0) {
+					$backupList.append(`<li style="padding: 5px;"><i>No backups found</i></li>`);
+				} else {
+					backups.forEach(backup => {
+						const name = backup.attributes.name;
+						const dateStr = name.replace(BACKUP_HANDOUT_PREFIX, "");
+
+						const $li = $(`<li style="padding: 5px; display: flex; justify-content: space-between; align-items: center;"></li>`);
+						const $label = $(`<span></span>`).text(dateStr);
+						const $buttons = $(`<span style="white-space: nowrap;"></span>`);
+
+						const $downloadBtn = $(`<button class="btn btn-sm" style="margin-left: 10px;" title="Download backup"><i class="fa fa-download"></i></button>`);
+						const $deleteBtn = $(`<button class="btn btn-sm btn-danger" style="margin-left: 5px;" title="Delete backup"><i class="fa fa-trash"></i></button>`);
+
+						$downloadBtn.on("click", async (e) => {
+							e.stopPropagation();
+							$backupStatus.text("Loading backup data...");
+
+							try {
+								// Use loadBackupData to handle both single and split backups
+								const backupJson = await d20plus.autoBackup.loadBackupData(backup);
+
+								// Create filename from backup name
+								const filename = name.replace(/[^-\w\s]/g, "_") + ".json";
+
+								// Create blob and download
+								const blob = new Blob([backupJson], {type: "application/json"});
+								d20plus.ut.saveAs(blob, filename);
+
+								$backupStatus.text("Download started!");
+								setTimeout(() => {
+									$backupStatus.text("");
+								}, 2000);
+							} catch (e) {
+								d20plus.ut.error("Failed to download backup:", e);
+								$backupStatus.text("Download failed: " + e.message);
+								setTimeout(() => {
+									$backupStatus.text("");
+								}, 5000);
+							}
+						});
+
+						$deleteBtn.on("click", (e) => {
+							e.stopPropagation();
+							if (confirm(`Are you sure you want to delete this backup?\n\n${dateStr}`)) {
+								try {
+									d20plus.autoBackup.deleteBackup(backup);
+									$backupStatus.text("Backup deleted!");
+									populateBackupList();
+									setTimeout(() => {
+										$backupStatus.text("");
+									}, 2000);
+								} catch (e) {
+									d20plus.ut.error("Failed to delete backup:", e);
+									$backupStatus.text("Delete failed: " + e.message);
+									setTimeout(() => {
+										$backupStatus.text("");
+									}, 5000);
+								}
+							}
+						});
+
+						$buttons.append($downloadBtn).append($deleteBtn);
+						$li.append($label).append($buttons);
+						$backupList.append($li);
+					});
+				}
+			};
+
+			populateBackupList();
+
+			// Backup Now button
+			$btnBackupNow.off("click").on("click", async () => {
+				try {
+					$btnBackupNow.prop("disabled", true);
+					$backupStatus.text("Creating backup...");
+
+					await d20plus.autoBackup.createBackup(true);
+
+					$backupStatus.text("Backup created successfully!");
+					populateBackupList();
+
+					setTimeout(() => {
+						$backupStatus.text("");
+					}, 3000);
+				} catch (e) {
+					$backupStatus.text("Backup failed! Check console for details.");
+				} finally {
+					$btnBackupNow.prop("disabled", false);
+				}
+			});
+		}
+	});
+}
+
+SCRIPT_EXTENSIONS.push(baseToolAutoBackup);
 
 
 function baseToolUnlock () {
@@ -15453,1177 +16266,1077 @@ function baseMenu () {
 	d20plus.menu = {};
 
 	d20plus.menu.addSelectedTokenCommands = () => {
-		d20plus.ut.log("Add token rightclick commands");
-		$("#tmpl_actions_menu").replaceWith(d20plus.html.actionsMenu);
+		d20plus.ut.log("Add token rightclick commands (Jumpgate)");
 
+		// Initialize Jumpgate Mass Roll
+		d20plus.menu.initJumpgateMassRoll();
+
+		// Only bind keyboard shortcuts if Mousetrap library is available
+		if (typeof Mousetrap !== "undefined") {
+			Mousetrap.bind("b b", function () { // back on layer
+				const n = d20plus.engine.getSelectedToMove();
+				d20plus.engine.backwardOneLayer(n);
+				return false;
+			});
+
+			Mousetrap.bind("b f", function () { // forward one layer
+				const n = d20plus.engine.getSelectedToMove();
+				d20plus.engine.forwardOneLayer(n);
+				return false;
+			});
+		}
+	};
+
+	// Jumpgate Mass Roll implementation
+	d20plus.menu.initJumpgateMassRoll = () => {
 		const getTokenWhisperPart = () => d20plus.cfg.getOrDefault("token", "massRollWhisperName") ? "/w gm Rolling for @{selected|token_name}...\n" : "";
 
-		Mousetrap.bind("b b", function () { // back on layer
-			const n = d20plus.engine.getSelectedToMove();
-			d20plus.engine.backwardOneLayer(n);
-			return false;
-		});
+		// Create Jumpgate polyfills for d20.engine selection functions
+		if (!d20.engine.selected) {
+			d20.engine.selected = function() {
+				const activePage = d20.Campaign.activePage();
+				if (!activePage || !activePage.thegraphics) return [];
 
-		Mousetrap.bind("b f", function () { // forward one layer
-			const n = d20plus.engine.getSelectedToMove();
-			d20plus.engine.forwardOneLayer(n);
-			return false;
-		});
-
-		/**
-		 * @param token A token.
-		 * @return {number} 0 for unknown, 1 for NPC, 2 for PC.
-		 */
-		function getTokenType (token) {
-			if (token && token.model && token.model.toJSON && token.model.toJSON().represents) {
-				const charIdMaybe = token.model.toJSON().represents;
-				if (!charIdMaybe) return 0; //
-				const charMaybe = d20.Campaign.characters.get(charIdMaybe);
-				if (charMaybe) {
-					const atbs = charMaybe.attribs.toJSON();
-					const npcAtbMaybe = atbs.find(it => it.name === "npc");
-
-					if (npcAtbMaybe && Number(npcAtbMaybe.current) === 1) {
-						return 1;
-					} else {
-						return 2;
-					}
-				} else return 0;
-			} else return 0;
-		}
-
-		const lastContextSelection = {
-			lastAnimUid: null,
-			lastSceneUid: null,
-		};
-
-		const tagSize = "#roll20_token_size=";
-		const tagSkip = "#roll20_skip_token=";
-
-		/* eslint-disable */
-
-		// BEGIN ROLL20 CODE
-		var e, t = !1, n = [];
-		d20plus.ut.injectCode(d20.token_editor, "closeContextMenu", (func) => {
-			t && (t.remove(),
-				t = !1),
-			e && clearTimeout(e);
-			func();
-		})
-		var i = d20.token_editor.closeContextMenu;
-		var r = function (r) {
-			var o, a;
-			r.changedTouches && r.changedTouches.length > 0 ? (o = r.changedTouches[0].pageX,
-				a = r.changedTouches[0].pageY) : (o = r.pageX,
-				a = r.pageY),
-				i(),
-				n = [];
-			for (var s = [], l = d20.engine.selected(), c = 0; c < l.length; c++)
-				n.push(l[c]),
-					s.push(l[c].type);
-			if (s = _.uniq(s),
-			n.length > 0)
-				if (1 == s.length) {
-					var u = n[0];
-					t = $("image" == u.type && 0 == u.model.get("isdrawing") ? $("#tmpl_actions_menu").jqote(u.model) : $("#tmpl_actions_menu").jqote(u.model))
-				} else {
-					var u = n[0];
-					t = $($("#tmpl_actions_menu").jqote(u.model))
-				}
-			else
-				t = $($("#tmpl_actions_menu").jqote({}));
-			if (!window.is_gm && t[0].lastElementChild.childElementCount < 1)
-				return !1;
-			t.appendTo("body");
-			var d = t.height()
-				, h = t.width()
-				, p = {};
-			
-			// BEGIN MOD
-			// This block is pasted from newer version of roll20 Menu code, with appropriate changes to vars etc
-			const r20ping = (u,i)=>{
-				var y, d;
-				const {canvasZoom: r, currentCanvasOffset: n, paddingOffset: c, pings: p} = d20.engine
-					, {currentPlayer: {id: C}, currentEditingLayer: b, is_gm: S} = window;
-				if (C && ((d = (y = p[C]) == null ? void 0 : y.radius) != null ? d : 0) <= 20) {
-					const x = Math.floor(o / r + n[0] - c[0] / r)
-						, k = Math.floor(a / r + n[1] - c[1] / r)
-						, D = {
-						left: x,
-						top: k,
-						radius: -5,
-						player: C,
-						pageid: d20.Campaign.activePage().id,
-						currentLayer: b
-					};
-					(S && u.shiftKey || i) && (D.scrollto = !0),
-					p[C] = D,
-					d20.engine.pinging = {
-						downx: o,
-						downy: a
-					},
-					d20.engine.redrawScreenNextTick(!0)
-				}
-			}
-			;
-			// END MOD
-			return p.top = a > $("#editor-wrapper").height() - $("#playerzone").height() - d - 100 ? a - d + "px" : a + "px",
-				p.left = o > $("#editor-wrapper").width() - h ? o + 10 - h + "px" : o + 10 + "px",
-				t.css(p),
-				$(".actions_menu").bind("mousedown mouseup touchstart", function(e) {
-					e.stopPropagation()
-				}),
-				$(".actions_menu ul > li").bind("mouseover touchend", function() {
-					if (e && (clearTimeout(e),
-						e = !1),
-					$(this).parents(".hasSub").length > 0)
-						;
-					else if ($(this).hasClass("hasSub")) {
-						$(".actions_menu").css({
-							width: "215px",
-							height: "250px"
-						});
-						var t = this;
-						_.defer(function() {
-							$(".actions_menu ul.submenu").hide(),
-								$(t).find("ul.submenu:hidden").show()
-						})
-					} else
-						$(".actions_menu ul.submenu").hide()
-				}),
-				$(".actions_menu ul.submenu").live("mouseover", function() {
-					e && (clearTimeout(e),
-						e = !1)
-				}),
-				$(".actions_menu, .actions_menu ul.submenu").live("mouseleave", function() {
-					e || (e = setTimeout(function() {
-						$(".actions_menu ul.submenu").hide(),
-							$(".actions_menu").css("width", "100px").css("height", "auto"),
-							e = !1
-					}, 500))
-				}),
-				$(".actions_menu li").on(clicktype, function(evt) {
-					var e = $(this).attr("data-action-type");
-					if (null != e) {
-						if ("copy" == e)
-							d20.clipboard.doCopy(),
-								i();
-						else if ("paste" == e)
-							d20.clipboard.doPaste(),
-								i();
-						else if ("delete" == e) {
-							var t = d20.engine.selected();
-							d20.engine.canvas.deactivateAllWithDispatch();
-							for (var r = 0; r < t.length; r++)
-								t[r].model.destroy();
-							i()
-						} else if ("undo" == e)
-							d20.undo && d20.undo.doUndo(),
-								i();
-						else if ("tofront" == e)
-							d20.engine.canvas.getActiveGroup() && d20.engine.unselect(),
-								_.each(n, function(e) {
-									d20.engine.canvas.bringToFront(e)
-								}),
-								d20.Campaign.activePage().debounced_recordZIndexes(),
-								i();
-						else if ("toback" == e)
-							d20.engine.canvas.getActiveGroup() && d20.engine.unselect(),
-								_.each(n, function(e) {
-									d20.engine.canvas.sendToBack(e)
-								}),
-								d20.Campaign.activePage().debounced_recordZIndexes(),
-								i();
-						// BEGIN MOD
-						// This block is pasted from newer version of roll20 Menu code, with appropriate changes to vars etc
-						else if (e === "ping")
-							r20ping(evt),
-							i();
-						else if (e === "focusping")
-							r20ping(evt, !0),
-							i();
-						// END MOD
-						else if (-1 !== e.indexOf("tolayer_")) {
-							d20.engine.unselect();
-							var o = e.replace("tolayer_", "");
-							_.each(n, function(e) {
-								e.model.save({
-									layer: o
-								})
-							}),
-								i(),
-								d20.token_editor.removeRadialMenu()
-						} else if ("addturn" == e)
-							_.each(n, function(e) {
-								d20.Campaign.initiativewindow.addTokenToList(e.model.id)
-							}),
-								i(),
-							d20.tutorial && d20.tutorial.active && $(document.body).trigger("addedTurn");
-						else if ("group" == e) {
-							var a = [];
-							d20.engine.unselect(),
-								_.each(n, function(e) {
-									a.push(e.model.id)
-								}),
-								_.each(n, function(e) {
-									e.model.addToGroup(a)
-								}),
-								i();
-							var s = n[0];
-							d20.engine.select(s)
-						} else if ("ungroup" == e)
-							d20.engine.unselect(),
-								_.each(n, function(e) {
-									e.model.clearGroup()
-								}),
-								d20.token_editor.removeRadialMenu(),
-								i();
-						else if ("toggledrawing" == e)
-							d20.engine.unselect(),
-								_.each(n, function(e) {
-									e.model.set({
-										isdrawing: !e.model.get("isdrawing")
-									}).save()
-								}),
-								i(),
-								d20.token_editor.removeRadialMenu();
-						else if ("toggleflipv" == e)
-							d20.engine.unselect(),
-								_.each(n, function(e) {
-									e.model.set({
-										flipv: !e.model.get("flipv")
-									}).save()
-								}),
-								i(),
-								d20.token_editor.removeRadialMenu();
-						else if ("togglefliph" == e)
-							d20.engine.unselect(),
-								_.each(n, function(e) {
-									e.model.set({
-										fliph: !e.model.get("fliph")
-									}).save()
-								}),
-								i(),
-								d20.token_editor.removeRadialMenu();
-						else if ("takecard" == e)
-							d20.engine.canvas.getActiveGroup() && d20.engine.unselect(),
-								_.each(n, function(e) {
-									var t = d20.decks.cardByID(e.model.get("cardid"));
-									if (e.model.get("isdrawing") === !1)
-										var n = {
-											bar1_value: e.model.get("bar1_value"),
-											bar1_max: e.model.get("bar1_max"),
-											bar2_value: e.model.get("bar2_value"),
-											bar2_max: e.model.get("bar2_max"),
-											bar3_value: e.model.get("bar3_value"),
-											bar3_max: e.model.get("bar3_max")
-										};
-									d20.Campaign.hands.addCardToHandForPlayer(t, window.currentPlayer, n ? n : void 0),
-										_.defer(function() {
-											e.model.destroy()
-										})
-								}),
-								d20.engine.unselect(),
-								i();
-						else if ("flipcard" == e)
-							d20.engine.canvas.getActiveGroup() && d20.engine.unselect(),
-								_.each(n, function(e) {
-									var t = e.model.get("sides").split("|")
-										, n = e.model.get("currentSide")
-										, i = n + 1;
-									i > t.length - 1 && (i = 0),
-										e.model.set({
-											currentSide: i,
-											imgsrc: unescape(t[i])
-										}).save()
-								}),
-								i();
-						// BEGIN MOD
-						// This block is pasted from newer version of roll20 Menu code, with appropriate changes to vars etc
-	                    else if (e === "removecard")
-							d20.engine.canvas.getActiveGroup() && d20.engine.unselect(),
-								_.each(n, function(e) {
-									d20.decks.cardByID(e.model.get("cardid")).save({
-										is_removed: !0
-									}),
-									_.defer(()=>{
-										e.model.destroy()
-									}
-									),
-									d20.decks.refreshRemovedPiles()
-								}
-								),
-								i();
-						// END MOD
-						else if ("setdimensions" == e) {
-							var l = n[0]
-								, c = $($("#tmpl_setdimensions").jqote()).dialog({
-								title: "Set Dimensions",
-								width: 325,
-								height: 225,
-								buttons: {
-									Set: function() {
-										var e, t;
-										"pixels" == c.find(".dimtype").val() ? (e = parseInt(c.find("input.width").val(), 10),
-											t = parseInt(c.find("input.height").val(), 10)) : (e = parseFloat(c.find("input.width").val()) * window.dpi,
-											t = parseFloat(c.find("input.height").val()) * window.dpi),
-											l.model.save({
-												width: e,
-												height: t
-											}),
-											c.off("change"),
-											c.dialog("destroy").remove()
-									},
-									Cancel: function() {
-										c.off("change"),
-											c.dialog("destroy").remove()
-									}
-								},
-								beforeClose: function() {
-									c.off("change"),
-										c.dialog("destroy").remove()
-								}
-							});
-							c.on("change", ".dimtype", function() {
-								"pixels" == $(this).val() ? (c.find("input.width").val(Math.round(l.get("width"))),
-									c.find("input.height").val(Math.round(l.get("height")))) : (c.find("input.width").val(l.get("width") / window.dpi),
-									c.find("input.height").val(l.get("height") / window.dpi))
-							}),
-								c.find(".dimtype").trigger("change"),
-								i()
-						} else if ("aligntogrid" == e)
-							if (0 === d20.Campaign.activePage().get("snapping_increment")) {
-								i();
-								var u = $($("#tmpl_grid-disabled").jqote(h)).dialog({
-									title: "Grid Off",
-									buttons: {
-										Ok: function() {
-											u.off("change"),
-												u.dialog("destroy").remove()
-										}
-									},
-									beforeClose: function() {
-										u.off("change"),
-											u.dialog("destroy").remove()
-									}
-								})
-							} else
-								d20.engine.gridaligner.target = n[0],
-									d20plus.setMode("gridalign"),
-									i();
-						else if ("side_random" == e) {
-							d20.engine.canvas.getActiveGroup() && d20.engine.unselect();
-							var d = []
-								// BEGIN MOD
-								, prevUrl = "none";
-								// END MOD
-							_.each(n, function(e) {
-								if (e.model && "" != e.model.get("sides")) {
-									var t = e.model.get("sides").split("|")
-										, n = t.length
-									// BEGIN MOD
-										, i = -1
-										, imgUrl = tagSkip;
-									const tweakRandom = t.filter(j => !unescape(j).includes(tagSkip)).length > 1;
-									while (imgUrl.includes(tagSkip)) {
-										i = d20.textchat.diceengine.random(n);
-										const tUrl = unescape(t[i]);
-										imgUrl = tweakRandom && tUrl === prevUrl ? tagSkip : tUrl;
-									}
-									prevUrl = imgUrl;
-									const trueUrl = getRollableTokenUpdate(imgUrl, i, e.model);
-									d.push(trueUrl);
-									// END MOD
-								}
-							}),
-								d20.textchat.rawChatInput({
-									type: "tokenroll",
-									content: d.join("|")
-								}),
-								i()
-						} else if ("side_choose" == e) {
-							const e = n[0]
-								, t = e.model.toJSON()
-								, o = t.sides.split("|");
-							let r = t.currentSide;
-							const a = $($("#tmpl_chooseside").jqote()).dialog({
-								title: "Choose Side",
-								width: 325,
-								height: 225,
-								buttons: {
-									Choose: function() {
-										const imgUrl = unescape(o[r]);
-										d20.engine.canvas.getActiveGroup() && d20.engine.unselect(),
-											// BEGIN MOD
-											getRollableTokenUpdate(imgUrl, r, e.model),
-											// END MOD
-											a.off("slide"),
-											a.dialog("destroy").remove()
-									},
-									Cancel: function() {
-										a.off("slide"),
-											a.dialog("destroy").remove()
-									}
-								},
-								beforeClose: function() {
-									a.off("slide"),
-										a.dialog("destroy").remove()
-								}
-							})
-								, s = a.find(".sidechoices");
-							for (const e of o) {
-								const t = unescape(e);
-								let n = d20.utils.isVideo(t) ? `<video src="${t.replace("/med.webm", "/thumb.webm")}" muted autoplay loop />` : `<img src="${t}" />`;
-								n = `<div class="sidechoice">${n}</div>`,
-									s.append(n)
-							}
-							s.children().attr("data-selected", !1).eq(r).attr("data-selected", !0),
-								a.find(".sideslider").slider({
-									min: 0,
-									max: o.length - 1,
-									step: 1,
-									value: r
-								}),
-								a.on("slide", function(e, t) {
-									t.value != r && (r = t.value,
-										a.find(".sidechoices .sidechoice").attr("data-selected", !1).eq(t.value).attr("data-selected", !0))
-								}),
-								i(),
-								d20.token_editor.removeRadialMenu()
-						}
-						// BEGIN MOD
-						const showRollOptions = (formula, options) => {
-							const sel = d20.engine.selected();
-
-							options = options.map(it => `<option>${it}</option>`);
-
-							const dialog= $("<div><p style='font-size: 1.15em;'><strong>" + d20.utils.strip_tags("Select Save") + ":</strong> <select style='width: 150px; margin-left: 5px;'>" + options.join("") + "</select></p></div>");
-
-							dialog.dialog({
-								title: "Input Value",
-								beforeClose: function() {
-									return false;
-								},
-								buttons: {
-									Submit: function() {
-										const val = dialog.find("select").val();
-										console.log(val);
-										d20.engine.unselect();
-										sel.forEach(it => {
-											d20.engine.select(it);
-											const toRoll = formula(it, val);
-											d20.textchat.doChatInput(toRoll);
-											d20.engine.unselect();
-										});
-
-										dialog.off();
-										dialog.dialog("destroy").remove();
-										d20.textchat.$textarea.focus();
-									},
-									Cancel: function() {
-										dialog.off();
-										dialog.dialog("destroy").remove();
-									}
-								}
-							});
-
-							i();
-						};
-
-						if ("rollsaves" === e) {
-							// Mass roll: Saves
-							const options = ["str", "dex", "con", "int", "wis", "cha"].map(it => Parser.attAbvToFull(it));
-							if (d20plus.sheet === "ogl") {
-								showRollOptions(
-									(token, val) => {
-										if (getTokenType(token) === 1) {
-											const short = val.substring(0, 3);
-											return `${getTokenWhisperPart()}@{selected|wtype}&{template:npc} @{selected|npc_name_flag} {{type=Save}} @{selected|rtype} + [[@{selected|npc_${short.toLowerCase()}_save}]][${short.toUpperCase()}]]]}} {{rname=${val} Save}} {{r1=[[1d20 + [[@{selected|npc_${short.toLowerCase()}_save}]][${short.toUpperCase()}]]]}}`;
-										} else {
-											return `@{selected|wtype} &{template:simple} {{charname=@{selected|token_name}}} {{always=1}} {{rname=${val} Save}} {{mod=@{selected|${val.toLowerCase()}_save_bonus}}} {{r1=[[1d20+@{selected|${val.toLowerCase()}_save_bonus}]]}} {{r2=[[1d20+@{selected|${val.toLowerCase()}_save_bonus}]]}}`;
-										}
-									},
-									options
-								);
-							}
-							else if (d20plus.sheet === "shaped") {
-								showRollOptions(
-									(token, val) => `@{selected|output_option}} &{template:5e-shaped} {{ability=1}} {{character_name=@{selected|token_name}}} {{title=${val} Save}} {{mod=@{selected|${val.toLowerCase()}_mod}}} {{roll1=[[1d20+@{selected|${val.toLowerCase()}_mod}]]}} {{roll2=[[1d20+@{selected|${val.toLowerCase()}_mod}]]}}`,
-									options
-								);
-							}
-						} else if ("rollinit" === e) {
-							// Mass roll: Initiative
-							const sel = d20.engine.selected();
-							d20.engine.unselect();
-							sel.forEach(it => {
-								d20.engine.select(it);
-								let toRoll = ``;
-								if (d20plus.sheet === "ogl") {
-									toRoll = `%{selected|Initiative}`;
-								} else if (d20plus.sheet === "shaped") {
-									toRoll = `@{selected|output_option} &{template:5e-shaped} {{ability=1}} {{title=INITIATIVE}} {{roll1=[[@{selected|initiative_formula}]]}}`;
-								}
-								d20.textchat.doChatInput(toRoll);
-								d20.engine.unselect();
-							});
-							i();
-						} else if ("rollskills" === e) {
-							// TODO a "roll abilitiy check" option? NPC macro: @{selected|wtype}&{template:npc} @{selected|npc_name_flag} {{type=Check}} @{selected|rtype} + [[@{selected|strength_mod}]][STR]]]}} {{rname=Strength Check}} {{r1=[[1d20 + [[@{selected|strength_mod}]][STR]]]}}
-
-							// Mass roll: Skills
-							const options = [
-								"Athletics",
-								"Acrobatics",
-								"Sleight of Hand",
-								"Stealth",
-								"Arcana",
-								"History",
-								"Investigation",
-								"Nature",
-								"Religion",
-								"Animal Handling",
-								"Insight",
-								"Medicine",
-								"Perception",
-								"Survival",
-								"Deception",
-								"Intimidation",
-								"Performance",
-								"Persuasion"
-							].sort();
-
-							showRollOptions(
-								(token, val) => {
-									const clean = val.toLowerCase().replace(/ /g, "_");
-									const abil = `${Parser.attAbvToFull(Parser.skillToAbilityAbv(val.toLowerCase())).toLowerCase()}_mod`;
-
-									let doRoll = '';
-									if (d20plus.sheet === "ogl") {
-										doRoll = (atb = abil) => {
-											if (getTokenType(token) === 1) {
-												const slugged = val.replace(/\s/g, "_").toLowerCase();
-												return `${getTokenWhisperPart()}@{selected|wtype}&{template:npc} @{selected|npc_name_flag} {{type=Skill}} @{selected|rtype} + [[@{selected|npc_${slugged}}]]]]}}; {{rname=${val}}}; {{r1=[[1d20 + [[@{selected|npc_${slugged}}]]]]}}
-`
-											} else {
-												return `@{selected|wtype} &{template:simple} {{charname=@{selected|token_name}}} {{always=1}} {{rname=${val}}} {{mod=@{selected|${atb}}}} {{r1=[[1d20+@{selected|${atb}}]]}} {{r2=[[1d20+@{selected|${atb}}]]}}`;
-											}
-										}
-									} else if (d20plus.sheet === "shaped"){
-										doRoll = (atb = abil) => {
-											return `@{selected|output_option} &{template:5e-shaped} {{ability=1}} {{character_name=@{selected|token_name}}} {{title=${val}}} {{mod=@{selected|${atb}}}} {{roll1=[[1d20+@{selected|${atb}}]]}} {{roll2=[[1d20+@{selected|${atb}}]]}}`;
-										}
-									}
-
-									try {
-										if (token && token.model && token.model.toJSON && token.model.toJSON().represents) {
-											const charIdMaybe = token.model.toJSON().represents;
-											if (!charIdMaybe) return doRoll();
-											const charMaybe = d20.Campaign.characters.get(charIdMaybe);
-											if (charMaybe) {
-												const atbs = charMaybe.attribs.toJSON();
-												const npcAtbMaybe = atbs.find(it => it.name === "npc");
-
-												if (npcAtbMaybe && npcAtbMaybe.current == 1) {
-													const npcClean = `npc_${clean}`;
-													const bonusMaybe = atbs.find(it => it.name === npcClean);
-													if (bonusMaybe) return doRoll(npcClean);
-													else return doRoll();
-												} else {
-													const pcClean = `${clean}_bonus`;
-													const bonusMaybe = atbs.find(it => it.name === pcClean);
-													if (bonusMaybe) return doRoll(pcClean);
-													else return doRoll();
-												}
-											} else return doRoll();
-										} else return doRoll();
-									} catch (x) {
-										console.error(x);
-										return doRoll();
-									}
-								},
-								options
-							);
-						} else if ("forward-one" === e) {
-							d20plus.engine.forwardOneLayer(n);
-							i();
-						} else if ("back-one" === e) {
-							d20plus.engine.backwardOneLayer(n);
-							i();
-						} else if ("edittokenimages" === e) {
-							d20plus.menu.editToken();
-							i();
-						} else if ("copy-tokenid" === e) {
-							const sel = d20.engine.selected();
-							window.prompt("Copy to clipboard: Ctrl+C, Enter", sel[0].model.id);
-							i();
-						} else if ("copy-pathid" === e) {
-							const sel = d20.engine.selected();
-							window.prompt("Copy to clipboard: Ctrl+C, Enter", sel[0].model.id);
-							i();
-						} else if ("token-fly" === e) {
-							const sel = d20.engine.selected().filter(it => it && it.type === "image");
-							new Promise((resolve, reject) => {
-								const $dialog = $(`
-									<div title="Flight Height">
-										<input type="number" placeholder="Flight height" name="flight">
-									</div>
-								`).appendTo($("body"));
-								const $iptHeight = $dialog.find(`input[name="flight"]`).on("keypress", evt => {
-									if (evt.which === 13) { // return
-										doHandleOk();
-									}
-								});
-
-								const doHandleOk = () => {
-									const selected = Number($iptHeight.val());
-									$dialog.dialog("close");
-									if (isNaN(selected)) reject(`Value "${$iptHeight.val()}" was not a number!`);
-									else resolve(selected);
-								};
-
-								$dialog.dialog({
-									dialogClass: "no-close",
-									buttons: [
-										{
-											text: "Cancel",
-											click: function () {
-												$(this).dialog("close");
-												$dialog.remove();
-												reject(`User cancelled the prompt`);
-											}
-										},
-										{
-											text: "OK",
-											click: function () {
-												doHandleOk();
-											}
-										}
-									]
-								});
-							}).then(num => {
-								const STATUS_PREFIX = `fluffy-wing@`;
-								const statusString = `${num}`.split("").map(it => `${STATUS_PREFIX}${it}`).join(",");
-								sel.forEach(s => {
-									const existing = s.model.get("statusmarkers");
-									if (existing && existing.trim()) {
-										s.model.set("statusmarkers", [statusString, ...existing.split(",").filter(it => it && it && !it.startsWith(STATUS_PREFIX))].join(","));
-									} else {
-										s.model.set("statusmarkers", statusString);
-									}
-									s.model.save();
-								});
-							});
-							i();
-						} else if ("token-light" === e) {
-							const SOURCES = {
-								"None (Blind)": {
-									bright: 0,
-									dim: 0
-								},
-								"Torch/Light (Spell)": {
-									bright: 20,
-									dim: 20
-								},
-								"Lamp": {
-									bright: 15,
-									dim: 30
-								},
-								"Lantern, Bullseye": {
-									bright: 60,
-									dim: 60,
-									angle: 30
-								},
-								"Lantern, Hooded": {
-									bright: 30,
-									dim: 30
-								},
-								"Lantern, Hooded (Dimmed)": {
-									bright: 0,
-									dim: 5
-								},
-								"Candle": {
-									bright: 5,
-									dim: 5
-								},
-								"Darkvision": {
-									bright: 0,
-									dim: 60,
-									hidden: true
-								},
-								"Superior Darkvision": {
-									bright: 0,
-									dim: 120,
-									hidden: true
-								}
-							};
-
-							const sel = d20.engine.selected().filter(it => it && it.type === "image");
-							new Promise((resolve, reject) => {
-								const $dialog = $(`
-									<div title="Light">
-										<label class="flex">
-											<span>Set Light Style</span>
-											 <select style="width: 250px;">
-												${Object.keys(SOURCES).map(it => `<option>${it}</option>`).join("")}
-											</select>
-										</label>
-									</div>
-								`).appendTo($("body"));
-								const $selLight = $dialog.find(`select`);
-
-								$dialog.dialog({
-									dialogClass: "no-close",
-									buttons: [
-										{
-											text: "Cancel",
-											click: function () {
-												$(this).dialog("close");
-												$dialog.remove();
-												reject(`User cancelled the prompt`);
-											}
-										},
-										{
-											text: "OK",
-											click: function () {
-												const selected = $selLight.val();
-												$dialog.dialog("close");
-												if (!selected) reject(`No value selected!`);
-												else resolve(selected);
-											}
-										}
-									]
-								});
-							}).then(key => {
-								const light = SOURCES[key];
-
-								const light_otherplayers = !light.hidden;
-								// these are all stored as strings
-								const dimRad = (light.dim || 0);
-								const brightRad = (light.bright || 0);
-								const totalRad = dimRad + brightRad;
-								const light_angle = `${light.angle}` || "";
-								const light_dimradius = `${totalRad - dimRad}`;
-								const light_radius = `${totalRad}`;
-
-								sel.forEach(s => {
-									s.model.set("light_angle", light_angle);
-									s.model.set("light_dimradius", light_dimradius);
-									s.model.set("light_otherplayers", light_otherplayers);
-									s.model.set("light_radius", light_radius);
-									s.model.save();
-								});
-							});
-							i();
-						} else if ("unlock-tokens" === e) {
-							d20plus.tool.get("UNLOCKER").openFn();
-							i();
-						} else if ("lock-token" === e) {
-							d20.engine.selected().forEach(it => {
-								if (it.model) {
-									if (it.model.get("VeLocked")) {
-										it.lockMovementX = false;
-										it.lockMovementY = false;
-										it.lockScalingX = false;
-										it.lockScalingY = false;
-										it.lockRotation = false;
-
-										it.model.set("VeLocked", false);
-									} else {
-										it.lockMovementX = true;
-										it.lockMovementY = true;
-										it.lockScalingX = true;
-										it.lockScalingY = true;
-										it.lockRotation = true;
-
-										it.model.set("VeLocked", true);
-									}
-									it.saveState();
-									it.model.save();
-								}
-							});
-							i();
-						} else if ("token-animate" === e) {
-							d20plus.anim.animatorTool.pSelectAnimation(lastContextSelection.lastAnimUid).then(animUid => {
-								if (animUid == null) return;
-
-								lastContextSelection.lastAnimUid = animUid;
-								const selected = d20.engine.selected();
-								d20.engine.unselect();
-								selected.forEach(it => {
-									if (it.model) {
-										d20plus.anim.animator.startAnimation(it.model, animUid)
-									}
-								});
-							});
-							i();
-						} else if ("util-scenes" === e) {
-							d20plus.anim.animatorTool.pSelectScene(lastContextSelection.lastSceneUid).then(sceneUid => {
-								if (sceneUid == null) return;
-
-								lastContextSelection.lastSceneUid = sceneUid;
-								d20plus.anim.animatorTool.doStartScene(sceneUid);
-							});
-							i();
-						}
-						// END MOD
-						return !1
-					}
-				}),
-				!1
-		};
-		// END ROLL20 CODE
-
-		/* eslint-enable */
-
-		function getRollableTokenUpdate (imgUrl, currentSide, token) {
-			const [imgsrc, m] = (imgUrl || "").replace(tagSkip, "").split(tagSize);
-			const toSave = {
-				currentSide,
-				imgsrc,
+				const graphics = activePage.thegraphics.models;
+				return graphics
+					.filter(g => g.view && g.view.graphic && g.view.graphic.isSelected)
+					.map(g => ({
+						_model: g,
+						graphic: g.view.graphic
+					}));
 			};
-			if (m) {
-				if (isNaN(m) && m?.split) {
-					const [w, h] = m.split("x");
-					if (!isNaN(w) && !isNaN(h)) {
-						toSave.width = Number(w);
-						toSave.height = Number(h);
+		}
+
+		if (!d20.engine.unselect) {
+			d20.engine.unselect = function() {
+				const activePage = d20.Campaign.activePage();
+				if (!activePage || !activePage.thegraphics) return;
+
+				const graphics = activePage.thegraphics.models;
+				graphics.forEach(g => {
+					if (g.view && g.view.graphic && g.view.graphic.deselect) {
+						g.view.graphic.deselect();
 					}
+				});
+			};
+		}
+
+		if (!d20.engine.select) {
+			d20.engine.select = function(token) {
+				if (!token) return;
+
+				// token could be the wrapper object with _model and graphic
+				const graphic = token.graphic || token;
+
+				if (graphic && graphic.select) {
+					graphic.select();
+				}
+			};
+		}
+
+		// Function to add Mass Roll to Jumpgate's context menu
+		function addMassRollToMenu() {
+			const contextMenu = document.querySelector('.context-menu');
+			if (!contextMenu) return;
+
+			// Check if already added - if so, exit early to avoid infinite loop
+			if (contextMenu.querySelector('.mass-roll-button')) return;
+
+			// Check if GM
+			if (!window.is_gm) return;
+
+			// Only show Mass Roll when right-clicking on a token (not empty canvas)
+			// Check for token-specific menu options as primary indicator
+			// (currentRadialTarget is false when multiple tokens are selected)
+			const hasTokenOptions = Array.from(contextMenu.querySelectorAll('span')).some(
+				span => span.textContent.includes('Character Sheet') || span.textContent.includes('Add Turn')
+			);
+			if (!hasTokenOptions) {
+				return;
+			}
+
+			// Create Mass Roll button matching native Roll20 structure
+			const massRollBtn = document.createElement('button');
+			massRollBtn.className = 'mass-roll-button';
+			massRollBtn.type = 'button';
+			massRollBtn.setAttribute('data-v-2aed8a8e', '');
+			massRollBtn.setAttribute('data-v-060adf8b', '');
+
+			massRollBtn.innerHTML = `
+				<div data-v-2aed8a8e="" class="submenu-button-outer">
+					<div data-v-2aed8a8e="" class="submenu-button-inner">
+						<div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 4px;">
+							<div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 8px;">
+								<span data-v-2aed8a8e="" style="flex: 1 1 0%; text-align: start;">Mass Roll</span>
+							</div>
+						</div>
+					</div>
+					<span data-v-2aed8a8e="" class="submenu-button-icon">
+						<span data-v-2f0bc668="" data-v-2aed8a8e="" class="grimoire__roll20-icon" style="--7353a950: 0.875rem;">chevronRight</span>
+					</span>
+				</div>
+				<div data-v-2aed8a8e="" class="submenu" style="position: absolute; will-change: transform; top: 0px; left: 0px; transform: translate3d(0px, 0px, 0px); display: none;" x-placement="right-start"></div>
+			`;
+
+			const submenu = massRollBtn.querySelector('.submenu');
+
+			// Helper to create submenu item matching native structure
+			function createSubmenuItem(label, iconName, onClick) {
+				const btn = document.createElement('button');
+				btn.type = 'button';
+				btn.setAttribute('data-v-2aed8a8e', '');
+				btn.setAttribute('data-v-060adf8b', '');
+				btn.innerHTML = `
+					<div data-v-2aed8a8e="" class="submenu-button-outer">
+						<div data-v-2aed8a8e="" class="submenu-button-inner">
+							<div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 4px;">
+								${iconName ? `<span data-v-2f0bc668="" data-v-060adf8b="" class="grimoire__roll20-icon" style="--7353a950: inherit;">${iconName}</span>` : ''}
+								<div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 8px;">
+									<span data-v-2aed8a8e="" style="flex: 1 1 0%; text-align: start;">${label}</span>
+								</div>
+							</div>
+						</div>
+					</div>
+				`;
+				btn.addEventListener('click', onClick);
+				return btn;
+			}
+
+			// Create submenu items using only confirmed working icons
+			const initBtn = createSubmenuItem('Initiative', 'turnOrderAdd', () => {
+				d20plus.menu.massRollInitiative();
+				closeContextMenu();
+			});
+
+			const savesBtn = createSubmenuItem('Save', 'check', () => {
+				d20plus.menu.massRollSaves();
+				closeContextMenu();
+			});
+
+			const skillsBtn = createSubmenuItem('Skill', 'star', () => {
+				d20plus.menu.massRollSkills();
+				closeContextMenu();
+			});
+
+			submenu.appendChild(initBtn);
+			submenu.appendChild(savesBtn);
+			submenu.appendChild(skillsBtn);
+
+			// Click handler to toggle submenu
+			massRollBtn.addEventListener('click', (e) => {
+				e.stopPropagation();
+
+				// Calculate position to place submenu to the right
+				const rect = massRollBtn.getBoundingClientRect();
+				const contextRect = contextMenu.getBoundingClientRect();
+
+				// Position submenu to the right of the button
+				const x = rect.width;
+				const y = rect.top - contextRect.top;
+
+				submenu.style.transform = `translate3d(${x}px, ${y}px, 0px)`;
+
+				// Toggle display
+				const isVisible = submenu.style.display === 'block';
+				submenu.style.display = isVisible ? 'none' : 'block';
+			});
+
+			// Insert at the beginning
+			contextMenu.insertBefore(massRollBtn, contextMenu.firstChild);
+		}
+
+		function closeContextMenu() {
+			const menu = document.querySelector('.context-menu');
+			if (menu) menu.style.display = 'none';
+		}
+
+		// Function to add Better20 Tools submenu
+		function addBetter20ToolsToMenu() {
+			const contextMenu = document.querySelector('.context-menu');
+			if (!contextMenu) return;
+
+			// Check if already added
+			if (contextMenu.querySelector('.better20-tools-button')) return;
+
+			if (!window.is_gm) return;
+
+			// Create Better20 Tools button with submenu
+			const toolsBtn = document.createElement('button');
+			toolsBtn.className = 'better20-tools-button';
+			toolsBtn.type = 'button';
+			toolsBtn.setAttribute('data-v-2aed8a8e', '');
+			toolsBtn.setAttribute('data-v-060adf8b', '');
+
+			toolsBtn.innerHTML = `
+				<div data-v-2aed8a8e="" class="submenu-button-outer">
+					<div data-v-2aed8a8e="" class="submenu-button-inner">
+						<div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 4px;">
+							<div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 8px;">
+								<span data-v-2aed8a8e="" style="flex: 1 1 0%; text-align: start;">Better20 Tools</span>
+							</div>
+						</div>
+					</div>
+					<span data-v-2aed8a8e="" class="submenu-button-icon">
+						<span data-v-2f0bc668="" data-v-2aed8a8e="" class="grimoire__roll20-icon" style="--7353a950: 0.875rem;">chevronRight</span>
+					</span>
+				</div>
+				<div data-v-2aed8a8e="" class="submenu" style="position: absolute; will-change: transform; top: 0px; left: 0px; transform: translate3d(0px, 0px, 0px); display: none;" x-placement="right-start"></div>
+			`;
+
+			const submenu = toolsBtn.querySelector('.submenu');
+
+			// Helper to create submenu item
+			function createSubmenuItem(label, onClick) {
+				const btn = document.createElement('button');
+				btn.type = 'button';
+				btn.setAttribute('data-v-2aed8a8e', '');
+				btn.setAttribute('data-v-060adf8b', '');
+				btn.innerHTML = `
+					<div data-v-2aed8a8e="" class="submenu-button-outer">
+						<div data-v-2aed8a8e="" class="submenu-button-inner">
+							<div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 4px;">
+								<div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 8px;">
+									<span data-v-2aed8a8e="" style="flex: 1 1 0%; text-align: start;">${label}</span>
+								</div>
+							</div>
+						</div>
+					</div>
+				`;
+				btn.addEventListener('click', onClick);
+				return btn;
+			}
+
+			// Add Mass Roll with nested submenu
+			const massRollBtn = document.createElement('button');
+			massRollBtn.type = 'button';
+			massRollBtn.className = 'mass-roll-nested-btn';
+			massRollBtn.setAttribute('data-v-2aed8a8e', '');
+			massRollBtn.setAttribute('data-v-060adf8b', '');
+			massRollBtn.innerHTML = `
+				<div data-v-2aed8a8e="" class="submenu-button-outer">
+					<div data-v-2aed8a8e="" class="submenu-button-inner">
+						<div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 4px;">
+							<div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 8px;">
+								<span data-v-2aed8a8e="" style="flex: 1 1 0%; text-align: start;">Mass Roll</span>
+							</div>
+						</div>
+					</div>
+					<span data-v-2aed8a8e="" class="submenu-button-icon">
+						<span data-v-2f0bc668="" data-v-2aed8a8e="" class="grimoire__roll20-icon" style="--7353a950: 0.875rem;">chevronRight</span>
+					</span>
+				</div>
+				<div data-v-2aed8a8e="" class="submenu" data-mass-roll-submenu="true" style="position: absolute; will-change: transform; top: 0px; left: 0px; transform: translate3d(0px, 0px, 0px); display: none;" x-placement="right-start"></div>
+			`;
+
+			const massRollSubmenu = massRollBtn.querySelector('[data-mass-roll-submenu]');
+
+			// Add items to Mass Roll submenu
+			const initBtn = createSubmenuItem('Initiative', () => {
+				d20plus.menu.massRollInitiative();
+				closeContextMenu();
+			});
+			massRollSubmenu.appendChild(initBtn);
+
+			const savesBtn = createSubmenuItem('Save', () => {
+				d20plus.menu.massRollSaves();
+				closeContextMenu();
+			});
+			massRollSubmenu.appendChild(savesBtn);
+
+			const skillsBtn = createSubmenuItem('Skill', () => {
+				d20plus.menu.massRollSkills();
+				closeContextMenu();
+			});
+			massRollSubmenu.appendChild(skillsBtn);
+
+			// Click handler for Mass Roll to toggle its submenu
+			massRollBtn.addEventListener('click', (e) => {
+				e.stopPropagation();
+
+				// Simple positioning: just to the right of the button
+				const btnRect = massRollBtn.getBoundingClientRect();
+
+				// Position submenu to the right of the button at the same vertical level
+				const x = btnRect.width;
+				const y = 0;
+
+				massRollSubmenu.style.transform = `translate3d(${x}px, ${y}px, 0px)`;
+				massRollSubmenu.style.display = massRollSubmenu.style.display === 'block' ? 'none' : 'block';
+			});
+
+			submenu.appendChild(massRollBtn);
+
+			// Add Set Light
+			const lightBtn = createSubmenuItem('Set Light', () => {
+				d20plus.menu.setTokenLight();
+				closeContextMenu();
+			});
+			submenu.appendChild(lightBtn);
+
+			// Add Flight Height
+			const flightBtn = createSubmenuItem('Flight Height', () => {
+				d20plus.menu.setFlightHeight();
+				closeContextMenu();
+			});
+			submenu.appendChild(flightBtn);
+
+			// Add Copy Token ID
+			const copyBtn = createSubmenuItem('Copy Token ID', () => {
+				d20plus.menu.copyTokenId();
+				closeContextMenu();
+			});
+			submenu.appendChild(copyBtn);
+
+			// Add Edit Token Images
+			const editBtn = createSubmenuItem('Edit Token Images', () => {
+				d20plus.menu.editToken();
+				closeContextMenu();
+			});
+			submenu.appendChild(editBtn);
+
+			// Add Animate Token (only if animations exist)
+			const hasAnims = d20plus.anim?.animatorTool?._anims
+				&& typeof d20plus.anim.animatorTool._anims === 'object'
+				&& Object.keys(d20plus.anim.animatorTool._anims).length > 0;
+
+			if (hasAnims) {
+				const animBtn = createSubmenuItem('Animate Token', () => {
+					d20plus.menu.tokenAnimate();
+					closeContextMenu();
+				});
+				submenu.appendChild(animBtn);
+			}
+
+			// Add Trigger Scene (only if scenes exist)
+			const hasScenes = d20plus.anim?.animatorTool?._scenes
+				&& typeof d20plus.anim.animatorTool._scenes === 'object'
+				&& Object.keys(d20plus.anim.animatorTool._scenes).length > 0;
+
+			if (hasScenes) {
+				const sceneBtn = createSubmenuItem('Trigger Scene', () => {
+					d20plus.menu.triggerScene();
+					closeContextMenu();
+				});
+				submenu.appendChild(sceneBtn);
+			}
+
+			// Click handler to toggle submenu
+			toolsBtn.addEventListener('click', (e) => {
+				e.stopPropagation();
+
+				// Calculate position to place submenu to the right
+				const rect = toolsBtn.getBoundingClientRect();
+				const contextRect = contextMenu.getBoundingClientRect();
+
+				// Position submenu to the right of the button
+				const x = rect.width;
+				const y = rect.top - contextRect.top;
+
+				submenu.style.transform = `translate3d(${x}px, ${y}px, 0px)`;
+
+				// Toggle display
+				const isVisible = submenu.style.display === 'block';
+				submenu.style.display = isVisible ? 'none' : 'block';
+			});
+
+			// Insert at the beginning
+			contextMenu.insertBefore(toolsBtn, contextMenu.firstChild);
+		}
+
+		// Watch for context menu appearing
+		const observer = new MutationObserver(() => {
+			const menu = document.querySelector('.context-menu');
+			if (menu && menu.style.display !== 'none') {
+				// Check if this is a token context menu
+				// Check if this is a token menu by looking for token-specific options
+				const hasTokenOptions = Array.from(menu.querySelectorAll('span')).some(
+					span => span.textContent.includes('Character Sheet') || span.textContent.includes('Add Turn')
+				);
+
+				if (hasTokenOptions) {
+					// Add custom menu items for token menus
+					addBetter20ToolsToMenu();
 				} else {
-					toSave.width = 70 * Number(m);
-					toSave.height = 70 * Number(m)
+					// Remove custom menu items from non-token menus
+					const existingBetter20 = menu.querySelector('.better20-tools-button');
+					if (existingBetter20) {
+						existingBetter20.remove();
+					}
 				}
 			}
-			token.save(toSave);
-			return imgsrc;
-		}
+		});
 
-		function tokenEditorTexts (selection) {
-			const name = selection.length > 1 ? "You are editing multiple tokens" : selection[0].model?.attributes?.name || "Unnamed token";
-			const description = selection.length > 1 ? `
-				If you press "Save", the changes will be applied to each of the selected tokens, making them multi-sided if you have multiple images on the list below
-			` : selection[0].model.attributes.sides ? `
-				You are currently editing images for multi-sided token. Add or remove as many sides as you want. If only one image remains, the token will become a single-sided one
-			` : `
-				Currently this token is represented by a single image. Add more images to convert it to multi-sided token
-			`;
-			const tokenList = selection.length <= 1 ? "" : selection.reduce((r, t) => `${r}
-				<div class="tokenbox selected" data-tokenid="${t.model.id}" data-tokenimg="${t.model.attributes.imgsrc}">
-					<div class="inner">
-						<img src="${t.model.attributes.imgsrc}">
-						<div class="name">${t.model.attributes.name}</div>
-					</div>
-				</div>
-			`, "");
-			return {name, description, tokenList};
-		}
+		observer.observe(document.body, {
+			childList: true,
+			subtree: true,
+			attributes: true,
+			attributeFilter: ['style']
+		});
+	};
 
-		d20plus.menu.editToken = (tokenId) => {
-			const selection = tokenId
-				? [{model: d20plus.ut.getTokenById(tokenId)}].filter(t => !!t.model?.attributes)
-				: d20.engine.selected().filter(t => t.type === "image");
-			if (!selection.length) return;
-			const images = [];
-			const added = [];
-			const $dialog = $(d20plus.html.tokenImageEditor);
-			const $list = $dialog.find(".tokenimagelist tbody");
-			const $tokenList = $dialog.find(".tokenlist");
-			const sizes = [["tiny - half square", "0.5"], ["small - 1x1", "1.0"], ["medium - 1x1", "1"], ["large - 2x2", "2"], ["huge - 3x3", "3"], ["gargantuan - 4x4", "4"], ["colossal - 5x5", "5"], ["custom", "0"]];
-			const findStandardSize = (w, h) => {
-				return (w === h && sizes.find(s => s[1] === `${w / 70}`)?.last()) || "0";
-			}
-			const addImageOnInit = (img, add) => {
-				const sizeChanged = img.w !== images.last()?.w || img.h !== images.last()?.h;
-				if (images.length && sizeChanged) $list.variedSizes = true;
-				images.push(img);
-				added.push(add || img.url);
-			}
-			selection.forEach(t => {
-				const sides = t.model.attributes.sides?.split("|");
-				const token = t.model.attributes.imgsrc;
-				const {width: tw, height: th} = t.model.attributes;
-				if (sides.length > 1) {
-					const curSide = sides[t.model.attributes.currentSide] || token;
-					sides.forEach((s, k) => {
-						const checked = unescape(s);
-						const listed = added.indexOf(checked);
-						const [url, size] = checked.split(tagSize);
-						const [sw, sh] = (size || "").split("x");
-						const image = {
-							url: url.replaceAll(tagSkip, ""),
-							skip: url.includes(tagSkip),
-							face: unescape(curSide).includes(url),
-							w: tw,
-							h: th,
-						};
-						if (listed !== -1) {
-							if (k === t.model.attributes.currentSide) images[listed].face = true;
-							return;
-						} else if (!isNaN(size)) {
-							Object.merge(image, {size, w: size * 70, h: size * 70});
-						} else if (!isNaN(sw) && !isNaN(sh)) {
-							Object.merge(image, {size: "0", w: sw, h: sh});
-						}
-						addImageOnInit(image, checked);
+	// Mass Roll functions (work for both Legacy and Jumpgate)
+	d20plus.menu.massRollInitiative = function() {
+		const sel = d20.engine.selected();
+		d20.engine.unselect();
+		sel.forEach((it, index) => {
+			setTimeout(() => {
+				d20.engine.select(it);
+				let toRoll = ``;
+				if (d20plus.sheet === "ogl") {
+					toRoll = `%{selected|Initiative}`;
+				} else if (d20plus.sheet === "shaped") {
+					toRoll = `@{selected|output_option} &{template:5e-shaped} {{ability=1}} {{title=INITIATIVE}} {{roll1=[[@{selected|initiative_formula}]]}}`;
+				}
+				d20.textchat.doChatInput(toRoll);
+				d20.engine.unselect();
+			}, index * 100); // 100ms delay between each roll
+		});
+	};
+
+	d20plus.menu.massRollSaves = function() {
+		const options = ["str", "dex", "con", "int", "wis", "cha"].map(it => Parser.attAbvToFull(it));
+		const getTokenWhisperPart = () => d20plus.cfg.getOrDefault("token", "massRollWhisperName") ? "/w gm Rolling for @{selected|token_name}...\n" : "";
+
+		// Show dialog to select save type
+		const dialog = $(`<div><p style='font-size: 1.15em;'><strong>Select Save:</strong> <select style='width: 150px; margin-left: 5px;'>${options.map(o => `<option>${o}</option>`).join('')}</select></p></div>`);
+
+		dialog.dialog({
+			title: "Mass Roll Saves",
+			buttons: {
+				Submit: function() {
+					const val = dialog.find("select").val();
+					const sel = d20.engine.selected();
+					d20.engine.unselect();
+					sel.forEach((it, index) => {
+						setTimeout(() => {
+							d20.engine.select(it);
+							if (d20plus.sheet === "ogl") {
+								const short = val.substring(0, 3);
+								const toRoll = `${getTokenWhisperPart()}@{selected|wtype}&{template:npc} @{selected|npc_name_flag} {{type=Save}} @{selected|rtype} + [[@{selected|npc_${short.toLowerCase()}_save}]][${short.toUpperCase()}]]]}} {{rname=${val} Save}} {{r1=[[1d20 + [[@{selected|npc_${short.toLowerCase()}_save}]][${short.toUpperCase()}]]]}}`;
+								d20.textchat.doChatInput(toRoll);
+							} else if (d20plus.sheet === "shaped") {
+								const toRoll = `@{selected|output_option}} &{template:5e-shaped} {{ability=1}} {{character_name=@{selected|token_name}}} {{title=${val} Save}} {{mod=@{selected|${val.toLowerCase()}_mod}}} {{roll1=[[1d20+@{selected|${val.toLowerCase()}_mod}]]}} {{roll2=[[1d20+@{selected|${val.toLowerCase()}_mod}]]}}`;
+								d20.textchat.doChatInput(toRoll);
+							}
+							d20.engine.unselect();
+						}, index * 100); // 100ms delay between each roll
 					});
-				} else {
-					const listed = added.indexOf(t.model.attributes.imgsrc);
-					if (listed !== -1) images[listed].face = true;
-					else addImageOnInit({url: t.model.attributes.imgsrc, face: true, w: tw, h: th});
+					dialog.dialog("destroy").remove();
+				},
+				Cancel: function() {
+					dialog.dialog("destroy").remove();
+				}
+			}
+		});
+	};
+
+	d20plus.menu.massRollSkills = function() {
+		const options = [
+			"Athletics", "Acrobatics", "Sleight of Hand", "Stealth",
+			"Arcana", "History", "Investigation", "Nature", "Religion",
+			"Animal Handling", "Insight", "Medicine", "Perception", "Survival",
+			"Deception", "Intimidation", "Performance", "Persuasion"
+		].sort();
+		const getTokenWhisperPart = () => d20plus.cfg.getOrDefault("token", "massRollWhisperName") ? "/w gm Rolling for @{selected|token_name}...\n" : "";
+
+		// Show dialog to select skill
+		const dialog = $(`<div><p style='font-size: 1.15em;'><strong>Select Skill:</strong> <select style='width: 150px; margin-left: 5px;'>${options.map(o => `<option>${o}</option>`).join('')}</select></p></div>`);
+
+		dialog.dialog({
+			title: "Mass Roll Skills",
+			buttons: {
+				Submit: function() {
+					const val = dialog.find("select").val();
+					const sel = d20.engine.selected();
+					d20.engine.unselect();
+					sel.forEach((it, index) => {
+						setTimeout(() => {
+							d20.engine.select(it);
+							if (d20plus.sheet === "ogl") {
+								const slugged = val.replace(/\s/g, "_").toLowerCase();
+								const toRoll = `${getTokenWhisperPart()}@{selected|wtype}&{template:npc} @{selected|npc_name_flag} {{type=Skill}} @{selected|rtype} + [[@{selected|npc_${slugged}}]]]]}}; {{rname=${val}}}; {{r1=[[1d20 + [[@{selected|npc_${slugged}}]]]]}}`;
+								d20.textchat.doChatInput(toRoll);
+							} else if (d20plus.sheet === "shaped") {
+								const abil = `${Parser.attAbvToFull(Parser.skillToAbilityAbv(val.toLowerCase())).toLowerCase()}_mod`;
+								const toRoll = `@{selected|output_option} &{template:5e-shaped} {{ability=1}} {{character_name=@{selected|token_name}}} {{title=${val}}} {{mod=@{selected|${abil}}}} {{roll1=[[1d20+@{selected|${abil}}]]}} {{roll2=[[1d20+@{selected|${abil}}]]}}`;
+								d20.textchat.doChatInput(toRoll);
+							}
+							d20.engine.unselect();
+						}, index * 100); // 100ms delay between each roll
+					});
+					dialog.dialog("destroy").remove();
+				},
+				Cancel: function() {
+					dialog.dialog("destroy").remove();
+				}
+			}
+		});
+	};
+
+	// Set Token Light (Jumpgate)
+	d20plus.menu.setTokenLight = function() {
+		const LIGHT_SOURCES = {
+			"None (Blind)": {
+				emits_bright_light: false,
+				bright_light_distance: 0,
+				emits_low_light: false,
+				low_light_distance: 0,
+				has_night_vision: false,
+				night_vision_distance: 0
+			},
+			"Torch/Light (Spell)": {
+				emits_bright_light: true,
+				bright_light_distance: 20,
+				emits_low_light: true,
+				low_light_distance: 40,
+				has_night_vision: false
+			},
+			"Lamp": {
+				emits_bright_light: true,
+				bright_light_distance: 15,
+				emits_low_light: true,
+				low_light_distance: 45,
+				has_night_vision: false
+			},
+			"Lantern, Bullseye": {
+				emits_bright_light: true,
+				bright_light_distance: 60,
+				emits_low_light: true,
+				low_light_distance: 120,
+				has_directional_bright_light: true,
+				directional_bright_light_total: 60,
+				directional_bright_light_center: 0,
+				has_night_vision: false
+			},
+			"Lantern, Hooded": {
+				emits_bright_light: true,
+				bright_light_distance: 30,
+				emits_low_light: true,
+				low_light_distance: 60,
+				has_night_vision: false
+			},
+			"Lantern, Hooded (Dimmed)": {
+				emits_bright_light: false,
+				bright_light_distance: 0,
+				emits_low_light: true,
+				low_light_distance: 5,
+				has_night_vision: false
+			},
+			"Candle": {
+				emits_bright_light: true,
+				bright_light_distance: 5,
+				emits_low_light: true,
+				low_light_distance: 10,
+				has_night_vision: false
+			},
+			"Darkvision (60ft)": {
+				emits_bright_light: false,
+				bright_light_distance: 0,
+				emits_low_light: false,
+				low_light_distance: 0,
+				has_night_vision: true,
+				night_vision_distance: 60
+			},
+			"Darkvision (120ft)": {
+				emits_bright_light: false,
+				bright_light_distance: 0,
+				emits_low_light: false,
+				low_light_distance: 0,
+				has_night_vision: true,
+				night_vision_distance: 120
+			},
+			"Torch + Darkvision": {
+				emits_bright_light: true,
+				bright_light_distance: 20,
+				emits_low_light: true,
+				low_light_distance: 40,
+				has_night_vision: true,
+				night_vision_distance: 60
+			}
+		};
+
+		const sel = d20.engine.selected();
+		if (sel.length === 0) {
+			alert("Please select at least one token.");
+			return;
+		}
+
+		// Show dialog to select light type
+		const dialog = $(`<div><p style='font-size: 1.15em;'><strong>Select Light Source:</strong> <select style='width: 250px; margin-left: 5px;'>${Object.keys(LIGHT_SOURCES).map(o => `<option>${o}</option>`).join('')}</select></p></div>`);
+
+		dialog.dialog({
+			title: "Set Token Light",
+			buttons: {
+				Apply: function() {
+					const val = dialog.find("select").val();
+					const lightConfig = LIGHT_SOURCES[val];
+
+					sel.forEach(token => {
+						// Apply light emission settings
+						token._model.set("emits_bright_light", lightConfig.emits_bright_light || false);
+						token._model.set("bright_light_distance", lightConfig.bright_light_distance || 0);
+						token._model.set("emits_low_light", lightConfig.emits_low_light || false);
+						token._model.set("low_light_distance", lightConfig.low_light_distance || 0);
+
+						// Apply directional light if specified
+						if (lightConfig.has_directional_bright_light) {
+							token._model.set("has_directional_bright_light", true);
+							token._model.set("directional_bright_light_total", lightConfig.directional_bright_light_total);
+							token._model.set("directional_bright_light_center", lightConfig.directional_bright_light_center);
+						} else {
+							token._model.set("has_directional_bright_light", false);
+						}
+
+						// Apply vision settings
+						token._model.set("has_night_vision", lightConfig.has_night_vision || false);
+						if (lightConfig.night_vision_distance) {
+							token._model.set("night_vision_distance", lightConfig.night_vision_distance);
+						}
+
+						// Enable sight if any light or vision is set
+						const hasSight = lightConfig.emits_bright_light || lightConfig.emits_low_light || lightConfig.has_night_vision;
+						token._model.set("light_hassight", hasSight);
+
+						token._model.save();
+					});
+
+					dialog.dialog("destroy").remove();
+				},
+				Cancel: function() {
+					dialog.dialog("destroy").remove();
+				}
+			}
+		});
+	};
+
+	// Copy Token ID
+	d20plus.menu.copyTokenId = function() {
+		const sel = d20.engine.selected();
+		if (sel.length === 0) {
+			alert("Please select a token.");
+			return;
+		}
+
+		const token = sel[0];
+		const tokenId = token._model.id;
+
+		// Show prompt with token ID for copying
+		window.prompt("Copy to clipboard: Ctrl+C, Enter", tokenId);
+	};
+
+	// Token Animate
+	d20plus.menu.tokenAnimate = function() {
+		const sel = d20.engine.selected();
+		if (sel.length === 0) {
+			alert("Please select at least one token.");
+			return;
+		}
+
+		// Track last selected animation
+		if (!d20plus.menu._lastAnimUid) d20plus.menu._lastAnimUid = null;
+
+		d20plus.anim.animatorTool.pSelectAnimation(d20plus.menu._lastAnimUid).then(animUid => {
+			if (animUid == null) return;
+
+			d20plus.menu._lastAnimUid = animUid;
+			const selected = d20.engine.selected();
+			d20.engine.unselect();
+			selected.forEach(token => {
+				if (token._model) {
+					d20plus.anim.animator.startAnimation(token._model, animUid);
 				}
 			});
-			if ($list.variedSizes) {
-				images.forEach(i => { if (i.size === undefined) i.size = findStandardSize(i.w, i.h); });
+		});
+	};
+
+	// Trigger Scene
+	d20plus.menu.triggerScene = function() {
+		// Track last selected scene
+		if (!d20plus.menu._lastSceneUid) d20plus.menu._lastSceneUid = null;
+
+		d20plus.anim.animatorTool.pSelectScene(d20plus.menu._lastSceneUid).then(sceneUid => {
+			if (sceneUid == null) return;
+
+			d20plus.menu._lastSceneUid = sceneUid;
+			d20plus.anim.animatorTool.doStartScene(sceneUid);
+		});
+	};
+
+	// Edit Token Images - Constants and helpers
+	const tagSize = "#roll20_token_size=";
+	const tagSkip = "#roll20_skip_token=";
+
+	function tokenEditorTexts (selection) {
+		const name = selection.length > 1 ? "You are editing multiple tokens" : selection[0]._model?.attributes?.name || "Unnamed token";
+		const description = selection.length > 1 ? `
+			If you press "Save", the changes will be applied to each of the selected tokens, making them multi-sided if you have multiple images on the list below
+		` : selection[0]._model.attributes.sides ? `
+			You are currently editing images for multi-sided token. Add or remove as many sides as you want. If only one image remains, the token will become a single-sided one
+		` : `
+			Currently this token is represented by a single image. Add more images to convert it to multi-sided token
+		`;
+		const tokenList = selection.length <= 1 ? "" : selection.reduce((r, t) => `${r}
+			<div class="tokenbox selected" data-tokenid="${t._model.id}" data-tokenimg="${t._model.attributes.imgsrc}">
+				<div class="inner">
+					<img src="${t._model.attributes.imgsrc}">
+					<div class="name">${t._model.attributes.name}</div>
+				</div>
+			</div>
+		`, "");
+		return {name, description, tokenList};
+	}
+
+	// Edit Token Images function (adapted for Jumpgate)
+	d20plus.menu.editToken = (tokenId) => {
+		const selection = tokenId
+			? [{_model: d20plus.ut.getTokenById(tokenId)}].filter(t => !!t._model?.attributes)
+			: d20.engine.selected();
+		if (!selection.length) return;
+
+		const images = [];
+		const added = [];
+		const $dialog = $(d20plus.html.tokenImageEditor);
+		const $list = $dialog.find(".tokenimagelist tbody");
+		const $tokenList = $dialog.find(".tokenlist");
+		const sizes = [["tiny - half square", "0.5"], ["small - 1x1", "1.0"], ["medium - 1x1", "1"], ["large - 2x2", "2"], ["huge - 3x3", "3"], ["gargantuan - 4x4", "4"], ["colossal - 5x5", "5"], ["custom", "0"]];
+
+		const findStandardSize = (w, h) => {
+			return (w === h && sizes.find(s => s[1] === `${w / 70}`)?.last()) || "0";
+		};
+
+		const addImageOnInit = (img, add) => {
+			const sizeChanged = img.w !== images.last()?.w || img.h !== images.last()?.h;
+			if (images.length && sizeChanged) $list.variedSizes = true;
+			images.push(img);
+			added.push(add || img.url);
+		};
+
+		selection.forEach(t => {
+			const sides = t._model.attributes.sides?.split("|");
+			const token = t._model.attributes.imgsrc;
+			const {width: tw, height: th} = t._model.attributes;
+
+			if (sides && sides.length > 1) {
+				const curSide = sides[t._model.attributes.currentSide] || token;
+				sides.forEach((s, k) => {
+					const checked = unescape(s);
+					const listed = added.indexOf(checked);
+					const [url, size] = checked.split(tagSize);
+					const [sw, sh] = (size || "").split("x");
+					const image = {
+						url: url.replaceAll(tagSkip, ""),
+						skip: url.includes(tagSkip),
+						face: unescape(curSide).includes(url),
+						w: tw,
+						h: th,
+					};
+					if (listed !== -1) {
+						if (k === t._model.attributes.currentSide) images[listed].face = true;
+						return;
+					} else if (!isNaN(size)) {
+						Object.merge(image, {size, w: size * 70, h: size * 70});
+					} else if (!isNaN(sw) && !isNaN(sh)) {
+						Object.merge(image, {size: "0", w: sw, h: sh});
+					}
+					addImageOnInit(image, checked);
+				});
+			} else {
+				const listed = added.indexOf(t._model.attributes.imgsrc);
+				if (listed !== -1) images[listed].face = true;
+				else addImageOnInit({url: t._model.attributes.imgsrc, face: true, w: tw, h: th});
 			}
-			const htmls = tokenEditorTexts(selection);
-			const resetTokens = () => {
-				$tokenList.find(".selected").each((k, t) => {
-					const $token = $(t);
-					const $tokenimage = $token.find("img");
-					$tokenimage.attr("src", $token.data("tokenimg"));
+		});
+
+		if ($list.variedSizes) {
+			images.forEach(i => { if (i.size === undefined) i.size = findStandardSize(i.w, i.h); });
+		}
+
+		const htmls = tokenEditorTexts(selection);
+
+		const resetTokens = () => {
+			$tokenList.find(".selected").each((k, t) => {
+				const $token = $(t);
+				const $tokenimage = $token.find("img");
+				$tokenimage.attr("src", $token.data("tokenimg"));
+			});
+		};
+
+		const buildList = () => {
+			if (images.length === 1) {
+				$list.someImageSelected = true;
+				images[0].selected = true;
+			}
+			$list.html(images.reduce((r, i, k) => `${r}
+				<tr class="tokenimage${images.length === 1 ? " lastone" : ""}${i.skip ? " skipped" : ""}" data-index="${(i.id = k, k)}">
+					<td style="padding:0px;" title="Current image">
+						<input class="face" type="checkbox"${i.selected ? " checked" : ""}>
+					</td>
+					<td>
+						<div class="dropbox filled">
+						<div class="inner"><img src="${i.url}"><div class="remove"><span>Drop a file</span></div></div>
+						</div>
+					</td>
+					<td>
+						<label>Select size:</label><select>${sizes.reduce((o, s) => `${o}
+							<option value="${s[1]}"${s[1] === i.size ? " selected" : ""}>${s[0]}</option>
+						`, `<option>default (keep as is)</option>`)}</select>
+						<span class="custom${i.size === "0" ? " set" : ""}"><input class="w" value="${i.w}"> X <input class="h" value="${i.h}">px</span>
+						<label class="skippable"><input class="toskip" type="checkbox"${i.skip ? " checked" : ""}> Skip side on randomize</label>
+					</td>
+					<td style="padding:0px;">
+						<span class="btn url" title="Edit URL...">j</span>
+						<span class="btn delete" title="Delete">#</span>
+					</td>
+				</tr>
+			`, ""));
+			if (!$list.someImageSelected) {
+				images.forEach((i, k) => {
+					if (i.face) $list.find("input.face").eq(k).prop({indeterminate: true});
 				});
 			}
-			const buildList = () => {
-				if (images.length === 1) {
-					$list.someImageSelected = true;
-					images[0].selected = true;
-				}
-				$list.html(images.reduce((r, i, k) => `${r}
-					<tr class="tokenimage${images.length === 1 ? " lastone" : ""}${i.skip ? " skipped" : ""}" data-index="${(i.id = k, k)}">
-						<td style="padding:0px;" title="Current image">
-							<input class="face" type="checkbox"${i.selected ? " checked" : ""}>
-						</td>
-						<td>
-							<div class="dropbox filled">
-							<div class="inner"><img src="${i.url}"><div class="remove"><span>Drop a file</span></div></div>
-							</div>
-						</td>
-						<td>
-							<label>Select size:</label><select>${sizes.reduce((o, s) => `${o}
-								<option value="${s[1]}"${s[1] === i.size ? " selected" : ""}>${s[0]}</option>
-							`, `<option>default (keep as is)</option>`)}</select>
-							<span class="custom${i.size === "0" ? " set" : ""}"><input class="w" value="${i.w}"> X <input class="h" value="${i.h}">px</span>
-							<label class="skippable"><input class="toskip" type="checkbox"${i.skip ? " checked" : ""}> Skip side on randomize</label>
-						</td>
-						<td style="padding:0px;">
-							<span class="btn url" title="Edit URL...">j</span>
-							<span class="btn delete" title="Delete">#</span>
-						</td>
-					</tr>
-				`, ""));
-				if (!$list.someImageSelected) {
-					images.forEach((i, k) => {
-						if (i.face) $list.find("input.face").eq(k).prop({indeterminate: true});
-					});
-				}
-			}
-			$dialog.dialog({
-				autoopen: true,
-				title: "Edit token image(s)",
-				width: 450,
-				open: () => {
-					buildList();
-					$tokenList.html(htmls.tokenList);
-					$dialog.parent().css("maxHeight", "80vh").css("top", "10vh");
-					$dialog.find(".edittitle").text(htmls.name);
-					$dialog.find(".editlabel").text(htmls.description);
-					$list.droppable({
-						greedy: true,
-						tolerance: "pointer",
-						hoverClass: "ui-dropping",
-						scope: "default",
-						accept: ".resultimage, .library-item, .journalitem.character",
-						drop: (evt, $d) => {
-							evt.originalEvent.dropHandled = !0;
-							evt.stopPropagation();
-							evt.preventDefault();
-							$d.helper.detach();
-							const char = d20.Campaign.characters.get($d.draggable.data("itemid"));
-							const dtoken = JSON.parse(char?._blobcache.defaulttoken || "{}");
-							const url = $d.draggable.data("fullsizeurl")
-								|| $d.draggable.data("url")
-								|| dtoken.imgsrc;
-							const img = document.elementFromPoint(evt.clientX, evt.clientY);
-							const id = img.tagName === "IMG" ? $(img).closest(".tokenimage").data("index") : undefined;
-							if (images[id]?.url && url) {
-								images[id].url = url;
-								$list.find(".dropbox img").eq(id).attr("src", url);
-								if (images[id].selected) $tokenList.find(".selected img").attr("src", images[id].url);
-							} else if (url) {
-								if ($list.variedSizes && dtoken.width) {
-									const [w, h] = [dtoken.width, dtoken.height];
-									const size = findStandardSize(w, h);
-									images.push({url, size, w, h});
-								} else {
-									images.push({url, w: 70, h: 70});
-								}
-								buildList();
-							}
-						},
-					});
-					$dialog.on(window.mousedowntype, ".tokenbox", evt => {
-						const $token = $(evt.currentTarget);
-						if ($token.hasClass("selected")) {
-							if ($tokenList.find(".selected").length > 1) {
-								$token.removeClass("selected");
-								$token.find("img").attr("src", $token.data("tokenimg"));
-							}
-						} else {
-							$token.addClass("selected");
-							if ($list.someImageSelected) $token.find("img").attr("src", images.find(i => i.selected)?.url);
-						}
-					}).on("change", "select", evt => {
-						const $changed = $(evt.target);
-						const $token = $changed.parent();
-						const $custom = $token.find(".custom").removeClass("set");
-						const newSize = $changed.val();
-						const id = $changed.closest(".tokenimage").data("index");
-						if (newSize > 0) {
-							$token.find(".w, .h").val(newSize * 70);
-							images[id].size = newSize;
+		};
+
+		$dialog.dialog({
+			autoopen: true,
+			title: "Edit token image(s)",
+			width: 450,
+			open: () => {
+				buildList();
+				$tokenList.html(htmls.tokenList);
+				$dialog.parent().css("maxHeight", "80vh").css("top", "10vh");
+				$dialog.find(".edittitle").text(htmls.name);
+				$dialog.find(".editlabel").text(htmls.description);
+
+				// Event handlers
+				$dialog.on("change", "select", evt => {
+					const $changed = $(evt.target);
+					const $token = $changed.parent();
+					const $custom = $token.find(".custom").removeClass("set");
+					const newSize = $changed.val();
+					const id = $changed.closest(".tokenimage").data("index");
+					if (newSize > 0) {
+						$token.find(".w, .h").val(newSize * 70);
+						images[id].size = newSize;
+						$list.variedSizes = true;
+					} else {
+						delete images[id].size;
+						if (newSize === "0") {
 							$list.variedSizes = true;
+							images[id].size = newSize;
+							images[id].w = $token.find(".w").val();
+							images[id].h = $token.find(".h").val();
+							$custom.addClass("set");
+						}
+					}
+				}).on("change", "input.face", evt => {
+					const id = $(evt.target).closest(".tokenimage").data("index");
+					const isChecked = $(evt.target).prop("checked");
+					const $allBoxes = $list.find("input.face");
+					if (isChecked) {
+						$list.someImageSelected = true;
+						$allBoxes.prop({checked: false}).prop({indeterminate: false});
+						$(evt.target).prop({checked: true});
+						$tokenList.find(".selected img").attr("src", images[id].url);
+						images.forEach((i, k) => {
+							if (k === id) i.selected = true;
+							else i.selected = false;
+						});
+					} else {
+						$list.someImageSelected = false;
+						images[id].selected = false;
+						resetTokens();
+						images.forEach((i, k) => {
+							if (i.face) $allBoxes.eq(k).prop({indeterminate: true});
+						});
+					}
+				}).on("change", "input.toskip", evt => {
+					const $token = $(evt.target).closest(".tokenimage");
+					const id = $token.data("index");
+					const isChecked = $(evt.target).prop("checked");
+					if (isChecked) {
+						$token.addClass("skipped");
+						images[id].skip = true;
+					} else {
+						$token.removeClass("skipped");
+						images[id].skip = false;
+					}
+				}).on(window.mousedowntype, ".url", evt => {
+					const $token = $(evt.target).closest(".tokenimage");
+					const $image = $token.find("img");
+					const id = $token.data("index");
+					const url = window.prompt("Edit URL", $image.attr("src"));
+					if (!url) return;
+					d20plus.art.setLastImageUrl(url);
+					images[id].url = url;
+					$image.attr("src", url);
+				}).on(window.mousedowntype, ".delete", evt => {
+					const $deleted = $(evt.target).closest(".tokenimage");
+					const id = $deleted.data("index");
+					if (images.length <= 1) return;
+					if (images[id].selected) {
+						$list.someImageSelected = false;
+						resetTokens();
+					}
+					images.splice(id, 1);
+					buildList();
+					if (images.length === 1) {
+						$list.someImageSelected = true;
+						$list.find("input.face").prop({checked: true});
+						$tokenList.find(".selected img").attr("src", images[0].url);
+					}
+				}).on(window.mousedowntype, ".addimageurl", () => {
+					const url = window.prompt("Enter a URL", d20plus.art.getLastImageUrl());
+					if (!url) return;
+					d20plus.art.setLastImageUrl(url);
+					images.push({url, w: 70, h: 70});
+					buildList();
+				});
+			},
+			close: () => {
+				$dialog.off();
+				$dialog.dialog("destroy").remove();
+			},
+			buttons: {
+				save: {
+					text: "Save changes",
+					click: () => {
+						const save = {};
+						if (images.length > 1) {
+							save.sides = images.map(i => {
+								const skipped = i.skip ? tagSkip : "";
+								const size = i.size ? tagSize + (i.size === "0" ? `${i.w}x${i.h}` : i.size) : "";
+								return escape(i.url + skipped + size);
+							}).join("|");
 						} else {
-							delete images[id].size;
-							if (newSize === "0") {
-								$list.variedSizes = true;
-								images[id].size = newSize;
-								images[id].w = $token.find(".w").val();
-								images[id].h = $token.find(".h").val();
-								$custom.addClass("set");
-							}
+							save.sides = "";
 						}
-					}).on("change", "input.face", evt => {
-						const id = $(evt.target).closest(".tokenimage").data("index");
-						const isChecked = $(evt.target).prop("checked");
-						const $allBoxes = $list.find("input.face");
-						if (isChecked) {
-							$list.someImageSelected = true;
-							$allBoxes.prop({checked: false}).prop({indeterminate: false});
-							$(evt.target).prop({checked: true});
-							$tokenList.find(".selected img").attr("src", images[id].url);
-							images.forEach((i, k) => {
-								if (k === id) i.selected = true;
-								else i.selected = false;
-							});
-						} else {
-							$list.someImageSelected = false;
-							images[id].selected = false;
-							resetTokens();
-							images.forEach((i, k) => {
-								if (i.face) $allBoxes.eq(k).prop({indeterminate: true});
-							});
-						}
-					}).on("change", "input.toskip", evt => {
-						const $token = $(evt.target).closest(".tokenimage");
-						const id = $token.data("index");
-						const isChecked = $(evt.target).prop("checked");
-						if (isChecked) {
-							$token.addClass("skipped");
-							images[id].skip = true;
-						} else {
-							$token.removeClass("skipped");
-							images[id].skip = false;
-						}
-					}).on("change", "input .w, input.h", evt => {
-						const $token = $(evt.target).closest(".tokenimage");
-						const id = $token.data("index");
-						const set = {w: $token.find(".w").val(), h: $token.find(".h").val()};
-						if (isNaN(set.w) || isNaN(set.h)) return;
-						images[id].w = set.w;
-						images[id].h = set.h;
-					}).on(window.mousedowntype, ".url", evt => {
-						const $token = $(evt.target).closest(".tokenimage");
-						const $image = $token.find("img");
-						const id = $token.data("index");
-						const url = window.prompt("Edit URL", $image.attr("src"));
-						if (!url) return;
-						d20plus.art.setLastImageUrl(url);
-						images[id].url = url;
-						$image.attr("src", url);
-					}).on(window.mousedowntype, ".delete", evt => {
-						const $deleted = $(evt.target).closest(".tokenimage");
-						const id = $deleted.data("index");
-						if (images.length <= 1) return;
-						if (images[id].selected) {
-							$list.someImageSelected = false;
-							resetTokens();
-						}
-						images.splice(id, 1);
-						buildList();
-						if (images.length === 1) {
-							$list.someImageSelected = true;
-							$list.find("input.face").prop({checked: true});
-							$tokenList.find(".selected img").attr("src", images[0].url);
-						}
-					}).on(window.mousedowntype, ".addimageurl", () => {
-						const url = window.prompt("Enter a URL", d20plus.art.getLastImageUrl());
-						if (!url) return;
-						d20plus.art.setLastImageUrl(url);
-						images.push({url, w: 70, h: 70});
-						buildList();
-					})
-				},
-				close: () => {
-					$dialog.off();
-					$dialog.dialog("destroy").remove();
-				},
-				buttons: {
-					save: {
-						text: "Save changes",
-						click: () => {
-							const save = {};
-							if (images.length > 1) {
-								save.sides = images.map(i => {
-									const skipped = i.skip ? tagSkip : "";
-									const size = i.size ? tagSize + (i.size === "0" ? `${i.w}x${i.h}` : i.size) : "";
-									return escape(i.url + skipped + size);
-								}).join("|");
-							} else {
-								save.sides = "";
-							}
-							if ($list.someImageSelected) {
-								const selected = images.find(i => i.selected);
-								if (selected) {
-									save.imgsrc = selected.url;
-									save.currentSide = selected.id;
-									if (selected.size === "0") {
-										save.width = Number(selected.w);
-										save.height = Number(selected.h);
-									} else if (selected.size) {
-										save.width = selected.size * 70;
-										save.height = selected.size * 70;
-									}
+						if ($list.someImageSelected) {
+							const selected = images.find(i => i.selected);
+							if (selected) {
+								save.imgsrc = selected.url;
+								save.currentSide = selected.id;
+								if (selected.size === "0") {
+									save.width = Number(selected.w);
+									save.height = Number(selected.h);
+								} else if (selected.size) {
+									save.width = selected.size * 70;
+									save.height = selected.size * 70;
 								}
 							}
-							if (selection.length > 1) {
-								d20.engine.unselect();
+						}
+						if (selection.length > 1) {
+							d20.engine.unselect();
+						}
+						selection.forEach(t => {
+							if (selection.length === 1
+								|| $tokenList.find(`[data-tokenid=${t._model.id}]`).hasClass("selected")) {
+								t._model.save(save);
 							}
-							selection.forEach(t => {
-								if (selection.length === 1
-									|| $tokenList.find(`[data-tokenid=${t.model.id}]`).hasClass("selected")) {
-									t.model.save(save);
-								}
-							});
-							$dialog.off();
-							$dialog.dialog("destroy").remove();
-							d20.textchat.$textarea.focus();
-						},
-					},
-					cancel: {
-						text: "Cancel",
-						click: () => {
-							$dialog.off();
-							$dialog.dialog("destroy").remove();
-						},
+						});
+						$dialog.off();
+						$dialog.dialog("destroy").remove();
+						d20.textchat.$textarea.focus();
 					},
 				},
-			});
-			return $dialog;
+				cancel: {
+					text: "Cancel",
+					click: () => {
+						$dialog.off();
+						$dialog.dialog("destroy").remove();
+					},
+				},
+			},
+		});
+
+		return $dialog;
+	};
+
+	// Set Flight Height
+	d20plus.menu.setFlightHeight = function() {
+		const sel = d20.engine.selected();
+		if (sel.length === 0) {
+			alert("Please select at least one token.");
+			return;
 		}
 
-		d20.token_editor.showContextMenu = r;
-		// d20.token_editor.closeContextMenu = i;
-		// $(`#editor-wrapper`).on("click", d20.token_editor.closeContextMenu);
+		// Create dialog
+		const $dialog = $(`
+			<div title="Flight Height">
+				<p>Enter flight height (0 to clear):</p>
+				<input type="number" placeholder="Flight height" name="flight" style="width: 100%; padding: 5px; font-size: 14px;">
+			</div>
+		`).appendTo($("body"));
+
+		const $iptHeight = $dialog.find(`input[name="flight"]`);
+
+		const doHandleOk = () => {
+			const height = Number($iptHeight.val());
+			$dialog.dialog("close");
+			$dialog.remove();
+
+			if (isNaN(height)) {
+				alert(`Value "${$iptHeight.val()}" is not a valid number!`);
+				return;
+			}
+
+			const STATUS_PREFIX = `fluffy-wing@`;
+
+			sel.forEach(token => {
+				const existing = token._model.get("statusmarkers");
+
+				if (height === 0) {
+					// Clear flight height markers
+					if (existing && existing.trim()) {
+						const filtered = existing.split(",").filter(it => it && !it.startsWith(STATUS_PREFIX)).join(",");
+						token._model.set("statusmarkers", filtered);
+					}
+				} else {
+					// Set flight height markers (one marker per digit)
+					const statusString = `${height}`.split("").map(digit => `${STATUS_PREFIX}${digit}`).join(",");
+
+					if (existing && existing.trim()) {
+						// Remove old flight markers and add new ones
+						const otherMarkers = existing.split(",").filter(it => it && !it.startsWith(STATUS_PREFIX));
+						const newMarkers = [statusString, ...otherMarkers].join(",");
+						token._model.set("statusmarkers", newMarkers);
+					} else {
+						token._model.set("statusmarkers", statusString);
+					}
+				}
+
+				token._model.save();
+			});
+		};
+
+		// Handle Enter key
+		$iptHeight.on("keypress", evt => {
+			if (evt.which === 13) { // Enter key
+				doHandleOk();
+			}
+		});
+
+		$dialog.dialog({
+			dialogClass: "no-close",
+			width: 300,
+			buttons: [
+				{
+					text: "Cancel",
+					click: function () {
+						$(this).dialog("close");
+						$dialog.remove();
+					}
+				},
+				{
+					text: "OK",
+					click: function () {
+						doHandleOk();
+					}
+				}
+			]
+		});
+
+		// Focus input
+		setTimeout(() => $iptHeight.focus(), 100);
 	};
 }
 
@@ -28497,7 +29210,7 @@ const betteR20Core = function () {
 			if (d20plus.characterIo && d20plus.characterIo.initCharacterJsonButtons) d20plus.characterIo.initCharacterJsonButtons();
 			if (window.is_gm) {
 				d20plus.journal.addJournalCommands();
-				// d20plus.menu.addSelectedTokenCommands();
+				d20plus.menu.addSelectedTokenCommands();
 				d20plus.art.addCustomArtSearch();
 				// d20plus.engine.addTokenHover();
 				d20plus.engine.enhanceTransmogrifier();
@@ -37626,7 +38339,7 @@ class _DataUtilPropConfigMultiSource extends _DataUtilPropConfig {
 	static _P_INDEX = null;
 
 	static pLoadIndex () {
-		this._P_INDEX = this._P_INDEX || DataUtil.loadJSON(`${Renderer.get().baseUrl}data/${this._DIR}/${this._isFluff ? `fluff-` : ""}index.json`);
+		this._P_INDEX = this._P_INDEX || DataUtil.loadJSON(`${DATA_URL}${this._DIR}/${this._isFluff ? `fluff-` : ""}index.json`);
 		return this._P_INDEX;
 	}
 
@@ -37661,7 +38374,7 @@ class _DataUtilPropConfigMultiSource extends _DataUtilPropConfig {
 
 		const fnLoad = isUnmerged ? DataUtil.loadRawJSON.bind(DataUtil) : DataUtil.loadJSON.bind(DataUtil);
 
-		let data = await fnLoad(`${Renderer.get().baseUrl}data/${this._DIR}/${file}`);
+		let data = await fnLoad(`${DATA_URL}${this._DIR}/${file}`);
 		data = (data[this._PROP] || []).filter(MultiSourceUtil.isEntityIndexKeyMatch.bind(this, indexKey, this._PROP));
 
 		if (!this._IS_MUT_ENTITIES) return data;
@@ -39677,7 +40390,7 @@ globalThis.DataUtil = class {
 		// endregion
 
 		static async _pInitPreData_ () {
-			this._SPELL_SOURCE_LOOKUP = await DataUtil.loadRawJSON(`${Renderer.get().baseUrl}data/generated/gendata-spell-source-lookup.json`);
+			this._SPELL_SOURCE_LOOKUP = await DataUtil.loadRawJSON(`${DATA_URL}generated/gendata-spell-source-lookup.json`);
 		}
 
 		static _mutEntity (sp, {sourcesLookup = null} = {}) {
