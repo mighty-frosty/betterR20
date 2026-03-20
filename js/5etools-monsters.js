@@ -301,7 +301,7 @@ function d20plusMonsters () {
 			const pType = Parser.monTypeToFullObj(data.type);
 
 			const renderer = new Renderer();
-			renderer.setBaseUrl(BASE_SITE_URL);
+			renderer.setBaseUrl(LINK_BASE_URL);
 
 			let fluff;
 			if (data.fluff) fluff = data.fluff;
@@ -1513,6 +1513,8 @@ function d20plusMonsters () {
 						...(data.environment || []),
 						data.isNPC ? "npc" : undefined,
 					], "creature"),
+					// Force use of OGL 5e sheet (works in both 2014 and 2024 games)
+					charactersheetname: "ogl5e",
 					...options.charOptions,
 				},
 				{

@@ -22,15 +22,18 @@ const betteR205etools = function () {
 			JqueryUtil.initEnhancements();
 			await loadHomebrewMetadata();
 
-			await d20plus.pAddJson();
-			await monkeyPatch5etoolsCode();
-
+			// Load config first so custom base URL is available
 			if (window.is_gm) await d20plus.cfg.pLoadConfig();
 			else await d20plus.cfg.pLoadPlayerConfig();
 
 			d20plus.ut.showLoadingMessage();
 
+			// Update URLs from config before loading JSON data
 			d20plus.cfg5e.updateBaseSiteUrl();
+			await monkeyPatch5etoolsCode();
+
+			// Now load JSON using the configured URLs
+			await d20plus.pAddJson();
 
 			if (window.is_gm) await d20plus.art.pLoadArt();
 
@@ -45,7 +48,7 @@ const betteR205etools = function () {
 			d20plus.art.initArtFromUrlButtons();
 			if (window.is_gm) {
 				d20plus.journal.addJournalCommands();
-				// d20plus.menu.addSelectedTokenCommands();
+				d20plus.menu.addSelectedTokenCommands();
 				d20plus.art.addCustomArtSearch();
 				// d20plus.engine.addTokenHover();
 				d20plus.engine.enhanceTransmogrifier();
@@ -82,6 +85,8 @@ const betteR205etools = function () {
 			if (window.is_gm) {
 				d20plus.cfg.baseHandleConfigChange();
 				d20plus.cfg5e.handleConfigChange();
+				// Initialize auto-backup system (GM only)
+				d20plus.autoBackup.init();
 			} else {
 				d20plus.cfg.startPlayerConfigHandler();
 			}
@@ -114,7 +119,7 @@ const betteR205etools = function () {
 	async function monkeyPatch5etoolsCode () {
 		IS_VTT = true; // global variable from 5etools' utils.js
 
-		Renderer.get().setBaseUrl(BASE_SITE_URL);
+		Renderer.get().setBaseUrl(LINK_BASE_URL);
 	}
 };
 
