@@ -2,7 +2,7 @@
 // @name         betteR20-beta-core-death-jumpagate-import
 // @namespace    https://5e.tools/
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      1.36.1.1jc
+// @version      1.36.1.1je
 // @updateURL    https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/betteR20-core.meta.js
 // @downloadURL  https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/betteR20-core.user.js
 // @description  Enhance your Roll20 experience
@@ -30,7 +30,7 @@ ART_HANDOUT = "betteR20-art";
 CONFIG_HANDOUT = "betteR20-config";
 
 B20_NAME = `core`;
-B20_VERSION = `1.36.1.1jc`;
+B20_VERSION = `1.36.1.1je`;
 B20_REPO_URL = `https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/`;
 
 // TODO automate to use mirror if main site is unavailable
@@ -287,7 +287,7 @@ function baseUtil () {
 							in<span style="color: orange; font-family: monospace"> 5etools &gt; better20 &gt; #testing </span>thread
 						</p>
 					</h1>
-					<p>This version contains following changes<br>1.35.186.14jq - Map Importer?<br>- Fix Map Importer. Thank you @helenclarko<br>1.35.186.14jr - Fix data error?<br>- Fix Import Error<br>1.35.186.14js - Fix data error?<br>- Fix Import Error<br>1.35.186.14js - HUH?<br>- Fix 2024 rolling<br>1.36.1.1ja - The Merge Collapse?<br>- Too many Changes<br>1.36.1.1jc - The Merge Collapse?<br>- Fix all Sources<br></p>
+					<p>This version contains following changes<br>1.35.186.14jq - Map Importer?<br>- Fix Map Importer. Thank you @helenclarko<br>1.35.186.14jr - Fix data error?<br>- Fix Import Error<br>1.35.186.14js - Fix data error?<br>- Fix Import Error<br>1.35.186.14js - HUH?<br>- Fix 2024 rolling<br>1.36.1.1ja - The Merge Collapse?<br>- Too many Changes<br>1.36.1.1jc - The Merge Collapse?<br>- Fix all Sources<br>1.36.1.1jd - Macros?<br>- add bulk macro button.<br>1.36.1.1je - Commits are real<br>- Merge PRs, and imporve Module Importer<br></p>
 				</div>
 			`);
 			}, 6000);
@@ -3577,8 +3577,12 @@ function baseToolModule () {
 					<div name="selection-summary" style="margin-top: 5px;"></div>
 				</div>
 				<hr>
-				<p><button class="btn" style="float: right;" name="import">Import Selected</button></p>
-				</div>
+<p>
+    <label style="display: inline-block; padding-top: 4px;">
+        <input type="checkbox" name="force-ogl5e"> Force OGL 5e Sheet for Characters
+    </label>
+    <button class="btn" style="float: right;" name="import">Import Selected</button>
+</p>				</div>
 
 				<div id="d20plus-module-importer-list" title="Select Entries">
 					<div id="module-importer-list">
@@ -3688,6 +3692,7 @@ function baseToolModule () {
 
 			const $win = $("#d20plus-module-importer");
 			$win.dialog("open");
+			const $cbForceOgl = $win.find(`[name="force-ogl5e"]`);
 
 			const $winProgress = $(`#d20plus-module-importer-progress`);
 			const $btnCancel = $winProgress.find(".cancel").off("click");
@@ -3731,7 +3736,7 @@ function baseToolModule () {
 			function preprocessModuleData (data) {
 				// Recursively fix all S3 URLs in the module data
 				const fixUrlsInObject = (obj) => {
-					if (!obj || typeof obj !== 'object') return;
+					if (!obj || typeof obj !== "object") return;
 
 					// Fix common image URL properties
 					if (obj.imgsrc) obj.imgsrc = d20plus.ut.fixS3Url(obj.imgsrc);
@@ -3744,7 +3749,7 @@ function baseToolModule () {
 						if (obj.hasOwnProperty(key) && obj[key]) {
 							if (Array.isArray(obj[key])) {
 								obj[key].forEach(item => fixUrlsInObject(item));
-							} else if (typeof obj[key] === 'object') {
+							} else if (typeof obj[key] === "object") {
 								fixUrlsInObject(obj[key]);
 							}
 						}
@@ -4018,35 +4023,50 @@ function baseToolModule () {
 										break;
 									}
 									case "characters": {
-										// Force use of OGL 5e sheet (works in both 2014 and 2024 games)
-										const charAttrs = {...entry.attributes, charactersheetname: "ogl5e"};
+										const forceOgl = $cbForceOgl.prop("checked");
+										const charAttrs = forceOgl ? {...entry.attributes, charactersheetname: "ogl5e"} : {...entry.attributes};
+
+										// 1. Save the old Character ID before we delete it!
+										const oldCharId = charAttrs.id;
+										delete charAttrs.id;
+
 										d20.Campaign.characters.create(charAttrs,
 											{
 												success: function (character) {
+													const newCharId = character.id;
+
+													// 2. THE VTTES TRICK: Global String Replace for Attributes
+													let attribsStr = JSON.stringify(entry.attribs);
+													attribsStr = attribsStr.split(oldCharId).join(newCharId); // Safe global replace
+													const rebasedAttribs = JSON.parse(attribsStr);
+
+													// 3. THE VTTES TRICK: Global String Replace for Default Token
+													let tokenStr = entry.blobDefaultToken;
+													if (tokenStr) {
+														tokenStr = tokenStr.split(oldCharId).join(newCharId);
+													}
+
+													// Proceed with saving using the rebased data
 													character.attribs.reset();
-													const toSave = entry.attribs.map(a => character.attribs.push(a));
+													const toSave = rebasedAttribs.map(a => character.attribs.push(a));
 													toSave.forEach(s => s.syncedSave());
 
-													// Fetch existing abilities first, then clear them all before creating new ones
 													character.abilities.fetch({
-														success: function() {
-															// Destroy all existing abilities (including old token actions)
+														success: function () {
 															character.abilities.models.slice().forEach(ability => ability.destroy());
-
-															// Create token actions from imported attributes if enabled
 															if (d20plus.cfg.getOrDefault("import", "tokenactions")) {
 																d20plus.importer._createTokenActionsFromCharacter(character);
 															}
-														}
+														},
 													});
 
 													character.updateBlobs({
 														bio: entry.blobBio,
 														gmnotes: entry.blobGmNotes,
-														defaulttoken: entry.blobDefaultToken,
+														defaulttoken: tokenStr, // Use the rebased token!
 													});
 
-													addToJournal(entry.attributes.id, character.id);
+													addToJournal(oldCharId, newCharId);
 												},
 											},
 										);
@@ -16263,1081 +16283,1108 @@ SCRIPT_EXTENSIONS.push(d20plusEngine);
 
 
 function baseMenu () {
-	d20plus.menu = {};
-
-	d20plus.menu.addSelectedTokenCommands = () => {
-		d20plus.ut.log("Add token rightclick commands (Jumpgate)");
-
-		// Initialize Jumpgate Mass Roll
-		d20plus.menu.initJumpgateMassRoll();
-
-		// Only bind keyboard shortcuts if Mousetrap library is available
-		if (typeof Mousetrap !== "undefined") {
-			Mousetrap.bind("b b", function () { // back on layer
-				const n = d20plus.engine.getSelectedToMove();
-				d20plus.engine.backwardOneLayer(n);
-				return false;
-			});
-
-			Mousetrap.bind("b f", function () { // forward one layer
-				const n = d20plus.engine.getSelectedToMove();
-				d20plus.engine.forwardOneLayer(n);
-				return false;
-			});
-		}
-	};
-
-	// Jumpgate Mass Roll implementation
-	d20plus.menu.initJumpgateMassRoll = () => {
-		const getTokenWhisperPart = () => d20plus.cfg.getOrDefault("token", "massRollWhisperName") ? "/w gm Rolling for @{selected|token_name}...\n" : "";
-
-		// Create Jumpgate polyfills for d20.engine selection functions
-		if (!d20.engine.selected) {
-			d20.engine.selected = function() {
-				const activePage = d20.Campaign.activePage();
-				if (!activePage || !activePage.thegraphics) return [];
-
-				const graphics = activePage.thegraphics.models;
-				return graphics
-					.filter(g => g.view && g.view.graphic && g.view.graphic.isSelected)
-					.map(g => ({
-						_model: g,
-						graphic: g.view.graphic
-					}));
-			};
-		}
-
-		if (!d20.engine.unselect) {
-			d20.engine.unselect = function() {
-				const activePage = d20.Campaign.activePage();
-				if (!activePage || !activePage.thegraphics) return;
-
-				const graphics = activePage.thegraphics.models;
-				graphics.forEach(g => {
-					if (g.view && g.view.graphic && g.view.graphic.deselect) {
-						g.view.graphic.deselect();
-					}
-				});
-			};
-		}
-
-		if (!d20.engine.select) {
-			d20.engine.select = function(token) {
-				if (!token) return;
-
-				// token could be the wrapper object with _model and graphic
-				const graphic = token.graphic || token;
-
-				if (graphic && graphic.select) {
-					graphic.select();
-				}
-			};
-		}
-
-		// Function to add Mass Roll to Jumpgate's context menu
-		function addMassRollToMenu() {
-			const contextMenu = document.querySelector('.context-menu');
-			if (!contextMenu) return;
-
-			// Check if already added - if so, exit early to avoid infinite loop
-			if (contextMenu.querySelector('.mass-roll-button')) return;
-
-			// Check if GM
-			if (!window.is_gm) return;
-
-			// Only show Mass Roll when right-clicking on a token (not empty canvas)
-			// Check for token-specific menu options as primary indicator
-			// (currentRadialTarget is false when multiple tokens are selected)
-			const hasTokenOptions = Array.from(contextMenu.querySelectorAll('span')).some(
-				span => span.textContent.includes('Character Sheet') || span.textContent.includes('Add Turn')
-			);
-			if (!hasTokenOptions) {
-				return;
-			}
-
-			// Create Mass Roll button matching native Roll20 structure
-			const massRollBtn = document.createElement('button');
-			massRollBtn.className = 'mass-roll-button';
-			massRollBtn.type = 'button';
-			massRollBtn.setAttribute('data-v-2aed8a8e', '');
-			massRollBtn.setAttribute('data-v-060adf8b', '');
-
-			massRollBtn.innerHTML = `
-				<div data-v-2aed8a8e="" class="submenu-button-outer">
-					<div data-v-2aed8a8e="" class="submenu-button-inner">
-						<div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 4px;">
-							<div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 8px;">
-								<span data-v-2aed8a8e="" style="flex: 1 1 0%; text-align: start;">Mass Roll</span>
-							</div>
-						</div>
-					</div>
-					<span data-v-2aed8a8e="" class="submenu-button-icon">
-						<span data-v-2f0bc668="" data-v-2aed8a8e="" class="grimoire__roll20-icon" style="--7353a950: 0.875rem;">chevronRight</span>
-					</span>
-				</div>
-				<div data-v-2aed8a8e="" class="submenu" style="position: absolute; will-change: transform; top: 0px; left: 0px; transform: translate3d(0px, 0px, 0px); display: none;" x-placement="right-start"></div>
-			`;
-
-			const submenu = massRollBtn.querySelector('.submenu');
-
-			// Helper to create submenu item matching native structure
-			function createSubmenuItem(label, iconName, onClick) {
-				const btn = document.createElement('button');
-				btn.type = 'button';
-				btn.setAttribute('data-v-2aed8a8e', '');
-				btn.setAttribute('data-v-060adf8b', '');
-				btn.innerHTML = `
-					<div data-v-2aed8a8e="" class="submenu-button-outer">
-						<div data-v-2aed8a8e="" class="submenu-button-inner">
-							<div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 4px;">
-								${iconName ? `<span data-v-2f0bc668="" data-v-060adf8b="" class="grimoire__roll20-icon" style="--7353a950: inherit;">${iconName}</span>` : ''}
-								<div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 8px;">
-									<span data-v-2aed8a8e="" style="flex: 1 1 0%; text-align: start;">${label}</span>
-								</div>
-							</div>
-						</div>
-					</div>
-				`;
-				btn.addEventListener('click', onClick);
-				return btn;
-			}
-
-			// Create submenu items using only confirmed working icons
-			const initBtn = createSubmenuItem('Initiative', 'turnOrderAdd', () => {
-				d20plus.menu.massRollInitiative();
-				closeContextMenu();
-			});
-
-			const savesBtn = createSubmenuItem('Save', 'check', () => {
-				d20plus.menu.massRollSaves();
-				closeContextMenu();
-			});
-
-			const skillsBtn = createSubmenuItem('Skill', 'star', () => {
-				d20plus.menu.massRollSkills();
-				closeContextMenu();
-			});
-
-			submenu.appendChild(initBtn);
-			submenu.appendChild(savesBtn);
-			submenu.appendChild(skillsBtn);
-
-			// Click handler to toggle submenu
-			massRollBtn.addEventListener('click', (e) => {
-				e.stopPropagation();
-
-				// Calculate position to place submenu to the right
-				const rect = massRollBtn.getBoundingClientRect();
-				const contextRect = contextMenu.getBoundingClientRect();
-
-				// Position submenu to the right of the button
-				const x = rect.width;
-				const y = rect.top - contextRect.top;
-
-				submenu.style.transform = `translate3d(${x}px, ${y}px, 0px)`;
-
-				// Toggle display
-				const isVisible = submenu.style.display === 'block';
-				submenu.style.display = isVisible ? 'none' : 'block';
-			});
-
-			// Insert at the beginning
-			contextMenu.insertBefore(massRollBtn, contextMenu.firstChild);
-		}
-
-		function closeContextMenu() {
-			const menu = document.querySelector('.context-menu');
-			if (menu) menu.style.display = 'none';
-		}
-
-		// Function to add Better20 Tools submenu
-		function addBetter20ToolsToMenu() {
-			const contextMenu = document.querySelector('.context-menu');
-			if (!contextMenu) return;
-
-			// Check if already added
-			if (contextMenu.querySelector('.better20-tools-button')) return;
-
-			if (!window.is_gm) return;
-
-			// Create Better20 Tools button with submenu
-			const toolsBtn = document.createElement('button');
-			toolsBtn.className = 'better20-tools-button';
-			toolsBtn.type = 'button';
-			toolsBtn.setAttribute('data-v-2aed8a8e', '');
-			toolsBtn.setAttribute('data-v-060adf8b', '');
-
-			toolsBtn.innerHTML = `
-				<div data-v-2aed8a8e="" class="submenu-button-outer">
-					<div data-v-2aed8a8e="" class="submenu-button-inner">
-						<div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 4px;">
-							<div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 8px;">
-								<span data-v-2aed8a8e="" style="flex: 1 1 0%; text-align: start;">Better20 Tools</span>
-							</div>
-						</div>
-					</div>
-					<span data-v-2aed8a8e="" class="submenu-button-icon">
-						<span data-v-2f0bc668="" data-v-2aed8a8e="" class="grimoire__roll20-icon" style="--7353a950: 0.875rem;">chevronRight</span>
-					</span>
-				</div>
-				<div data-v-2aed8a8e="" class="submenu" style="position: absolute; will-change: transform; top: 0px; left: 0px; transform: translate3d(0px, 0px, 0px); display: none;" x-placement="right-start"></div>
-			`;
-
-			const submenu = toolsBtn.querySelector('.submenu');
-
-			// Helper to create submenu item
-			function createSubmenuItem(label, onClick) {
-				const btn = document.createElement('button');
-				btn.type = 'button';
-				btn.setAttribute('data-v-2aed8a8e', '');
-				btn.setAttribute('data-v-060adf8b', '');
-				btn.innerHTML = `
-					<div data-v-2aed8a8e="" class="submenu-button-outer">
-						<div data-v-2aed8a8e="" class="submenu-button-inner">
-							<div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 4px;">
-								<div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 8px;">
-									<span data-v-2aed8a8e="" style="flex: 1 1 0%; text-align: start;">${label}</span>
-								</div>
-							</div>
-						</div>
-					</div>
-				`;
-				btn.addEventListener('click', onClick);
-				return btn;
-			}
-
-			// Add Mass Roll with nested submenu
-			const massRollBtn = document.createElement('button');
-			massRollBtn.type = 'button';
-			massRollBtn.className = 'mass-roll-nested-btn';
-			massRollBtn.setAttribute('data-v-2aed8a8e', '');
-			massRollBtn.setAttribute('data-v-060adf8b', '');
-			massRollBtn.innerHTML = `
-				<div data-v-2aed8a8e="" class="submenu-button-outer">
-					<div data-v-2aed8a8e="" class="submenu-button-inner">
-						<div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 4px;">
-							<div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 8px;">
-								<span data-v-2aed8a8e="" style="flex: 1 1 0%; text-align: start;">Mass Roll</span>
-							</div>
-						</div>
-					</div>
-					<span data-v-2aed8a8e="" class="submenu-button-icon">
-						<span data-v-2f0bc668="" data-v-2aed8a8e="" class="grimoire__roll20-icon" style="--7353a950: 0.875rem;">chevronRight</span>
-					</span>
-				</div>
-				<div data-v-2aed8a8e="" class="submenu" data-mass-roll-submenu="true" style="position: absolute; will-change: transform; top: 0px; left: 0px; transform: translate3d(0px, 0px, 0px); display: none;" x-placement="right-start"></div>
-			`;
-
-			const massRollSubmenu = massRollBtn.querySelector('[data-mass-roll-submenu]');
-
-			// Add items to Mass Roll submenu
-			const initBtn = createSubmenuItem('Initiative', () => {
-				d20plus.menu.massRollInitiative();
-				closeContextMenu();
-			});
-			massRollSubmenu.appendChild(initBtn);
-
-			const savesBtn = createSubmenuItem('Save', () => {
-				d20plus.menu.massRollSaves();
-				closeContextMenu();
-			});
-			massRollSubmenu.appendChild(savesBtn);
-
-			const skillsBtn = createSubmenuItem('Skill', () => {
-				d20plus.menu.massRollSkills();
-				closeContextMenu();
-			});
-			massRollSubmenu.appendChild(skillsBtn);
-
-			// Click handler for Mass Roll to toggle its submenu
-			massRollBtn.addEventListener('click', (e) => {
-				e.stopPropagation();
-
-				// Simple positioning: just to the right of the button
-				const btnRect = massRollBtn.getBoundingClientRect();
-
-				// Position submenu to the right of the button at the same vertical level
-				const x = btnRect.width;
-				const y = 0;
-
-				massRollSubmenu.style.transform = `translate3d(${x}px, ${y}px, 0px)`;
-				massRollSubmenu.style.display = massRollSubmenu.style.display === 'block' ? 'none' : 'block';
-			});
-
-			submenu.appendChild(massRollBtn);
-
-			// Add Set Light
-			const lightBtn = createSubmenuItem('Set Light', () => {
-				d20plus.menu.setTokenLight();
-				closeContextMenu();
-			});
-			submenu.appendChild(lightBtn);
-
-			// Add Flight Height
-			const flightBtn = createSubmenuItem('Flight Height', () => {
-				d20plus.menu.setFlightHeight();
-				closeContextMenu();
-			});
-			submenu.appendChild(flightBtn);
-
-			// Add Copy Token ID
-			const copyBtn = createSubmenuItem('Copy Token ID', () => {
-				d20plus.menu.copyTokenId();
-				closeContextMenu();
-			});
-			submenu.appendChild(copyBtn);
-
-			// Add Edit Token Images
-			const editBtn = createSubmenuItem('Edit Token Images', () => {
-				d20plus.menu.editToken();
-				closeContextMenu();
-			});
-			submenu.appendChild(editBtn);
-
-			// Add Animate Token (only if animations exist)
-			const hasAnims = d20plus.anim?.animatorTool?._anims
-				&& typeof d20plus.anim.animatorTool._anims === 'object'
-				&& Object.keys(d20plus.anim.animatorTool._anims).length > 0;
-
-			if (hasAnims) {
-				const animBtn = createSubmenuItem('Animate Token', () => {
-					d20plus.menu.tokenAnimate();
-					closeContextMenu();
-				});
-				submenu.appendChild(animBtn);
-			}
-
-			// Add Trigger Scene (only if scenes exist)
-			const hasScenes = d20plus.anim?.animatorTool?._scenes
-				&& typeof d20plus.anim.animatorTool._scenes === 'object'
-				&& Object.keys(d20plus.anim.animatorTool._scenes).length > 0;
-
-			if (hasScenes) {
-				const sceneBtn = createSubmenuItem('Trigger Scene', () => {
-					d20plus.menu.triggerScene();
-					closeContextMenu();
-				});
-				submenu.appendChild(sceneBtn);
-			}
-
-			// Click handler to toggle submenu
-			toolsBtn.addEventListener('click', (e) => {
-				e.stopPropagation();
-
-				// Calculate position to place submenu to the right
-				const rect = toolsBtn.getBoundingClientRect();
-				const contextRect = contextMenu.getBoundingClientRect();
-
-				// Position submenu to the right of the button
-				const x = rect.width;
-				const y = rect.top - contextRect.top;
-
-				submenu.style.transform = `translate3d(${x}px, ${y}px, 0px)`;
-
-				// Toggle display
-				const isVisible = submenu.style.display === 'block';
-				submenu.style.display = isVisible ? 'none' : 'block';
-			});
-
-			// Insert at the beginning
-			contextMenu.insertBefore(toolsBtn, contextMenu.firstChild);
-		}
-
-		// Watch for context menu appearing
-		const observer = new MutationObserver(() => {
-			const menu = document.querySelector('.context-menu');
-			if (menu && menu.style.display !== 'none') {
-				// Check if this is a token context menu
-				// Check if this is a token menu by looking for token-specific options
-				const hasTokenOptions = Array.from(menu.querySelectorAll('span')).some(
-					span => span.textContent.includes('Character Sheet') || span.textContent.includes('Add Turn')
-				);
-
-				if (hasTokenOptions) {
-					// Add custom menu items for token menus
+    d20plus.menu = {};
+
+    d20plus.menu.addSelectedTokenCommands = () => {
+        d20plus.ut.log("Add token rightclick commands (Jumpgate)");
+
+        // Initialize Jumpgate Mass Roll
+        d20plus.menu.initJumpgateMassRoll();
+
+        // Only bind keyboard shortcuts if Mousetrap library is available
+        if (typeof Mousetrap !== "undefined") {
+            Mousetrap.bind("b b", function () { // back on layer
+                const n = d20plus.engine.getSelectedToMove();
+                d20plus.engine.backwardOneLayer(n);
+                return false;
+            });
+
+            Mousetrap.bind("b f", function () { // forward one layer
+                const n = d20plus.engine.getSelectedToMove();
+                d20plus.engine.forwardOneLayer(n);
+                return false;
+            });
+        }
+    };
+
+    // Jumpgate Mass Roll implementation
+    d20plus.menu.initJumpgateMassRoll = () => {
+        const getTokenWhisperPart = () => d20plus.cfg.getOrDefault("token", "massRollWhisperName") ? "/w gm Rolling for @{selected|token_name}...\n" : "";
+
+        // Create Jumpgate polyfills for d20.engine selection functions
+        if (!d20.engine.selected) {
+            d20.engine.selected = function() {
+                const activePage = d20.Campaign.activePage();
+                if (!activePage || !activePage.thegraphics) return [];
+
+                const graphics = activePage.thegraphics.models;
+                return graphics
+                    .filter(g => g.view && g.view.graphic && g.view.graphic.isSelected)
+                    .map(g => ({
+                        _model: g,
+                        graphic: g.view.graphic
+                    }));
+            };
+        }
+
+        if (!d20.engine.unselect) {
+            d20.engine.unselect = function() {
+                const activePage = d20.Campaign.activePage();
+                if (!activePage || !activePage.thegraphics) return;
+
+                const graphics = activePage.thegraphics.models;
+                graphics.forEach(g => {
+                    if (g.view && g.view.graphic && g.view.graphic.deselect) {
+                        g.view.graphic.deselect();
+                    }
+                });
+            };
+        }
+
+        if (!d20.engine.select) {
+            d20.engine.select = function(token) {
+                if (!token) return;
+
+                // token could be the wrapper object with _model and graphic
+                const graphic = token.graphic || token;
+
+                if (graphic && graphic.select) {
+                    graphic.select();
+                }
+            };
+        }
+
+        // Function to add Mass Roll to Jumpgate's context menu
+        function addMassRollToMenu() {
+            const contextMenu = document.querySelector('.context-menu');
+            if (!contextMenu) return;
+
+            // Check if already added - if so, exit early to avoid infinite loop
+            if (contextMenu.querySelector('.mass-roll-button')) return;
+
+            // Check if GM
+            if (!window.is_gm) return;
+
+            // Only show Mass Roll when right-clicking on a token (not empty canvas)
+            const hasTokenOptions = Array.from(contextMenu.querySelectorAll('span')).some(
+                span => span.textContent.includes('Character Sheet') || span.textContent.includes('Add Turn')
+            );
+            if (!hasTokenOptions) {
+                return;
+            }
+
+            // Create Mass Roll button matching native Roll20 structure
+            const massRollBtn = document.createElement('button');
+            massRollBtn.className = 'mass-roll-button';
+            massRollBtn.type = 'button';
+            massRollBtn.setAttribute('data-v-2aed8a8e', '');
+            massRollBtn.setAttribute('data-v-060adf8b', '');
+
+            massRollBtn.innerHTML = `
+                <div data-v-2aed8a8e="" class="submenu-button-outer">
+                    <div data-v-2aed8a8e="" class="submenu-button-inner">
+                        <div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 4px;">
+                            <div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 8px;">
+                                <span data-v-2aed8a8e="" style="flex: 1 1 0%; text-align: start;">Mass Roll</span>
+                            </div>
+                        </div>
+                    </div>
+                    <span data-v-2aed8a8e="" class="submenu-button-icon">
+                        <span data-v-2f0bc668="" data-v-2aed8a8e="" class="grimoire__roll20-icon" style="--7353a950: 0.875rem;">chevronRight</span>
+                    </span>
+                </div>
+                <div data-v-2aed8a8e="" class="submenu" style="position: absolute; will-change: transform; top: 0px; left: 0px; transform: translate3d(0px, 0px, 0px); display: none;" x-placement="right-start"></div>
+            `;
+
+            const submenu = massRollBtn.querySelector('.submenu');
+
+            // Helper to create submenu item matching native structure
+            function createSubmenuItem(label, iconName, onClick) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.setAttribute('data-v-2aed8a8e', '');
+                btn.setAttribute('data-v-060adf8b', '');
+                btn.innerHTML = `
+                    <div data-v-2aed8a8e="" class="submenu-button-outer">
+                        <div data-v-2aed8a8e="" class="submenu-button-inner">
+                            <div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 4px;">
+                                ${iconName ? `<span data-v-2f0bc668="" data-v-060adf8b="" class="grimoire__roll20-icon" style="--7353a950: inherit;">${iconName}</span>` : ''}
+                                <div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 8px;">
+                                    <span data-v-2aed8a8e="" style="flex: 1 1 0%; text-align: start;">${label}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                btn.addEventListener('click', onClick);
+                return btn;
+            }
+
+            // Create submenu items
+            const initBtn = createSubmenuItem('Initiative', 'turnOrderAdd', () => {
+                d20plus.menu.massRollInitiative();
+                closeContextMenu();
+            });
+
+            const savesBtn = createSubmenuItem('Save', 'check', () => {
+                d20plus.menu.massRollSaves();
+                closeContextMenu();
+            });
+
+            const skillsBtn = createSubmenuItem('Skill', 'star', () => {
+                d20plus.menu.massRollSkills();
+                closeContextMenu();
+            });
+
+            // Added Macro Button
+            const macroBtn = createSubmenuItem('Macro', null, () => {
+                d20plus.menu.massRollMacro();
+                closeContextMenu();
+            });
+
+            submenu.appendChild(initBtn);
+            submenu.appendChild(savesBtn);
+            submenu.appendChild(skillsBtn);
+            submenu.appendChild(macroBtn);
+
+            // Click handler to toggle submenu
+            massRollBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+
+                const rect = massRollBtn.getBoundingClientRect();
+                const contextRect = contextMenu.getBoundingClientRect();
+
+                const x = rect.width;
+                const y = rect.top - contextRect.top;
+
+                submenu.style.transform = `translate3d(${x}px, ${y}px, 0px)`;
+
+                const isVisible = submenu.style.display === 'block';
+                submenu.style.display = isVisible ? 'none' : 'block';
+            });
+
+            // Insert at the beginning
+            contextMenu.insertBefore(massRollBtn, contextMenu.firstChild);
+        }
+
+        function closeContextMenu() {
+            const menu = document.querySelector('.context-menu');
+            if (menu) menu.style.display = 'none';
+        }
+
+        // Function to add Better20 Tools submenu
+        function addBetter20ToolsToMenu() {
+            const contextMenu = document.querySelector('.context-menu');
+            if (!contextMenu) return;
+
+            if (contextMenu.querySelector('.better20-tools-button')) return;
+            if (!window.is_gm) return;
+
+            const toolsBtn = document.createElement('button');
+            toolsBtn.className = 'better20-tools-button';
+            toolsBtn.type = 'button';
+            toolsBtn.setAttribute('data-v-2aed8a8e', '');
+            toolsBtn.setAttribute('data-v-060adf8b', '');
+
+            toolsBtn.innerHTML = `
+                <div data-v-2aed8a8e="" class="submenu-button-outer">
+                    <div data-v-2aed8a8e="" class="submenu-button-inner">
+                        <div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 4px;">
+                            <div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 8px;">
+                                <span data-v-2aed8a8e="" style="flex: 1 1 0%; text-align: start;">Better20 Tools</span>
+                            </div>
+                        </div>
+                    </div>
+                    <span data-v-2aed8a8e="" class="submenu-button-icon">
+                        <span data-v-2f0bc668="" data-v-2aed8a8e="" class="grimoire__roll20-icon" style="--7353a950: 0.875rem;">chevronRight</span>
+                    </span>
+                </div>
+                <div data-v-2aed8a8e="" class="submenu" style="position: absolute; will-change: transform; top: 0px; left: 0px; transform: translate3d(0px, 0px, 0px); display: none;" x-placement="right-start"></div>
+            `;
+
+            const submenu = toolsBtn.querySelector('.submenu');
+
+            // Helper to create submenu item
+            function createSubmenuItem(label, onClick) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.setAttribute('data-v-2aed8a8e', '');
+                btn.setAttribute('data-v-060adf8b', '');
+                btn.innerHTML = `
+                    <div data-v-2aed8a8e="" class="submenu-button-outer">
+                        <div data-v-2aed8a8e="" class="submenu-button-inner">
+                            <div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 4px;">
+                                <div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 8px;">
+                                    <span data-v-2aed8a8e="" style="flex: 1 1 0%; text-align: start;">${label}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                btn.addEventListener('click', onClick);
+                return btn;
+            }
+
+            // Add Mass Roll with nested submenu
+            const massRollBtn = document.createElement('button');
+            massRollBtn.type = 'button';
+            massRollBtn.className = 'mass-roll-nested-btn';
+            massRollBtn.setAttribute('data-v-2aed8a8e', '');
+            massRollBtn.setAttribute('data-v-060adf8b', '');
+            massRollBtn.innerHTML = `
+                <div data-v-2aed8a8e="" class="submenu-button-outer">
+                    <div data-v-2aed8a8e="" class="submenu-button-inner">
+                        <div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 4px;">
+                            <div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 8px;">
+                                <span data-v-2aed8a8e="" style="flex: 1 1 0%; text-align: start;">Mass Roll</span>
+                            </div>
+                        </div>
+                    </div>
+                    <span data-v-2aed8a8e="" class="submenu-button-icon">
+                        <span data-v-2f0bc668="" data-v-2aed8a8e="" class="grimoire__roll20-icon" style="--7353a950: 0.875rem;">chevronRight</span>
+                    </span>
+                </div>
+                <div data-v-2aed8a8e="" class="submenu" data-mass-roll-submenu="true" style="position: absolute; will-change: transform; top: 0px; left: 0px; transform: translate3d(0px, 0px, 0px); display: none;" x-placement="right-start"></div>
+            `;
+
+            const massRollSubmenu = massRollBtn.querySelector('[data-mass-roll-submenu]');
+
+            // Add items to Mass Roll submenu
+            const initBtn = createSubmenuItem('Initiative', () => {
+                d20plus.menu.massRollInitiative();
+                closeContextMenu();
+            });
+            massRollSubmenu.appendChild(initBtn);
+
+            const savesBtn = createSubmenuItem('Save', () => {
+                d20plus.menu.massRollSaves();
+                closeContextMenu();
+            });
+            massRollSubmenu.appendChild(savesBtn);
+
+            const skillsBtn = createSubmenuItem('Skill', () => {
+                d20plus.menu.massRollSkills();
+                closeContextMenu();
+            });
+            massRollSubmenu.appendChild(skillsBtn);
+
+            // Added Custom Macro to nested menu
+            const customMacroBtn = createSubmenuItem('Macro', () => {
+                d20plus.menu.massRollMacro();
+                closeContextMenu();
+            });
+            massRollSubmenu.appendChild(customMacroBtn);
+
+            // Click handler for Mass Roll to toggle its submenu
+            massRollBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+
+                const btnRect = massRollBtn.getBoundingClientRect();
+                const x = btnRect.width;
+                const y = 0;
+
+                massRollSubmenu.style.transform = `translate3d(${x}px, ${y}px, 0px)`;
+                massRollSubmenu.style.display = massRollSubmenu.style.display === 'block' ? 'none' : 'block';
+            });
+
+            submenu.appendChild(massRollBtn);
+
+            // Add Set Light
+            const lightBtn = createSubmenuItem('Set Light', () => {
+                d20plus.menu.setTokenLight();
+                closeContextMenu();
+            });
+            submenu.appendChild(lightBtn);
+
+            // Add Flight Height
+            const flightBtn = createSubmenuItem('Flight Height', () => {
+                d20plus.menu.setFlightHeight();
+                closeContextMenu();
+            });
+            submenu.appendChild(flightBtn);
+
+            // Add Copy Token ID
+            const copyBtn = createSubmenuItem('Copy Token ID', () => {
+                d20plus.menu.copyTokenId();
+                closeContextMenu();
+            });
+            submenu.appendChild(copyBtn);
+
+            // Add Edit Token Images
+            const editBtn = createSubmenuItem('Edit Token Images', () => {
+                d20plus.menu.editToken();
+                closeContextMenu();
+            });
+            submenu.appendChild(editBtn);
+
+            // Add Animate Token (only if animations exist)
+            const hasAnims = d20plus.anim?.animatorTool?._anims
+                && typeof d20plus.anim.animatorTool._anims === 'object'
+                && Object.keys(d20plus.anim.animatorTool._anims).length > 0;
+
+            if (hasAnims) {
+                const animBtn = createSubmenuItem('Animate Token', () => {
+                    d20plus.menu.tokenAnimate();
+                    closeContextMenu();
+                });
+                submenu.appendChild(animBtn);
+            }
+
+            // Add Trigger Scene (only if scenes exist)
+            const hasScenes = d20plus.anim?.animatorTool?._scenes
+                && typeof d20plus.anim.animatorTool._scenes === 'object'
+                && Object.keys(d20plus.anim.animatorTool._scenes).length > 0;
+
+            if (hasScenes) {
+                const sceneBtn = createSubmenuItem('Trigger Scene', () => {
+                    d20plus.menu.triggerScene();
+                    closeContextMenu();
+                });
+                submenu.appendChild(sceneBtn);
+            }
+
+            // Click handler to toggle submenu
+            toolsBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+
+                const rect = toolsBtn.getBoundingClientRect();
+                const contextRect = contextMenu.getBoundingClientRect();
+
+                const x = rect.width;
+                const y = rect.top - contextRect.top;
+
+                submenu.style.transform = `translate3d(${x}px, ${y}px, 0px)`;
+
+                const isVisible = submenu.style.display === 'block';
+                submenu.style.display = isVisible ? 'none' : 'block';
+            });
+
+            // Insert at the beginning
+            contextMenu.insertBefore(toolsBtn, contextMenu.firstChild);
+        }
+
+        // Watch for context menu appearing
+        const observer = new MutationObserver(() => {
+            const menu = document.querySelector('.context-menu');
+            if (menu && menu.style.display !== 'none') {
+                const hasTokenOptions = Array.from(menu.querySelectorAll('span')).some(
+                    span => span.textContent.includes('Character Sheet') || span.textContent.includes('Add Turn')
+                );
+
+                if (hasTokenOptions) {
 					addBetter20ToolsToMenu();
-				} else {
-					// Remove custom menu items from non-token menus
-					const existingBetter20 = menu.querySelector('.better20-tools-button');
-					if (existingBetter20) {
-						existingBetter20.remove();
-					}
-				}
-			}
-		});
+                } else {
+                    const existingBetter20 = menu.querySelector('.better20-tools-button');
+                    if (existingBetter20) {
+                        existingBetter20.remove();
+                    }
+                }
+            }
+        });
 
-		observer.observe(document.body, {
-			childList: true,
-			subtree: true,
-			attributes: true,
-			attributeFilter: ['style']
-		});
-	};
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['style']
+        });
+    };
 
-	// Mass Roll functions (work for both Legacy and Jumpgate)
-	d20plus.menu.massRollInitiative = function() {
-		const sel = d20.engine.selected();
-		d20.engine.unselect();
-		sel.forEach((it, index) => {
-			setTimeout(() => {
-				d20.engine.select(it);
-				let toRoll = ``;
-				if (d20plus.sheet === "ogl") {
-					toRoll = `%{selected|Initiative}`;
-				} else if (d20plus.sheet === "shaped") {
-					toRoll = `@{selected|output_option} &{template:5e-shaped} {{ability=1}} {{title=INITIATIVE}} {{roll1=[[@{selected|initiative_formula}]]}}`;
-				}
-				d20.textchat.doChatInput(toRoll);
-				d20.engine.unselect();
-			}, index * 100); // 100ms delay between each roll
-		});
-	};
+    // --- Mass Roll Functions ---
 
-	d20plus.menu.massRollSaves = function() {
-		const options = ["str", "dex", "con", "int", "wis", "cha"].map(it => Parser.attAbvToFull(it));
-		const getTokenWhisperPart = () => d20plus.cfg.getOrDefault("token", "massRollWhisperName") ? "/w gm Rolling for @{selected|token_name}...\n" : "";
+    d20plus.menu.massRollMacro = function() {
+        const sel = d20.engine.selected();
+        if (sel.length === 0) {
+            alert("Please select at least one token.");
+            return;
+        }
 
-		// Show dialog to select save type
-		const dialog = $(`<div><p style='font-size: 1.15em;'><strong>Select Save:</strong> <select style='width: 150px; margin-left: 5px;'>${options.map(o => `<option>${o}</option>`).join('')}</select></p></div>`);
+        let macrosMap = {
+            "Player Macros": [],
+            "Token Macros": [],
+        };
 
-		dialog.dialog({
-			title: "Mass Roll Saves",
-			buttons: {
-				Submit: function() {
-					const val = dialog.find("select").val();
-					const sel = d20.engine.selected();
-					d20.engine.unselect();
-					sel.forEach((it, index) => {
-						setTimeout(() => {
-							d20.engine.select(it);
-							if (d20plus.sheet === "ogl") {
-								const short = val.substring(0, 3);
-								const toRoll = `${getTokenWhisperPart()}@{selected|wtype}&{template:npc} @{selected|npc_name_flag} {{type=Save}} @{selected|rtype} + [[@{selected|npc_${short.toLowerCase()}_save}]][${short.toUpperCase()}]]]}} {{rname=${val} Save}} {{r1=[[1d20 + [[@{selected|npc_${short.toLowerCase()}_save}]][${short.toUpperCase()}]]]}}`;
-								d20.textchat.doChatInput(toRoll);
-							} else if (d20plus.sheet === "shaped") {
-								const toRoll = `@{selected|output_option}} &{template:5e-shaped} {{ability=1}} {{character_name=@{selected|token_name}}} {{title=${val} Save}} {{mod=@{selected|${val.toLowerCase()}_mod}}} {{roll1=[[1d20+@{selected|${val.toLowerCase()}_mod}]]}} {{roll2=[[1d20+@{selected|${val.toLowerCase()}_mod}]]}}`;
-								d20.textchat.doChatInput(toRoll);
-							}
-							d20.engine.unselect();
-						}, index * 100); // 100ms delay between each roll
-					});
-					dialog.dialog("destroy").remove();
-				},
-				Cancel: function() {
-					dialog.dialog("destroy").remove();
-				}
-			}
-		});
-	};
+        const addMacro = (macroModel, category) => {
+            const name = macroModel.get("name");
+            const action = macroModel.get("action");
+            if (name && action) {
+                macrosMap[category].push({ name, action });
+            }
+        };
 
-	d20plus.menu.massRollSkills = function() {
-		const options = [
-			"Athletics", "Acrobatics", "Sleight of Hand", "Stealth",
-			"Arcana", "History", "Investigation", "Nature", "Religion",
-			"Animal Handling", "Insight", "Medicine", "Perception", "Survival",
-			"Deception", "Intimidation", "Performance", "Persuasion"
-		].sort();
-		const getTokenWhisperPart = () => d20plus.cfg.getOrDefault("token", "massRollWhisperName") ? "/w gm Rolling for @{selected|token_name}...\n" : "";
+        // Gather Player Macros
+        // 1. Gather Player Macros (Using Backbone cid)
+        if (window.currentPlayer && d20.Campaign && d20.Campaign.players) {
+            const id = window.currentPlayer.cid;
+            const player = d20.Campaign.players._byCid[id];
 
-		// Show dialog to select skill
-		const dialog = $(`<div><p style='font-size: 1.15em;'><strong>Select Skill:</strong> <select style='width: 150px; margin-left: 5px;'>${options.map(o => `<option>${o}</option>`).join('')}</select></p></div>`);
+            if (player && player.macros && player.macros.models) {
+                player.macros.models.forEach(m => addMacro(m, "Player Macros"));
+            }
+        }
+        // Gather Token Macros (similar to your uniqueness check)
+        let chars = { map: {}, arr: [], uniq: 0 };
+        sel.forEach(obj => {
+            const graphic = obj._model || obj;
+            const charId = graphic.attributes ? graphic.attributes.represents : graphic.get("represents");
+            if (charId) {
+                if (!chars.map[charId]) {
+                    chars.uniq++;
+                    chars.map[charId] = true;
+                    const character = d20.Campaign.characters.get(charId);
+                    if (character) chars.arr.push(character);
+                }
+            } else {
+                chars.uniq++; // Unrepresented token
+            }
+        });
 
-		dialog.dialog({
-			title: "Mass Roll Skills",
-			buttons: {
-				Submit: function() {
-					const val = dialog.find("select").val();
-					const sel = d20.engine.selected();
-					d20.engine.unselect();
-					sel.forEach((it, index) => {
-						setTimeout(() => {
-							d20.engine.select(it);
-							if (d20plus.sheet === "ogl") {
-								const slugged = val.replace(/\s/g, "_").toLowerCase();
-								const toRoll = `${getTokenWhisperPart()}@{selected|wtype}&{template:npc} @{selected|npc_name_flag} {{type=Skill}} @{selected|rtype} + [[@{selected|npc_${slugged}}]]]]}}; {{rname=${val}}}; {{r1=[[1d20 + [[@{selected|npc_${slugged}}]]]]}}`;
-								d20.textchat.doChatInput(toRoll);
-							} else if (d20plus.sheet === "shaped") {
-								const abil = `${Parser.attAbvToFull(Parser.skillToAbilityAbv(val.toLowerCase())).toLowerCase()}_mod`;
-								const toRoll = `@{selected|output_option} &{template:5e-shaped} {{ability=1}} {{character_name=@{selected|token_name}}} {{title=${val}}} {{mod=@{selected|${abil}}}} {{roll1=[[1d20+@{selected|${abil}}]]}} {{roll2=[[1d20+@{selected|${abil}}]]}}`;
-								d20.textchat.doChatInput(toRoll);
-							}
-							d20.engine.unselect();
-						}, index * 100); // 100ms delay between each roll
-					});
-					dialog.dialog("destroy").remove();
-				},
-				Cancel: function() {
-					dialog.dialog("destroy").remove();
-				}
-			}
-		});
-	};
+        if (chars.uniq === 1 && chars.arr.length > 0) {
+            const char = chars.arr[0];
+            if (char.abilities && char.abilities.models) {
+                char.abilities.models.forEach(a => addMacro(a, "Token Macros"));
+            }
+        }
 
-	// Set Token Light (Jumpgate)
-	d20plus.menu.setTokenLight = function() {
-		const LIGHT_SOURCES = {
-			"None (Blind)": {
-				emits_bright_light: false,
-				bright_light_distance: 0,
-				emits_low_light: false,
-				low_light_distance: 0,
-				has_night_vision: false,
-				night_vision_distance: 0
-			},
-			"Torch/Light (Spell)": {
-				emits_bright_light: true,
-				bright_light_distance: 20,
-				emits_low_light: true,
-				low_light_distance: 40,
-				has_night_vision: false
-			},
-			"Lamp": {
-				emits_bright_light: true,
-				bright_light_distance: 15,
-				emits_low_light: true,
-				low_light_distance: 45,
-				has_night_vision: false
-			},
-			"Lantern, Bullseye": {
-				emits_bright_light: true,
-				bright_light_distance: 60,
-				emits_low_light: true,
-				low_light_distance: 120,
-				has_directional_bright_light: true,
-				directional_bright_light_total: 60,
-				directional_bright_light_center: 0,
-				has_night_vision: false
-			},
-			"Lantern, Hooded": {
-				emits_bright_light: true,
-				bright_light_distance: 30,
-				emits_low_light: true,
-				low_light_distance: 60,
-				has_night_vision: false
-			},
-			"Lantern, Hooded (Dimmed)": {
-				emits_bright_light: false,
-				bright_light_distance: 0,
-				emits_low_light: true,
-				low_light_distance: 5,
-				has_night_vision: false
-			},
-			"Candle": {
-				emits_bright_light: true,
-				bright_light_distance: 5,
-				emits_low_light: true,
-				low_light_distance: 10,
-				has_night_vision: false
-			},
-			"Darkvision (60ft)": {
-				emits_bright_light: false,
-				bright_light_distance: 0,
-				emits_low_light: false,
-				low_light_distance: 0,
-				has_night_vision: true,
-				night_vision_distance: 60
-			},
-			"Darkvision (120ft)": {
-				emits_bright_light: false,
-				bright_light_distance: 0,
-				emits_low_light: false,
-				low_light_distance: 0,
-				has_night_vision: true,
-				night_vision_distance: 120
-			},
-			"Torch + Darkvision": {
-				emits_bright_light: true,
-				bright_light_distance: 20,
-				emits_low_light: true,
-				low_light_distance: 40,
-				has_night_vision: true,
-				night_vision_distance: 60
-			}
-		};
+        // Build HTML for select options
+        let optionsHtml = '';
+        ['Player Macros', 'Token Macros'].forEach(category => {
+            if (macrosMap[category].length > 0) {
+                optionsHtml += `<optgroup label="${category}">`;
+                macrosMap[category].forEach((m, idx) => {
+                    // Storing the category and index to avoid breaking HTML with macro syntax
+                    optionsHtml += `<option value="${category}|${idx}">${m.name}</option>`;
+                });
+                optionsHtml += `</optgroup>`;
+            }
+        });
 
-		const sel = d20.engine.selected();
-		if (sel.length === 0) {
-			alert("Please select at least one token.");
-			return;
-		}
+        if (!optionsHtml) {
+            alert("No macros found to roll.");
+            return;
+        }
 
-		// Show dialog to select light type
-		const dialog = $(`<div><p style='font-size: 1.15em;'><strong>Select Light Source:</strong> <select style='width: 250px; margin-left: 5px;'>${Object.keys(LIGHT_SOURCES).map(o => `<option>${o}</option>`).join('')}</select></p></div>`);
+        const dialog = $(`<div><p style='font-size: 1.15em;'><strong>Select Macro:</strong> <select style='width: 250px; margin-left: 5px;'>${optionsHtml}</select></p></div>`);
 
-		dialog.dialog({
-			title: "Set Token Light",
-			buttons: {
-				Apply: function() {
-					const val = dialog.find("select").val();
-					const lightConfig = LIGHT_SOURCES[val];
+        dialog.dialog({
+            title: "Mass Roll Macro",
+            buttons: {
+                Submit: function() {
+                    const val = dialog.find("select").val();
+                    if (!val) return;
 
-					sel.forEach(token => {
-						// Apply light emission settings
-						token._model.set("emits_bright_light", lightConfig.emits_bright_light || false);
-						token._model.set("bright_light_distance", lightConfig.bright_light_distance || 0);
-						token._model.set("emits_low_light", lightConfig.emits_low_light || false);
-						token._model.set("low_light_distance", lightConfig.low_light_distance || 0);
+                    const [category, idx] = val.split('|');
+                    const macroAction = macrosMap[category][idx].action;
 
-						// Apply directional light if specified
-						if (lightConfig.has_directional_bright_light) {
-							token._model.set("has_directional_bright_light", true);
-							token._model.set("directional_bright_light_total", lightConfig.directional_bright_light_total);
-							token._model.set("directional_bright_light_center", lightConfig.directional_bright_light_center);
-						} else {
-							token._model.set("has_directional_bright_light", false);
-						}
+                    d20.engine.unselect();
 
-						// Apply vision settings
-						token._model.set("has_night_vision", lightConfig.has_night_vision || false);
-						if (lightConfig.night_vision_distance) {
-							token._model.set("night_vision_distance", lightConfig.night_vision_distance);
-						}
+                    // Loop execution handling
+                    sel.forEach((it, index) => {
+                        setTimeout(() => {
+                            d20.engine.select(it);
+                            d20.textchat.doChatInput(macroAction);
 
-						// Enable sight if any light or vision is set
-						const hasSight = lightConfig.emits_bright_light || lightConfig.emits_low_light || lightConfig.has_night_vision;
-						token._model.set("light_hassight", hasSight);
+                            const isLastObj = index + 1 === sel.length;
+                            if (isLastObj) {
+                                // Re-select all at the end to match cleanup pattern
+                                d20.engine.unselect();
+                                sel.forEach(token => d20.engine.select(token));
+                            } else {
+                                d20.engine.unselect();
+                            }
+                        }, index * 100);
+                    });
 
-						token._model.save();
-					});
+                    dialog.dialog("destroy").remove();
+                },
+                Cancel: function() {
+                    dialog.dialog("destroy").remove();
+                }
+            }
+        });
+    };
 
-					dialog.dialog("destroy").remove();
-				},
-				Cancel: function() {
-					dialog.dialog("destroy").remove();
-				}
-			}
-		});
-	};
+    d20plus.menu.massRollInitiative = function() {
+        const sel = d20.engine.selected();
+        d20.engine.unselect();
+        sel.forEach((it, index) => {
+            setTimeout(() => {
+                d20.engine.select(it);
+                let toRoll = ``;
+                if (d20plus.sheet === "ogl") {
+                    toRoll = `%{selected|Initiative}`;
+                } else if (d20plus.sheet === "shaped") {
+                    toRoll = `@{selected|output_option} &{template:5e-shaped} {{ability=1}} {{title=INITIATIVE}} {{roll1=[[@{selected|initiative_formula}]]}}`;
+                }
+                d20.textchat.doChatInput(toRoll);
+                d20.engine.unselect();
+            }, index * 100); // 100ms delay between each roll
+        });
+    };
 
-	// Copy Token ID
-	d20plus.menu.copyTokenId = function() {
-		const sel = d20.engine.selected();
-		if (sel.length === 0) {
-			alert("Please select a token.");
-			return;
-		}
+    d20plus.menu.massRollSaves = function() {
+        const options = ["str", "dex", "con", "int", "wis", "cha"].map(it => Parser.attAbvToFull(it));
+        const getTokenWhisperPart = () => d20plus.cfg.getOrDefault("token", "massRollWhisperName") ? "/w gm Rolling for @{selected|token_name}...\n" : "";
 
-		const token = sel[0];
-		const tokenId = token._model.id;
+        // Show dialog to select save type
+        const dialog = $(`<div><p style='font-size: 1.15em;'><strong>Select Save:</strong> <select style='width: 150px; margin-left: 5px;'>${options.map(o => `<option>${o}</option>`).join('')}</select></p></div>`);
 
-		// Show prompt with token ID for copying
-		window.prompt("Copy to clipboard: Ctrl+C, Enter", tokenId);
-	};
+        dialog.dialog({
+            title: "Mass Roll Saves",
+            buttons: {
+                Submit: function() {
+                    const val = dialog.find("select").val();
+                    const sel = d20.engine.selected();
+                    d20.engine.unselect();
+                    sel.forEach((it, index) => {
+                        setTimeout(() => {
+                            d20.engine.select(it);
+                            if (d20plus.sheet === "ogl") {
+                                const short = val.substring(0, 3);
+                                const toRoll = `${getTokenWhisperPart()}@{selected|wtype}&{template:npc} @{selected|npc_name_flag} {{type=Save}} @{selected|rtype} + [[@{selected|npc_${short.toLowerCase()}_save}]][${short.toUpperCase()}]]]}} {{rname=${val} Save}} {{r1=[[1d20 + [[@{selected|npc_${short.toLowerCase()}_save}]][${short.toUpperCase()}]]]}}`;
+                                d20.textchat.doChatInput(toRoll);
+                            } else if (d20plus.sheet === "shaped") {
+                                const toRoll = `@{selected|output_option}} &{template:5e-shaped} {{ability=1}} {{character_name=@{selected|token_name}}} {{title=${val} Save}} {{mod=@{selected|${val.toLowerCase()}_mod}}} {{roll1=[[1d20+@{selected|${val.toLowerCase()}_mod}]]}} {{roll2=[[1d20+@{selected|${val.toLowerCase()}_mod}]]}}`;
+                                d20.textchat.doChatInput(toRoll);
+                            }
+                            d20.engine.unselect();
+                        }, index * 100); // 100ms delay between each roll
+                    });
+                    dialog.dialog("destroy").remove();
+                },
+                Cancel: function() {
+                    dialog.dialog("destroy").remove();
+                }
+            }
+        });
+    };
 
-	// Token Animate
-	d20plus.menu.tokenAnimate = function() {
-		const sel = d20.engine.selected();
-		if (sel.length === 0) {
-			alert("Please select at least one token.");
-			return;
-		}
+    d20plus.menu.massRollSkills = function() {
+        const options = [
+            "Athletics", "Acrobatics", "Sleight of Hand", "Stealth",
+            "Arcana", "History", "Investigation", "Nature", "Religion",
+            "Animal Handling", "Insight", "Medicine", "Perception", "Survival",
+            "Deception", "Intimidation", "Performance", "Persuasion"
+        ].sort();
+        const getTokenWhisperPart = () => d20plus.cfg.getOrDefault("token", "massRollWhisperName") ? "/w gm Rolling for @{selected|token_name}...\n" : "";
 
-		// Track last selected animation
-		if (!d20plus.menu._lastAnimUid) d20plus.menu._lastAnimUid = null;
+        // Show dialog to select skill
+        const dialog = $(`<div><p style='font-size: 1.15em;'><strong>Select Skill:</strong> <select style='width: 150px; margin-left: 5px;'>${options.map(o => `<option>${o}</option>`).join('')}</select></p></div>`);
 
-		d20plus.anim.animatorTool.pSelectAnimation(d20plus.menu._lastAnimUid).then(animUid => {
-			if (animUid == null) return;
+        dialog.dialog({
+            title: "Mass Roll Skills",
+            buttons: {
+                Submit: function() {
+                    const val = dialog.find("select").val();
+                    const sel = d20.engine.selected();
+                    d20.engine.unselect();
+                    sel.forEach((it, index) => {
+                        setTimeout(() => {
+                            d20.engine.select(it);
+                            if (d20plus.sheet === "ogl") {
+                                const slugged = val.replace(/\s/g, "_").toLowerCase();
+                                const toRoll = `${getTokenWhisperPart()}@{selected|wtype}&{template:npc} @{selected|npc_name_flag} {{type=Skill}} @{selected|rtype} + [[@{selected|npc_${slugged}}]]]]}}; {{rname=${val}}}; {{r1=[[1d20 + [[@{selected|npc_${slugged}}]]]]}}`;
+                                d20.textchat.doChatInput(toRoll);
+                            } else if (d20plus.sheet === "shaped") {
+                                const abil = `${Parser.attAbvToFull(Parser.skillToAbilityAbv(val.toLowerCase())).toLowerCase()}_mod`;
+                                const toRoll = `@{selected|output_option} &{template:5e-shaped} {{ability=1}} {{character_name=@{selected|token_name}}} {{title=${val}}} {{mod=@{selected|${abil}}}} {{roll1=[[1d20+@{selected|${abil}}]]}} {{roll2=[[1d20+@{selected|${abil}}]]}}`;
+                                d20.textchat.doChatInput(toRoll);
+                            }
+                            d20.engine.unselect();
+                        }, index * 100); // 100ms delay between each roll
+                    });
+                    dialog.dialog("destroy").remove();
+                },
+                Cancel: function() {
+                    dialog.dialog("destroy").remove();
+                }
+            }
+        });
+    };
 
-			d20plus.menu._lastAnimUid = animUid;
-			const selected = d20.engine.selected();
-			d20.engine.unselect();
-			selected.forEach(token => {
-				if (token._model) {
-					d20plus.anim.animator.startAnimation(token._model, animUid);
-				}
-			});
-		});
-	};
+    // Set Token Light (Jumpgate)
+    d20plus.menu.setTokenLight = function() {
+        const LIGHT_SOURCES = {
+            "None (Blind)": { emits_bright_light: false, bright_light_distance: 0, emits_low_light: false, low_light_distance: 0, has_night_vision: false, night_vision_distance: 0 },
+            "Torch/Light (Spell)": { emits_bright_light: true, bright_light_distance: 20, emits_low_light: true, low_light_distance: 40, has_night_vision: false },
+            "Lamp": { emits_bright_light: true, bright_light_distance: 15, emits_low_light: true, low_light_distance: 45, has_night_vision: false },
+            "Lantern, Bullseye": { emits_bright_light: true, bright_light_distance: 60, emits_low_light: true, low_light_distance: 120, has_directional_bright_light: true, directional_bright_light_total: 60, directional_bright_light_center: 0, has_night_vision: false },
+            "Lantern, Hooded": { emits_bright_light: true, bright_light_distance: 30, emits_low_light: true, low_light_distance: 60, has_night_vision: false },
+            "Lantern, Hooded (Dimmed)": { emits_bright_light: false, bright_light_distance: 0, emits_low_light: true, low_light_distance: 5, has_night_vision: false },
+            "Candle": { emits_bright_light: true, bright_light_distance: 5, emits_low_light: true, low_light_distance: 10, has_night_vision: false },
+            "Darkvision (60ft)": { emits_bright_light: false, bright_light_distance: 0, emits_low_light: false, low_light_distance: 0, has_night_vision: true, night_vision_distance: 60 },
+            "Darkvision (120ft)": { emits_bright_light: false, bright_light_distance: 0, emits_low_light: false, low_light_distance: 0, has_night_vision: true, night_vision_distance: 120 },
+            "Torch + Darkvision": { emits_bright_light: true, bright_light_distance: 20, emits_low_light: true, low_light_distance: 40, has_night_vision: true, night_vision_distance: 60 }
+        };
 
-	// Trigger Scene
-	d20plus.menu.triggerScene = function() {
-		// Track last selected scene
-		if (!d20plus.menu._lastSceneUid) d20plus.menu._lastSceneUid = null;
+        const sel = d20.engine.selected();
+        if (sel.length === 0) {
+            alert("Please select at least one token.");
+            return;
+        }
 
-		d20plus.anim.animatorTool.pSelectScene(d20plus.menu._lastSceneUid).then(sceneUid => {
-			if (sceneUid == null) return;
+        const dialog = $(`<div><p style='font-size: 1.15em;'><strong>Select Light Source:</strong> <select style='width: 250px; margin-left: 5px;'>${Object.keys(LIGHT_SOURCES).map(o => `<option>${o}</option>`).join('')}</select></p></div>`);
 
-			d20plus.menu._lastSceneUid = sceneUid;
-			d20plus.anim.animatorTool.doStartScene(sceneUid);
-		});
-	};
+        dialog.dialog({
+            title: "Set Token Light",
+            buttons: {
+                Apply: function() {
+                    const val = dialog.find("select").val();
+                    const lightConfig = LIGHT_SOURCES[val];
 
-	// Edit Token Images - Constants and helpers
-	const tagSize = "#roll20_token_size=";
-	const tagSkip = "#roll20_skip_token=";
+                    sel.forEach(token => {
+                        token._model.set("emits_bright_light", lightConfig.emits_bright_light || false);
+                        token._model.set("bright_light_distance", lightConfig.bright_light_distance || 0);
+                        token._model.set("emits_low_light", lightConfig.emits_low_light || false);
+                        token._model.set("low_light_distance", lightConfig.low_light_distance || 0);
 
-	function tokenEditorTexts (selection) {
-		const name = selection.length > 1 ? "You are editing multiple tokens" : selection[0]._model?.attributes?.name || "Unnamed token";
-		const description = selection.length > 1 ? `
-			If you press "Save", the changes will be applied to each of the selected tokens, making them multi-sided if you have multiple images on the list below
-		` : selection[0]._model.attributes.sides ? `
-			You are currently editing images for multi-sided token. Add or remove as many sides as you want. If only one image remains, the token will become a single-sided one
-		` : `
-			Currently this token is represented by a single image. Add more images to convert it to multi-sided token
-		`;
-		const tokenList = selection.length <= 1 ? "" : selection.reduce((r, t) => `${r}
-			<div class="tokenbox selected" data-tokenid="${t._model.id}" data-tokenimg="${t._model.attributes.imgsrc}">
-				<div class="inner">
-					<img src="${t._model.attributes.imgsrc}">
-					<div class="name">${t._model.attributes.name}</div>
-				</div>
-			</div>
-		`, "");
-		return {name, description, tokenList};
-	}
+                        if (lightConfig.has_directional_bright_light) {
+                            token._model.set("has_directional_bright_light", true);
+                            token._model.set("directional_bright_light_total", lightConfig.directional_bright_light_total);
+                            token._model.set("directional_bright_light_center", lightConfig.directional_bright_light_center);
+                        } else {
+                            token._model.set("has_directional_bright_light", false);
+                        }
 
-	// Edit Token Images function (adapted for Jumpgate)
-	d20plus.menu.editToken = (tokenId) => {
-		const selection = tokenId
-			? [{_model: d20plus.ut.getTokenById(tokenId)}].filter(t => !!t._model?.attributes)
-			: d20.engine.selected();
-		if (!selection.length) return;
+                        token._model.set("has_night_vision", lightConfig.has_night_vision || false);
+                        if (lightConfig.night_vision_distance) {
+                            token._model.set("night_vision_distance", lightConfig.night_vision_distance);
+                        }
 
-		const images = [];
-		const added = [];
-		const $dialog = $(d20plus.html.tokenImageEditor);
-		const $list = $dialog.find(".tokenimagelist tbody");
-		const $tokenList = $dialog.find(".tokenlist");
-		const sizes = [["tiny - half square", "0.5"], ["small - 1x1", "1.0"], ["medium - 1x1", "1"], ["large - 2x2", "2"], ["huge - 3x3", "3"], ["gargantuan - 4x4", "4"], ["colossal - 5x5", "5"], ["custom", "0"]];
+                        const hasSight = lightConfig.emits_bright_light || lightConfig.emits_low_light || lightConfig.has_night_vision;
+                        token._model.set("light_hassight", hasSight);
 
-		const findStandardSize = (w, h) => {
-			return (w === h && sizes.find(s => s[1] === `${w / 70}`)?.last()) || "0";
-		};
+                        token._model.save();
+                    });
 
-		const addImageOnInit = (img, add) => {
-			const sizeChanged = img.w !== images.last()?.w || img.h !== images.last()?.h;
-			if (images.length && sizeChanged) $list.variedSizes = true;
-			images.push(img);
-			added.push(add || img.url);
-		};
+                    dialog.dialog("destroy").remove();
+                },
+                Cancel: function() {
+                    dialog.dialog("destroy").remove();
+                }
+            }
+        });
+    };
 
-		selection.forEach(t => {
-			const sides = t._model.attributes.sides?.split("|");
-			const token = t._model.attributes.imgsrc;
-			const {width: tw, height: th} = t._model.attributes;
+    // Copy Token ID
+    d20plus.menu.copyTokenId = function() {
+        const sel = d20.engine.selected();
+        if (sel.length === 0) {
+            alert("Please select a token.");
+            return;
+        }
+        const token = sel[0];
+        const tokenId = token._model.id;
+        window.prompt("Copy to clipboard: Ctrl+C, Enter", tokenId);
+    };
 
-			if (sides && sides.length > 1) {
-				const curSide = sides[t._model.attributes.currentSide] || token;
-				sides.forEach((s, k) => {
-					const checked = unescape(s);
-					const listed = added.indexOf(checked);
-					const [url, size] = checked.split(tagSize);
-					const [sw, sh] = (size || "").split("x");
-					const image = {
-						url: url.replaceAll(tagSkip, ""),
-						skip: url.includes(tagSkip),
-						face: unescape(curSide).includes(url),
-						w: tw,
-						h: th,
-					};
-					if (listed !== -1) {
-						if (k === t._model.attributes.currentSide) images[listed].face = true;
-						return;
-					} else if (!isNaN(size)) {
-						Object.merge(image, {size, w: size * 70, h: size * 70});
-					} else if (!isNaN(sw) && !isNaN(sh)) {
-						Object.merge(image, {size: "0", w: sw, h: sh});
-					}
-					addImageOnInit(image, checked);
-				});
-			} else {
-				const listed = added.indexOf(t._model.attributes.imgsrc);
-				if (listed !== -1) images[listed].face = true;
-				else addImageOnInit({url: t._model.attributes.imgsrc, face: true, w: tw, h: th});
-			}
-		});
+    // Token Animate
+    d20plus.menu.tokenAnimate = function() {
+        const sel = d20.engine.selected();
+        if (sel.length === 0) {
+            alert("Please select at least one token.");
+            return;
+        }
 
-		if ($list.variedSizes) {
-			images.forEach(i => { if (i.size === undefined) i.size = findStandardSize(i.w, i.h); });
-		}
+        if (!d20plus.menu._lastAnimUid) d20plus.menu._lastAnimUid = null;
 
-		const htmls = tokenEditorTexts(selection);
+        d20plus.anim.animatorTool.pSelectAnimation(d20plus.menu._lastAnimUid).then(animUid => {
+            if (animUid == null) return;
+            d20plus.menu._lastAnimUid = animUid;
+            const selected = d20.engine.selected();
+            d20.engine.unselect();
+            selected.forEach(token => {
+                if (token._model) {
+                    d20plus.anim.animator.startAnimation(token._model, animUid);
+                }
+            });
+        });
+    };
 
-		const resetTokens = () => {
-			$tokenList.find(".selected").each((k, t) => {
-				const $token = $(t);
-				const $tokenimage = $token.find("img");
-				$tokenimage.attr("src", $token.data("tokenimg"));
-			});
-		};
+    // Trigger Scene
+    d20plus.menu.triggerScene = function() {
+        if (!d20plus.menu._lastSceneUid) d20plus.menu._lastSceneUid = null;
 
-		const buildList = () => {
-			if (images.length === 1) {
-				$list.someImageSelected = true;
-				images[0].selected = true;
-			}
-			$list.html(images.reduce((r, i, k) => `${r}
-				<tr class="tokenimage${images.length === 1 ? " lastone" : ""}${i.skip ? " skipped" : ""}" data-index="${(i.id = k, k)}">
-					<td style="padding:0px;" title="Current image">
-						<input class="face" type="checkbox"${i.selected ? " checked" : ""}>
-					</td>
-					<td>
-						<div class="dropbox filled">
-						<div class="inner"><img src="${i.url}"><div class="remove"><span>Drop a file</span></div></div>
-						</div>
-					</td>
-					<td>
-						<label>Select size:</label><select>${sizes.reduce((o, s) => `${o}
-							<option value="${s[1]}"${s[1] === i.size ? " selected" : ""}>${s[0]}</option>
-						`, `<option>default (keep as is)</option>`)}</select>
-						<span class="custom${i.size === "0" ? " set" : ""}"><input class="w" value="${i.w}"> X <input class="h" value="${i.h}">px</span>
-						<label class="skippable"><input class="toskip" type="checkbox"${i.skip ? " checked" : ""}> Skip side on randomize</label>
-					</td>
-					<td style="padding:0px;">
-						<span class="btn url" title="Edit URL...">j</span>
-						<span class="btn delete" title="Delete">#</span>
-					</td>
-				</tr>
-			`, ""));
-			if (!$list.someImageSelected) {
-				images.forEach((i, k) => {
-					if (i.face) $list.find("input.face").eq(k).prop({indeterminate: true});
-				});
-			}
-		};
+        d20plus.anim.animatorTool.pSelectScene(d20plus.menu._lastSceneUid).then(sceneUid => {
+            if (sceneUid == null) return;
+            d20plus.menu._lastSceneUid = sceneUid;
+            d20plus.anim.animatorTool.doStartScene(sceneUid);
+        });
+    };
 
-		$dialog.dialog({
-			autoopen: true,
-			title: "Edit token image(s)",
-			width: 450,
-			open: () => {
-				buildList();
-				$tokenList.html(htmls.tokenList);
-				$dialog.parent().css("maxHeight", "80vh").css("top", "10vh");
-				$dialog.find(".edittitle").text(htmls.name);
-				$dialog.find(".editlabel").text(htmls.description);
+    // Edit Token Images - Constants and helpers
+    const tagSize = "#roll20_token_size=";
+    const tagSkip = "#roll20_skip_token=";
 
-				// Event handlers
-				$dialog.on("change", "select", evt => {
-					const $changed = $(evt.target);
-					const $token = $changed.parent();
-					const $custom = $token.find(".custom").removeClass("set");
-					const newSize = $changed.val();
-					const id = $changed.closest(".tokenimage").data("index");
-					if (newSize > 0) {
-						$token.find(".w, .h").val(newSize * 70);
-						images[id].size = newSize;
-						$list.variedSizes = true;
-					} else {
-						delete images[id].size;
-						if (newSize === "0") {
-							$list.variedSizes = true;
-							images[id].size = newSize;
-							images[id].w = $token.find(".w").val();
-							images[id].h = $token.find(".h").val();
-							$custom.addClass("set");
-						}
-					}
-				}).on("change", "input.face", evt => {
-					const id = $(evt.target).closest(".tokenimage").data("index");
-					const isChecked = $(evt.target).prop("checked");
-					const $allBoxes = $list.find("input.face");
-					if (isChecked) {
-						$list.someImageSelected = true;
-						$allBoxes.prop({checked: false}).prop({indeterminate: false});
-						$(evt.target).prop({checked: true});
-						$tokenList.find(".selected img").attr("src", images[id].url);
-						images.forEach((i, k) => {
-							if (k === id) i.selected = true;
-							else i.selected = false;
-						});
-					} else {
-						$list.someImageSelected = false;
-						images[id].selected = false;
-						resetTokens();
-						images.forEach((i, k) => {
-							if (i.face) $allBoxes.eq(k).prop({indeterminate: true});
-						});
-					}
-				}).on("change", "input.toskip", evt => {
-					const $token = $(evt.target).closest(".tokenimage");
-					const id = $token.data("index");
-					const isChecked = $(evt.target).prop("checked");
-					if (isChecked) {
-						$token.addClass("skipped");
-						images[id].skip = true;
-					} else {
-						$token.removeClass("skipped");
-						images[id].skip = false;
-					}
-				}).on(window.mousedowntype, ".url", evt => {
-					const $token = $(evt.target).closest(".tokenimage");
-					const $image = $token.find("img");
-					const id = $token.data("index");
-					const url = window.prompt("Edit URL", $image.attr("src"));
-					if (!url) return;
-					d20plus.art.setLastImageUrl(url);
-					images[id].url = url;
-					$image.attr("src", url);
-				}).on(window.mousedowntype, ".delete", evt => {
-					const $deleted = $(evt.target).closest(".tokenimage");
-					const id = $deleted.data("index");
-					if (images.length <= 1) return;
-					if (images[id].selected) {
-						$list.someImageSelected = false;
-						resetTokens();
-					}
-					images.splice(id, 1);
-					buildList();
-					if (images.length === 1) {
-						$list.someImageSelected = true;
-						$list.find("input.face").prop({checked: true});
-						$tokenList.find(".selected img").attr("src", images[0].url);
-					}
-				}).on(window.mousedowntype, ".addimageurl", () => {
-					const url = window.prompt("Enter a URL", d20plus.art.getLastImageUrl());
-					if (!url) return;
-					d20plus.art.setLastImageUrl(url);
-					images.push({url, w: 70, h: 70});
-					buildList();
-				});
-			},
-			close: () => {
-				$dialog.off();
-				$dialog.dialog("destroy").remove();
-			},
-			buttons: {
-				save: {
-					text: "Save changes",
-					click: () => {
-						const save = {};
-						if (images.length > 1) {
-							save.sides = images.map(i => {
-								const skipped = i.skip ? tagSkip : "";
-								const size = i.size ? tagSize + (i.size === "0" ? `${i.w}x${i.h}` : i.size) : "";
-								return escape(i.url + skipped + size);
-							}).join("|");
-						} else {
-							save.sides = "";
-						}
-						if ($list.someImageSelected) {
-							const selected = images.find(i => i.selected);
-							if (selected) {
-								save.imgsrc = selected.url;
-								save.currentSide = selected.id;
-								if (selected.size === "0") {
-									save.width = Number(selected.w);
-									save.height = Number(selected.h);
-								} else if (selected.size) {
-									save.width = selected.size * 70;
-									save.height = selected.size * 70;
-								}
-							}
-						}
-						if (selection.length > 1) {
-							d20.engine.unselect();
-						}
-						selection.forEach(t => {
-							if (selection.length === 1
-								|| $tokenList.find(`[data-tokenid=${t._model.id}]`).hasClass("selected")) {
-								t._model.save(save);
-							}
-						});
-						$dialog.off();
-						$dialog.dialog("destroy").remove();
-						d20.textchat.$textarea.focus();
-					},
-				},
-				cancel: {
-					text: "Cancel",
-					click: () => {
-						$dialog.off();
-						$dialog.dialog("destroy").remove();
-					},
-				},
-			},
-		});
+    function tokenEditorTexts (selection) {
+        const name = selection.length > 1 ? "You are editing multiple tokens" : selection[0]._model?.attributes?.name || "Unnamed token";
+        const description = selection.length > 1 ? `
+            If you press "Save", the changes will be applied to each of the selected tokens, making them multi-sided if you have multiple images on the list below
+        ` : selection[0]._model.attributes.sides ? `
+            You are currently editing images for multi-sided token. Add or remove as many sides as you want. If only one image remains, the token will become a single-sided one
+        ` : `
+            Currently this token is represented by a single image. Add more images to convert it to multi-sided token
+        `;
+        const tokenList = selection.length <= 1 ? "" : selection.reduce((r, t) => `${r}
+            <div class="tokenbox selected" data-tokenid="${t._model.id}" data-tokenimg="${t._model.attributes.imgsrc}">
+                <div class="inner">
+                    <img src="${t._model.attributes.imgsrc}">
+                    <div class="name">${t._model.attributes.name}</div>
+                </div>
+            </div>
+        `, "");
+        return {name, description, tokenList};
+    }
 
-		return $dialog;
-	};
+    // Edit Token Images function (adapted for Jumpgate)
+    d20plus.menu.editToken = (tokenId) => {
+        const selection = tokenId
+            ? [{_model: d20plus.ut.getTokenById(tokenId)}].filter(t => !!t._model?.attributes)
+            : d20.engine.selected();
+        if (!selection.length) return;
 
-	// Set Flight Height
-	d20plus.menu.setFlightHeight = function() {
-		const sel = d20.engine.selected();
-		if (sel.length === 0) {
-			alert("Please select at least one token.");
-			return;
-		}
+        const images = [];
+        const added = [];
+        const $dialog = $(d20plus.html.tokenImageEditor);
+        const $list = $dialog.find(".tokenimagelist tbody");
+        const $tokenList = $dialog.find(".tokenlist");
+        const sizes = [["tiny - half square", "0.5"], ["small - 1x1", "1.0"], ["medium - 1x1", "1"], ["large - 2x2", "2"], ["huge - 3x3", "3"], ["gargantuan - 4x4", "4"], ["colossal - 5x5", "5"], ["custom", "0"]];
 
-		// Create dialog
-		const $dialog = $(`
-			<div title="Flight Height">
-				<p>Enter flight height (0 to clear):</p>
-				<input type="number" placeholder="Flight height" name="flight" style="width: 100%; padding: 5px; font-size: 14px;">
-			</div>
-		`).appendTo($("body"));
+        const findStandardSize = (w, h) => {
+            return (w === h && sizes.find(s => s[1] === `${w / 70}`)?.last()) || "0";
+        };
 
-		const $iptHeight = $dialog.find(`input[name="flight"]`);
+        const addImageOnInit = (img, add) => {
+            const sizeChanged = img.w !== images.last()?.w || img.h !== images.last()?.h;
+            if (images.length && sizeChanged) $list.variedSizes = true;
+            images.push(img);
+            added.push(add || img.url);
+        };
 
-		const doHandleOk = () => {
-			const height = Number($iptHeight.val());
-			$dialog.dialog("close");
-			$dialog.remove();
+        selection.forEach(t => {
+            const sides = t._model.attributes.sides?.split("|");
+            const token = t._model.attributes.imgsrc;
+            const {width: tw, height: th} = t._model.attributes;
 
-			if (isNaN(height)) {
-				alert(`Value "${$iptHeight.val()}" is not a valid number!`);
-				return;
-			}
+            if (sides && sides.length > 1) {
+                const curSide = sides[t._model.attributes.currentSide] || token;
+                sides.forEach((s, k) => {
+                    const checked = unescape(s);
+                    const listed = added.indexOf(checked);
+                    const [url, size] = checked.split(tagSize);
+                    const [sw, sh] = (size || "").split("x");
+                    const image = {
+                        url: url.replaceAll(tagSkip, ""),
+                        skip: url.includes(tagSkip),
+                        face: unescape(curSide).includes(url),
+                        w: tw,
+                        h: th,
+                    };
+                    if (listed !== -1) {
+                        if (k === t._model.attributes.currentSide) images[listed].face = true;
+                        return;
+                    } else if (!isNaN(size)) {
+                        Object.merge(image, {size, w: size * 70, h: size * 70});
+                    } else if (!isNaN(sw) && !isNaN(sh)) {
+                        Object.merge(image, {size: "0", w: sw, h: sh});
+                    }
+                    addImageOnInit(image, checked);
+                });
+            } else {
+                const listed = added.indexOf(t._model.attributes.imgsrc);
+                if (listed !== -1) images[listed].face = true;
+                else addImageOnInit({url: t._model.attributes.imgsrc, face: true, w: tw, h: th});
+            }
+        });
 
-			const STATUS_PREFIX = `fluffy-wing@`;
+        if ($list.variedSizes) {
+            images.forEach(i => { if (i.size === undefined) i.size = findStandardSize(i.w, i.h); });
+        }
 
-			sel.forEach(token => {
-				const existing = token._model.get("statusmarkers");
+        const htmls = tokenEditorTexts(selection);
 
-				if (height === 0) {
-					// Clear flight height markers
-					if (existing && existing.trim()) {
-						const filtered = existing.split(",").filter(it => it && !it.startsWith(STATUS_PREFIX)).join(",");
-						token._model.set("statusmarkers", filtered);
-					}
-				} else {
-					// Set flight height markers (one marker per digit)
-					const statusString = `${height}`.split("").map(digit => `${STATUS_PREFIX}${digit}`).join(",");
+        const resetTokens = () => {
+            $tokenList.find(".selected").each((k, t) => {
+                const $token = $(t);
+                const $tokenimage = $token.find("img");
+                $tokenimage.attr("src", $token.data("tokenimg"));
+            });
+        };
 
-					if (existing && existing.trim()) {
-						// Remove old flight markers and add new ones
-						const otherMarkers = existing.split(",").filter(it => it && !it.startsWith(STATUS_PREFIX));
-						const newMarkers = [statusString, ...otherMarkers].join(",");
-						token._model.set("statusmarkers", newMarkers);
-					} else {
-						token._model.set("statusmarkers", statusString);
-					}
-				}
+        const buildList = () => {
+            if (images.length === 1) {
+                $list.someImageSelected = true;
+                images[0].selected = true;
+            }
+            $list.html(images.reduce((r, i, k) => `${r}
+                <tr class="tokenimage${images.length === 1 ? " lastone" : ""}${i.skip ? " skipped" : ""}" data-index="${(i.id = k, k)}">
+                    <td style="padding:0px;" title="Current image">
+                        <input class="face" type="checkbox"${i.selected ? " checked" : ""}>
+                    </td>
+                    <td>
+                        <div class="dropbox filled">
+                        <div class="inner"><img src="${i.url}"><div class="remove"><span>Drop a file</span></div></div>
+                        </div>
+                    </td>
+                    <td>
+                        <label>Select size:</label><select>${sizes.reduce((o, s) => `${o}
+                            <option value="${s[1]}"${s[1] === i.size ? " selected" : ""}>${s[0]}</option>
+                        `, `<option>default (keep as is)</option>`)}</select>
+                        <span class="custom${i.size === "0" ? " set" : ""}"><input class="w" value="${i.w}"> X <input class="h" value="${i.h}">px</span>
+                        <label class="skippable"><input class="toskip" type="checkbox"${i.skip ? " checked" : ""}> Skip side on randomize</label>
+                    </td>
+                    <td style="padding:0px;">
+                        <span class="btn url" title="Edit URL...">j</span>
+                        <span class="btn delete" title="Delete">#</span>
+                    </td>
+                </tr>
+            `, ""));
+            if (!$list.someImageSelected) {
+                images.forEach((i, k) => {
+                    if (i.face) $list.find("input.face").eq(k).prop({indeterminate: true});
+                });
+            }
+        };
 
-				token._model.save();
-			});
-		};
+        $dialog.dialog({
+            autoopen: true,
+            title: "Edit token image(s)",
+            width: 450,
+            open: () => {
+                buildList();
+                $tokenList.html(htmls.tokenList);
+                $dialog.parent().css("maxHeight", "80vh").css("top", "10vh");
+                $dialog.find(".edittitle").text(htmls.name);
+                $dialog.find(".editlabel").text(htmls.description);
 
-		// Handle Enter key
-		$iptHeight.on("keypress", evt => {
-			if (evt.which === 13) { // Enter key
-				doHandleOk();
-			}
-		});
+                // Event handlers
+                $dialog.on("change", "select", evt => {
+                    const $changed = $(evt.target);
+                    const $token = $changed.parent();
+                    const $custom = $token.find(".custom").removeClass("set");
+                    const newSize = $changed.val();
+                    const id = $changed.closest(".tokenimage").data("index");
+                    if (newSize > 0) {
+                        $token.find(".w, .h").val(newSize * 70);
+                        images[id].size = newSize;
+                        $list.variedSizes = true;
+                    } else {
+                        delete images[id].size;
+                        if (newSize === "0") {
+                            $list.variedSizes = true;
+                            images[id].size = newSize;
+                            images[id].w = $token.find(".w").val();
+                            images[id].h = $token.find(".h").val();
+                            $custom.addClass("set");
+                        }
+                    }
+                }).on("change", "input.face", evt => {
+                    const id = $(evt.target).closest(".tokenimage").data("index");
+                    const isChecked = $(evt.target).prop("checked");
+                    const $allBoxes = $list.find("input.face");
+                    if (isChecked) {
+                        $list.someImageSelected = true;
+                        $allBoxes.prop({checked: false}).prop({indeterminate: false});
+                        $(evt.target).prop({checked: true});
+                        $tokenList.find(".selected img").attr("src", images[id].url);
+                        images.forEach((i, k) => {
+                            if (k === id) i.selected = true;
+                            else i.selected = false;
+                        });
+                    } else {
+                        $list.someImageSelected = false;
+                        images[id].selected = false;
+                        resetTokens();
+                        images.forEach((i, k) => {
+                            if (i.face) $allBoxes.eq(k).prop({indeterminate: true});
+                        });
+                    }
+                }).on("change", "input.toskip", evt => {
+                    const $token = $(evt.target).closest(".tokenimage");
+                    const id = $token.data("index");
+                    const isChecked = $(evt.target).prop("checked");
+                    if (isChecked) {
+                        $token.addClass("skipped");
+                        images[id].skip = true;
+                    } else {
+                        $token.removeClass("skipped");
+                        images[id].skip = false;
+                    }
+                }).on(window.mousedowntype, ".url", evt => {
+                    const $token = $(evt.target).closest(".tokenimage");
+                    const $image = $token.find("img");
+                    const id = $token.data("index");
+                    const url = window.prompt("Edit URL", $image.attr("src"));
+                    if (!url) return;
+                    d20plus.art.setLastImageUrl(url);
+                    images[id].url = url;
+                    $image.attr("src", url);
+                }).on(window.mousedowntype, ".delete", evt => {
+                    const $deleted = $(evt.target).closest(".tokenimage");
+                    const id = $deleted.data("index");
+                    if (images.length <= 1) return;
+                    if (images[id].selected) {
+                        $list.someImageSelected = false;
+                        resetTokens();
+                    }
+                    images.splice(id, 1);
+                    buildList();
+                    if (images.length === 1) {
+                        $list.someImageSelected = true;
+                        $list.find("input.face").prop({checked: true});
+                        $tokenList.find(".selected img").attr("src", images[0].url);
+                    }
+                }).on(window.mousedowntype, ".addimageurl", () => {
+                    const url = window.prompt("Enter a URL", d20plus.art.getLastImageUrl());
+                    if (!url) return;
+                    d20plus.art.setLastImageUrl(url);
+                    images.push({url, w: 70, h: 70});
+                    buildList();
+                });
+            },
+            close: () => {
+                $dialog.off();
+                $dialog.dialog("destroy").remove();
+            },
+            buttons: {
+                save: {
+                    text: "Save changes",
+                    click: () => {
+                        const save = {};
+                        if (images.length > 1) {
+                            save.sides = images.map(i => {
+                                const skipped = i.skip ? tagSkip : "";
+                                const size = i.size ? tagSize + (i.size === "0" ? `${i.w}x${i.h}` : i.size) : "";
+                                return escape(i.url + skipped + size);
+                            }).join("|");
+                        } else {
+                            save.sides = "";
+                        }
+                        if ($list.someImageSelected) {
+                            const selected = images.find(i => i.selected);
+                            if (selected) {
+                                save.imgsrc = selected.url;
+                                save.currentSide = selected.id;
+                                if (selected.size === "0") {
+                                    save.width = Number(selected.w);
+                                    save.height = Number(selected.h);
+                                } else if (selected.size) {
+                                    save.width = selected.size * 70;
+                                    save.height = selected.size * 70;
+                                }
+                            }
+                        }
+                        if (selection.length > 1) {
+                            d20.engine.unselect();
+                        }
+                        selection.forEach(t => {
+                            if (selection.length === 1
+                                || $tokenList.find(`[data-tokenid=${t._model.id}]`).hasClass("selected")) {
+                                t._model.save(save);
+                            }
+                        });
+                        $dialog.off();
+                        $dialog.dialog("destroy").remove();
+                        d20.textchat.$textarea.focus();
+                    },
+                },
+                cancel: {
+                    text: "Cancel",
+                    click: () => {
+                        $dialog.off();
+                        $dialog.dialog("destroy").remove();
+                    },
+                },
+            },
+        });
 
-		$dialog.dialog({
-			dialogClass: "no-close",
-			width: 300,
-			buttons: [
-				{
-					text: "Cancel",
-					click: function () {
-						$(this).dialog("close");
-						$dialog.remove();
-					}
-				},
-				{
-					text: "OK",
-					click: function () {
-						doHandleOk();
-					}
-				}
-			]
-		});
+        return $dialog;
+    };
 
-		// Focus input
-		setTimeout(() => $iptHeight.focus(), 100);
-	};
+    // Set Flight Height
+    d20plus.menu.setFlightHeight = function() {
+        const sel = d20.engine.selected();
+        if (sel.length === 0) {
+            alert("Please select at least one token.");
+            return;
+        }
+
+        // Create dialog
+        const $dialog = $(`
+            <div title="Flight Height">
+                <p>Enter flight height (0 to clear):</p>
+                <input type="number" placeholder="Flight height" name="flight" style="width: 100%; padding: 5px; font-size: 14px;">
+            </div>
+        `).appendTo($("body"));
+
+        const $iptHeight = $dialog.find(`input[name="flight"]`);
+
+        const doHandleOk = () => {
+            const height = Number($iptHeight.val());
+            $dialog.dialog("close");
+            $dialog.remove();
+
+            if (isNaN(height)) {
+                alert(`Value "${$iptHeight.val()}" is not a valid number!`);
+                return;
+            }
+
+            const STATUS_PREFIX = `fluffy-wing@`;
+
+            sel.forEach(token => {
+                const existing = token._model.get("statusmarkers");
+
+                if (height === 0) {
+                    if (existing && existing.trim()) {
+                        const filtered = existing.split(",").filter(it => it && !it.startsWith(STATUS_PREFIX)).join(",");
+                        token._model.set("statusmarkers", filtered);
+                    }
+                } else {
+                    const statusString = `${height}`.split("").map(digit => `${STATUS_PREFIX}${digit}`).join(",");
+
+                    if (existing && existing.trim()) {
+                        const otherMarkers = existing.split(",").filter(it => it && !it.startsWith(STATUS_PREFIX));
+                        const newMarkers = [statusString, ...otherMarkers].join(",");
+                        token._model.set("statusmarkers", newMarkers);
+                    } else {
+                        token._model.set("statusmarkers", statusString);
+                    }
+                }
+
+                token._model.save();
+            });
+        };
+
+        // Handle Enter key
+        $iptHeight.on("keypress", evt => {
+            if (evt.which === 13) {
+                doHandleOk();
+            }
+        });
+
+        $dialog.dialog({
+            dialogClass: "no-close",
+            width: 300,
+            buttons: [
+                {
+                    text: "Cancel",
+                    click: function () {
+                        $(this).dialog("close");
+                        $dialog.remove();
+                    }
+                },
+                {
+                    text: "OK",
+                    click: function () {
+                        doHandleOk();
+                    }
+                }
+            ]
+        });
+
+        // Focus input
+        setTimeout(() => $iptHeight.focus(), 100);
+    };
 }
 
 SCRIPT_EXTENSIONS.push(baseMenu);
@@ -25861,7 +25908,7 @@ function baseChat () {
 				const value = `value="${addressee.name}"`;
 				result += `<option ${value}>${option}</option>`;
 				return result;
-			}, `<option value="">All</option><option value="ttms">None</option>`);
+			}, `<option value="">All</option><option value="ttms">None</option><option value="GM">GM</option>`);
 		})());
 		$speakingTo.val(prev);
 	}
