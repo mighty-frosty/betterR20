@@ -46,6 +46,7 @@ const betteR205etools = function () {
 			d20plus.engine.enhanceMarkdown();
 			d20plus.engine.addProFeatures();
 			d20plus.art.initArtFromUrlButtons();
+			if (d20plus.characterIo && d20plus.characterIo.initCharacterJsonButtons) d20plus.characterIo.initCharacterJsonButtons();
 			if (window.is_gm) {
 				d20plus.journal.addJournalCommands();
 				d20plus.menu.addSelectedTokenCommands();

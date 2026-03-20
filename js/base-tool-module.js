@@ -34,8 +34,12 @@ function baseToolModule () {
 					<div name="selection-summary" style="margin-top: 5px;"></div>
 				</div>
 				<hr>
-				<p><button class="btn" style="float: right;" name="import">Import Selected</button></p>
-				</div>
+<p>
+    <label style="display: inline-block; padding-top: 4px;">
+        <input type="checkbox" name="force-ogl5e"> Force OGL 5e Sheet for Characters
+    </label>
+    <button class="btn" style="float: right;" name="import">Import Selected</button>
+</p>				</div>
 
 				<div id="d20plus-module-importer-list" title="Select Entries">
 					<div id="module-importer-list">
@@ -145,6 +149,7 @@ function baseToolModule () {
 
 			const $win = $("#d20plus-module-importer");
 			$win.dialog("open");
+			const $cbForceOgl = $win.find(`[name="force-ogl5e"]`);
 
 			const $winProgress = $(`#d20plus-module-importer-progress`);
 			const $btnCancel = $winProgress.find(".cancel").off("click");
@@ -188,7 +193,7 @@ function baseToolModule () {
 			function preprocessModuleData (data) {
 				// Recursively fix all S3 URLs in the module data
 				const fixUrlsInObject = (obj) => {
-					if (!obj || typeof obj !== 'object') return;
+					if (!obj || typeof obj !== "object") return;
 
 					// Fix common image URL properties
 					if (obj.imgsrc) obj.imgsrc = d20plus.ut.fixS3Url(obj.imgsrc);
@@ -201,7 +206,7 @@ function baseToolModule () {
 						if (obj.hasOwnProperty(key) && obj[key]) {
 							if (Array.isArray(obj[key])) {
 								obj[key].forEach(item => fixUrlsInObject(item));
-							} else if (typeof obj[key] === 'object') {
+							} else if (typeof obj[key] === "object") {
 								fixUrlsInObject(obj[key]);
 							}
 						}
@@ -475,51 +480,50 @@ function baseToolModule () {
 										break;
 									}
 									case "characters": {
-										// Force use of OGL 5e sheet (works in both 2014 and 2024 games)
-										const charAttrs = {...entry.attributes, charactersheetname: "ogl5e"};
+										const forceOgl = $cbForceOgl.prop("checked");
+										const charAttrs = forceOgl ? {...entry.attributes, charactersheetname: "ogl5e"} : {...entry.attributes};
+
+										// 1. Save the old Character ID before we delete it!
+										const oldCharId = charAttrs.id;
+										delete charAttrs.id;
+
 										d20.Campaign.characters.create(charAttrs,
 											{
 												success: function (character) {
-													character.attribs.reset();
+													const newCharId = character.id;
 
-													// Check if 2024 import is available (only in 5etools build)
-													const use2024 = typeof d20plus.importer?.shouldUse2024 === "function" && d20plus.importer.shouldUse2024();
-													const isNpc = entry.attribs && entry.attribs.some(a => a.name === "npc" && a.current === "1");
+													// 2. THE VTTES TRICK: Global String Replace for Attributes
+													let attribsStr = JSON.stringify(entry.attribs);
+													attribsStr = attribsStr.split(oldCharId).join(newCharId); // Safe global replace
+													const rebasedAttribs = JSON.parse(attribsStr);
 
-													if (use2024 && isNpc) {
-														// Use 2024 sheet format for NPCs
-														const store = d20plus.importer.translateOGLTo2024Store(entry.attribs);
-														const toSave = [
-															{ name: "appState", current: "npc" },
-															{ name: "store", current: store },  // Store as object, NOT stringified
-														].map(a => character.attribs.push(a));
-														toSave.forEach(s => s.syncedSave());
-													} else {
-														// Use OGL format
-														const toSave = entry.attribs.map(a => character.attribs.push(a));
-														toSave.forEach(s => s.syncedSave());
+													// 3. THE VTTES TRICK: Global String Replace for Default Token
+													let tokenStr = entry.blobDefaultToken;
+													if (tokenStr) {
+														tokenStr = tokenStr.split(oldCharId).join(newCharId);
 													}
 
-													// Fetch existing abilities first, then clear them all before creating new ones
-													character.abilities.fetch({
-														success: function() {
-															// Destroy all existing abilities (including old token actions)
-															character.abilities.models.slice().forEach(ability => ability.destroy());
+													// Proceed with saving using the rebased data
+													character.attribs.reset();
+													const toSave = rebasedAttribs.map(a => character.attribs.push(a));
+													toSave.forEach(s => s.syncedSave());
 
-															// Create token actions from imported attributes if enabled
+													character.abilities.fetch({
+														success: function () {
+															character.abilities.models.slice().forEach(ability => ability.destroy());
 															if (d20plus.cfg.getOrDefault("import", "tokenactions")) {
 																d20plus.importer._createTokenActionsFromCharacter(character);
 															}
-														}
+														},
 													});
 
 													character.updateBlobs({
 														bio: entry.blobBio,
 														gmnotes: entry.blobGmNotes,
-														defaulttoken: entry.blobDefaultToken,
+														defaulttoken: tokenStr, // Use the rebased token!
 													});
 
-													addToJournal(entry.attributes.id, character.id);
+													addToJournal(oldCharId, newCharId);
 												},
 											},
 										);
