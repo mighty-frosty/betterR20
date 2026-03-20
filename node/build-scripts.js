@@ -351,8 +351,8 @@ const BUILDS = {
 	},
 	"5et2014": {
 		authors: AUTHORS_5ETOOLS,
-		baseURL: "https://cdn.5e.tools/2014/",
-		imgURL: "https://cdn.5e.tools/2014/img/",
+		baseURL: "https://cdn.5e.tools/2024/",
+		imgURL: "https://cdn.5e.tools/2024/img/",
 		libs: LIB_SCRIPTS["5etools"],
 		libsAPI: LIB_SCRIPTS_API["5etools"],
 		scripts: SCRIPTS["5et2014"],

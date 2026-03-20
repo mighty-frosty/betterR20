@@ -4048,8 +4048,19 @@ function baseToolModule () {
 
 													// Proceed with saving using the rebased data
 													character.attribs.reset();
-													const toSave = rebasedAttribs.map(a => character.attribs.push(a));
-													toSave.forEach(s => s.syncedSave());
+													const isNpc = rebasedAttribs.some(a => a.name === "npc" && String(a.current) === "1");
+													if (typeof d20plus.importer?.shouldUse2024 === "function" && d20plus.importer.shouldUse2024() && isNpc) {
+														// 2024 sheet: convert OGL attribs to 2024 store format
+														const store2024 = d20plus.importer.translateOGLTo2024Store(rebasedAttribs);
+														const toSave = [
+															{ name: "appState", current: "npc" },
+															{ name: "store", current: store2024 },
+														].map(a => character.attribs.push(a));
+														toSave.forEach(s => s.syncedSave());
+													} else {
+														const toSave = rebasedAttribs.map(a => character.attribs.push(a));
+														toSave.forEach(s => s.syncedSave());
+													}
 
 													character.abilities.fetch({
 														success: function () {
