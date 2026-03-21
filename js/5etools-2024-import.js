@@ -1,38 +1,88 @@
 /**
  * 2024 Character Sheet Import Support
- * This file is only included in the 5etools (2024) build
+ * Included in both the 5etools (2024) and 5et2014 builds
  */
 function d20plus2024Import() {
 	// ========================================
 	// 2024 Sheet Configuration and Detection
 	// ========================================
 
-	// Add 2024-specific config option (addConfigOptions is a global function from header.js)
+	// Add import sheet format config option — __values/__texts populated at setSheet time
 	addConfigOptions("import", {
-		"force2024Sheet": {
-			"name": "Force 2024 Sheet Format for Module Import",
-			"default": false,
-			"_type": "boolean",
+		"importSheetFormat": {
+			"name": "Import Sheet Format",
+			"default": "auto",
+			"_type": "_enum",
+			"__values": [],
+			"__texts": [],
 		},
 	});
 
-	// Wrap setSheet to add 2024 detection
+	// Reorder so importSheetFormat appears first among user-configurable options
+	// (addConfigOptions uses Object.assign which appends; JS objects preserve insertion order)
+	{
+		const grp = CONFIG_OPTIONS["import"];
+		const reordered = {};
+		for (const k of Object.keys(grp)) { if (k.startsWith("_")) reordered[k] = grp[k]; }
+		reordered["importSheetFormat"] = grp["importSheetFormat"];
+		for (const k of Object.keys(grp)) { if (!k.startsWith("_") && k !== "importSheetFormat") reordered[k] = grp[k]; }
+		CONFIG_OPTIONS["import"] = reordered;
+	}
+
+	// Map sheet keys to friendly display names
+	function getSheetDisplayName(sheetKey, sheetObj) {
+		if (sheetKey === "ogl5e" || sheetKey === "ogl") return "2014 (OGL)";
+		if (sheetKey === "dnd_2024" || sheetKey === "DnD2024_Character_Sheet" || sheetKey === "dnd2024" || sheetKey === "dnd2024byroll20") return "2024";
+		if (sheetKey === "shaped_d20") return "Shaped";
+		if (sheetKey === "DnD5e_Character_Sheet") return "Community";
+		const name = sheetObj?.attributes?.name || sheetKey;
+		return `Other (${name})`;
+	}
+
+	// Wrap setSheet to detect available sheets and populate the dropdown
 	const originalSetSheet = d20plus.setSheet;
 	d20plus.setSheet = function() {
 		originalSetSheet.call(this);
 
-		// Check for 2024 D&D sheet (various possible identifiers)
 		try {
-			const sheets2024 = d20.journal.characterSheetsManager?.sheets || {};
-			const firstSheet = d20.journal.customSheets;
-			if (sheets2024.dnd_2024 || sheets2024.DnD2024_Character_Sheet || sheets2024.dnd2024 ||
-				(firstSheet && firstSheet.attributes && firstSheet.attributes.name &&
-				 firstSheet.attributes.name.toLowerCase().includes("2024"))) {
-				d20plus.sheet = "2024";
-				d20plus.ut.log(`Detected 2024 Character Sheet`);
+			const sheetsObj = d20.journal.characterSheetsManager?.sheets || {};
+			const sheetKeys = Object.keys(sheetsObj);
+
+			// Also check for customSheets
+			const customSheet = d20.journal.customSheets;
+			if (customSheet && customSheet.attributes?.id && !sheetsObj[customSheet.attributes.id]) {
+				sheetKeys.push(customSheet.attributes.id);
+				sheetsObj[customSheet.attributes.id] = customSheet;
 			}
+
+			const values = [];
+			const texts = [];
+
+			for (const key of sheetKeys) {
+				values.push(key);
+				texts.push(getSheetDisplayName(key, sheetsObj[key]));
+			}
+
+			// Fallback: if nothing detected, use current d20plus.sheet
+			if (values.length === 0) {
+				values.push(d20plus.sheet);
+				texts.push(getSheetDisplayName(d20plus.sheet, null));
+			}
+
+			CONFIG_OPTIONS["import"]["importSheetFormat"].__values = values;
+			CONFIG_OPTIONS["import"]["importSheetFormat"].__texts = texts;
+
+			// Smart default: single option → use it; multiple → prefer 2024 sheet, else first
+			if (values.length === 1) {
+				CONFIG_OPTIONS["import"]["importSheetFormat"].default = values[0];
+			} else {
+				const prefer2024 = values.find(v => v === "dnd_2024" || v === "DnD2024_Character_Sheet" || v === "dnd2024" || v === "dnd2024byroll20");
+				CONFIG_OPTIONS["import"]["importSheetFormat"].default = prefer2024 || values[0];
+			}
+
+			d20plus.ut.log(`Import sheet format options detected: ${values.join(", ")}`);
 		} catch (e) {
-			console.warn("2024 sheet detection failed:", e);
+			console.warn("Import sheet format detection failed:", e);
 		}
 	};
 
@@ -617,11 +667,17 @@ function d20plus2024Import() {
 		return store;
 	};
 
+	const IS_2024_SHEET = new Set(["dnd_2024", "DnD2024_Character_Sheet", "dnd2024", "dnd2024byroll20"]);
+
 	/**
 	 * Check if we should use 2024 sheet format
 	 */
 	d20plus.importer.shouldUse2024 = function() {
-		return true; // This file is only loaded in the 5etools (2024) build
+		return IS_2024_SHEET.has(d20plus.cfg.getOrDefault("import", "importSheetFormat"));
+	};
+
+	d20plus.importer.is2024Sheet = function(sheetName) {
+		return IS_2024_SHEET.has(sheetName);
 	};
 
 	// ========================================
@@ -1115,7 +1171,7 @@ function d20plus2024Import() {
 	 * Check if we should use 2024 sheet format for monster import
 	 */
 	d20plus.monsters.shouldUse2024 = function() {
-		return true; // This file is only loaded in the 5etools (2024) build
+		return IS_2024_SHEET.has(d20plus.cfg.getOrDefault("import", "importSheetFormat"));
 	};
 
 	// ========================================

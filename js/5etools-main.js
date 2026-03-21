@@ -670,7 +670,7 @@ const betteR205etoolsMain = function () {
 			d20plus.importer.bindFakeCompendiumDraggable($(e));
 		});
 
-		function importData (character, data, event) {
+		function importDataOGL (character, data, event) {
 			// TODO remove feature import workarounds below when roll20 and sheets supports their drag-n-drop properly
 			if (data.data.Category === "Feats") {
 				d20plus.feats.importFeat(character, data);
@@ -693,6 +693,19 @@ const betteR205etoolsMain = function () {
 			} else {
 				d20plus.importer.doFakeDrop(event, character, data);
 			}
+		}
+
+		function importData (character, data, event) {
+			const charModel = character.model || character;
+			const sheetName = charModel.get ? charModel.get("charactersheetname")
+				: charModel?.attributes?.charactersheetname;
+			if (typeof d20plus.importer?.is2024Sheet === "function" && d20plus.importer.is2024Sheet(sheetName)) {
+				if (typeof d20plus.importer?.import2024Data === "function") {
+					d20plus.importer.import2024Data(character, data, event, importDataOGL);
+					return;
+				}
+			}
+			importDataOGL(character, data, event);
 		}
 
 		d20.Campaign.characters.models.each(function (v, i) {
@@ -825,7 +838,8 @@ const betteR205etoolsMain = function () {
 		// The 2024 sheet is an iframe with id="advanced-charsheet-dialog__charsheet"
 		// and name="iframe_<characterId>" - we make the parent droppable
 		function bind2024SheetDropTarget ($iframe) {
-			const $dropTarget = $iframe.parent();
+			const $dropTarget = $iframe.closest(".characterdialog[data-characterid]");
+			if (!$dropTarget.length) return;
 			if ($dropTarget.data("b20-droppable-2024")) return;
 			$dropTarget.data("b20-droppable-2024", true);
 
@@ -850,37 +864,77 @@ const betteR205etoolsMain = function () {
 						return notes.charAt(0) === "%" ? decodeURIComponent(notes) : notes;
 					}
 
-					function dispatch (charView, data, t) {
-						if (typeof d20plus.importer.import2024Data === "function") {
-							d20plus.importer.import2024Data(charView, data, t, importData);
-						} else {
-							importData(charView, data, t);
-						}
-					}
-
 					if ($hlpr.hasClass("player-imported")) {
 						const data = d20plus.importer.retrievePlayerImport($hlpr.attr("data-playerimportid"));
-						if (data) dispatch(charView, data, t);
+						if (data) importData(charView, data, t);
 						else console.warn("betterR20: Player import data not found. Please re-import.");
 						return;
 					}
 
 					if (!$hlpr.hasClass("handout")) return;
 
-					const handoutId = $hlpr.attr("data-itemid");
-					const handout = d20.Campaign.handouts.get(handoutId);
+					const handout = d20.Campaign.handouts.get($hlpr.attr("data-itemid"));
+					if (!handout) return;
 					if (window.is_gm) {
 						handout._getLatestBlob("gmnotes", function (gmnotes) {
-							dispatch(charView, JSON.parse(decodeIfURI(gmnotes)), t);
+							importData(charView, JSON.parse(decodeIfURI(gmnotes)), t);
 						});
 					} else {
 						handout._getLatestBlob("notes", function (notes) {
-							dispatch(charView, JSON.parse($(decodeIfURI(notes)).filter("del").html()), t);
+							importData(charView, JSON.parse($(decodeIfURI(notes)).filter("del").html()), t);
 						});
 					}
 				},
 			});
 		}
+
+		function bindOGLSheetDropTarget ($iframe) {
+			const $dropTarget = $iframe.closest(".characterdialog[data-characterid]");
+			if (!$dropTarget.length) return;
+			if ($dropTarget.data("b20-droppable-ogl")) return;
+			$dropTarget.data("b20-droppable-ogl", true);
+
+			$dropTarget.droppable({
+				accept: ".compendium-item",
+				tolerance: "pointer",
+				drop (t, i) {
+					if (t.originalEvent.dropHandled) return;
+					t.originalEvent.dropHandled = true;
+					const characterid = $dropTarget.attr("data-characterid");
+					const charModel = d20.Campaign.characters.get(characterid);
+					if (!charModel) return;
+					const charView = charModel.view;
+					const $hlpr = $(i.helper[0]);
+
+					function decodeIfURI (notes) {
+						if (!notes) return "";
+						return notes.charAt(0) === "%" ? decodeURIComponent(notes) : notes;
+					}
+
+					if ($hlpr.hasClass("player-imported")) {
+						const data = d20plus.importer.retrievePlayerImport($hlpr.attr("data-playerimportid"));
+						if (data) importData(charView, data, t);
+						else console.warn("betterR20: Player import data not found. Please re-import.");
+						return;
+					}
+
+					if (!$hlpr.hasClass("handout")) return;
+
+					const handout = d20.Campaign.handouts.get($hlpr.attr("data-itemid"));
+					if (!handout) return;
+					if (window.is_gm) {
+						handout._getLatestBlob("gmnotes", function (gmnotes) {
+							importData(charView, JSON.parse(decodeIfURI(gmnotes)), t);
+						});
+					} else {
+						handout._getLatestBlob("notes", function (notes) {
+							importData(charView, JSON.parse($(decodeIfURI(notes)).filter("del").html()), t);
+						});
+					}
+				},
+			});
+		}
+		d20plus._bindOGLSheetDropTarget = bindOGLSheetDropTarget;
 
 		// Store so MutationObserver always calls the latest (captures importData closure)
 		d20plus._bind2024SheetDropTarget = bind2024SheetDropTarget;
@@ -902,6 +956,16 @@ const betteR205etoolsMain = function () {
 						}
 						$n.find("iframe[id='advanced-charsheet-dialog__charsheet']").each(function () {
 							d20plus._bind2024SheetDropTarget($(this));
+						});
+
+						// OGL iframes in mixed games (any iframe inside a characterdialog that isn't the 2024 sheet)
+						if ($n.is("iframe:not([id='advanced-charsheet-dialog__charsheet'])")) {
+							const $dialog = $n.closest(".characterdialog[data-characterid]");
+							if ($dialog.length) d20plus._bindOGLSheetDropTarget($n);
+						}
+						$n.find("iframe:not([id='advanced-charsheet-dialog__charsheet'])").each(function () {
+							const $dialog = $(this).closest(".characterdialog[data-characterid]");
+							if ($dialog.length) d20plus._bindOGLSheetDropTarget($(this));
 						});
 					});
 				});

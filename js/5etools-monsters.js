@@ -1520,8 +1520,9 @@ function d20plusMonsters () {
 						...(data.environment || []),
 						data.isNPC ? "npc" : undefined,
 					], "creature"),
-					// Force use of OGL 5e sheet (works in both 2014 and 2024 games)
-					charactersheetname: "ogl5e",
+					charactersheetname: (typeof d20plus.monsters?.shouldUse2024 === "function" && d20plus.monsters.shouldUse2024())
+						? d20plus.cfg.getOrDefault("import", "importSheetFormat")
+						: "ogl5e",
 					...options.charOptions,
 				},
 				{
