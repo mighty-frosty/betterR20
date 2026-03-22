@@ -1232,6 +1232,9 @@ function d20plus2024Import() {
 		try {
 			if (storeAttr) storeAttr.destroy();
 			charModel.attribs.push({name: "store", current: storeClone}).syncedSave();
+			if (charModel.view && typeof charModel.view.showNewVueFrame === "function") {
+				charModel.view.showNewVueFrame();
+			}
 		} catch (e) {
 			console.error("betterR20 save2024Store error:", e);
 		}
