@@ -1240,65 +1240,205 @@ function d20plus2024Import() {
 		}
 	}
 
+	// Returns the first {@damage XdY} found in a 5etools entries array, or null.
+	function parseSpell2024Damage (entries) {
+		for (const entry of (entries || [])) {
+			if (typeof entry !== "string") continue;
+			const m = entry.match(/\{@damage (\d+)d(\d+)\}/i);
+			if (m) return {diceCount: parseInt(m[1], 10), diceSize: "d" + m[2]};
+		}
+		return null;
+	}
+
+	// Returns {startingLevel, value} from {@scaledamage base|N-M|XdY}, or null.
+	function parseSpell2024Upcast (entriesHigherLevel) {
+		for (const block of (entriesHigherLevel || [])) {
+			for (const entry of (block.entries || [])) {
+				if (typeof entry !== "string") continue;
+				const m = entry.match(/\{@scaledamage [^|]+\|(\d+)-\d+\|(\d+)d\d+\}/i);
+				if (m) return {startingLevel: parseInt(m[1], 10) + 1, value: parseInt(m[2], 10)};
+			}
+		}
+		return null;
+	}
+
+	// Maps a 5etools areaTags entry to the 2024 sheet shape name.
+	function areaTagTo2024Shape (tag) {
+		const map = {S: "Sphere", C: "Cone", L: "Line", Q: "Square", Y: "Cylinder", H: "Hemisphere", W: "Wall", R: "Rectangle"};
+		return map[tag] || "";
+	}
+
+	// Extracts AoE size text from entry strings, e.g. "20-foot-radius" → "20 foot radius".
+	function parseSpell2024AoeSize (entries) {
+		for (const entry of (entries || [])) {
+			if (typeof entry !== "string") continue;
+			const m = entry.match(/(\d+)[- ]foot[- ](?:radius|wide|long|tall|cone|line|cube)/i);
+			if (m) return m[0].replace(/-/g, " ").toLowerCase();
+		}
+		return "";
+	}
+
 	/**
 	 * Import a single spell into a 2024 character sheet's store attribute.
+	 * When Vetoolscontent is present builds the full native
+	 * Spell → Attack → Damage → Upcasting integrant chain.
 	 */
 	d20plus.importer.import2024Spell = function (charModel, spellData) {
 		const d = spellData.data;
+		const vc = spellData.Vetoolscontent || null;
+
 		const {attr: storeAttr, store: rawStore} = get2024Store(charModel);
+		const store = rawStore ? JSON.parse(JSON.stringify(rawStore)) : {
+			integrants: {integrants: {}},
+			spells: {displayOrder: ["[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]"]},
+		};
+		if (!store.integrants) store.integrants = {integrants: {}};
+		if (!store.integrants.integrants) store.integrants.integrants = {};
+		if (!store.spells) store.spells = {displayOrder: ["[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]"]};
+		if (!store.spells.displayOrder) store.spells.displayOrder = ["[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]"];
 
 		const levelStr = d["Level"] || "0";
 		let levelIdx = levelStr === "cantrip" ? 0 : (parseInt(levelStr, 10) || 0);
 		if (levelIdx > 9) levelIdx = 9;
 
-		// Parse "V, S, M" string into the object the 2024 sheet expects
+		const cap = str => str ? str.charAt(0).toUpperCase() + str.slice(1).toLowerCase() : "";
+
+		// Components
 		const compStr = (d["Components"] || "").toUpperCase();
 		const components = {
 			verbal: compStr.includes("V"),
 			somatic: compStr.includes("S"),
 			material: compStr.includes("M"),
 		};
+		if (vc && vc.components && vc.components.m) {
+			components.materialDescription = typeof vc.components.m === "string"
+				? vc.components.m : (vc.components.m.text || "");
+		}
 
-		// Strip units from numeric fields — 2024 sheet stores range/duration as bare numbers
-		const parseNum = str => String(parseInt(str, 10) || 0);
+		// Range and duration as full strings, matching native Roll20 format
+		const range = vc ? Parser.spRangeToFull(vc.range) : (d["Range"] || "");
+		const duration = vc
+			? Parser.spDurationToFull(vc.duration).replace(/Concentration,\s*/gi, "")
+			: (d["Duration"] || "");
 
-		const {id, base} = make2024IntegrantBase("Spell");
-		const spellEntry = {
-			...base,
+		// AoE
+		const aoeShape = vc && vc.areaTags && vc.areaTags.length ? areaTagTo2024Shape(vc.areaTags[0]) : "";
+		const aoeSize = vc ? parseSpell2024AoeSize(vc.entries) : "";
+		const aoe = {shape: aoeShape, size: aoeSize};
+
+		// Determine whether to build the Attack/Damage chain
+		const hasSave = vc && vc.savingThrow && vc.savingThrow.length;
+		const hasSpellAtk = vc && vc.spellAttack && vc.spellAttack.length;
+		const hasDamage = vc && vc.damageInflict && vc.damageInflict.length;
+		const buildChain = hasDamage && (hasSave || hasSpellAtk);
+
+		const parsed = buildChain ? parseSpell2024Damage(vc.entries) : null;
+		const upcast = buildChain ? parseSpell2024Upcast(vc.entriesHigherLevel) : null;
+
+		// Generate all IDs + arrayPositions upfront so parents can reference children
+		let pos = getNextArrayPos(store);
+		const {id: spellId, base: spellBase} = make2024IntegrantBase("Spell", pos++);
+		let attackId, attackBase, dmgId, dmgBase, upcastId, upcastBase;
+		if (buildChain) {
+			({id: attackId, base: attackBase} = make2024IntegrantBase("Attack", pos++));
+			({id: dmgId, base: dmgBase} = make2024IntegrantBase("Damage", pos++));
+			if (upcast) ({id: upcastId, base: upcastBase} = make2024IntegrantBase("Upcasting", pos++));
+		}
+
+		// Write integrants bottom-up so childIDs can reference already-known IDs
+		if (upcastId) {
+			store.integrants.integrants[upcastId] = {
+				...upcastBase,
+				name: `${spellData.name} Damage Upcast`,
+				recordName: `${spellData.name} Damage Upcast`,
+				startingLevel: upcast.startingLevel,
+				level: 1,
+				mode: "Per X Spell Level",
+				target: "$.diceCount",
+				value: upcast.value,
+				changeMode: "Add",
+				parentID: dmgId,
+				childIDs: "[]",
+				relations: {},
+			};
+		}
+
+		if (dmgId) {
+			const diceCount = parsed ? parsed.diceCount : 1;
+			const diceSize = parsed ? parsed.diceSize : "d6";
+			store.integrants.integrants[dmgId] = {
+				...dmgBase,
+				name: `${spellData.name} Damage`,
+				recordName: `${spellData.name} Damage`,
+				ability: "none",
+				diceCount,
+				diceSize,
+				damageType: cap(vc.damageInflict[0]),
+				overrideCrit: false,
+				critDiceSize: "",
+				parentID: attackId,
+				childIDs: upcastId ? JSON.stringify([upcastId]) : "[]",
+				relations: {},
+			};
+		}
+
+		if (attackId) {
+			let atkType;
+			if (hasSave) atkType = "Spell Save";
+			else if (vc.spellAttack.includes("R")) atkType = "Ranged";
+			else atkType = "Melee";
+
+			const diceCount = parsed ? parsed.diceCount : 1;
+			const diceSize = parsed ? parsed.diceSize : "d6";
+			const damageType = cap(vc.damageInflict[0]);
+
+			const atkIntegrant = {
+				...attackBase,
+				name: spellData.name,
+				recordName: `${spellData.name} Attack`,
+				actionType: d["Casting Time"] || "Action",
+				range,
+				aoe,
+				attack: {type: atkType},
+				parentID: spellId,
+				childIDs: JSON.stringify([dmgId]),
+				relations: {},
+			};
+			if (hasSave) {
+				atkIntegrant.save = {
+					saveAbility: cap(vc.savingThrow[0]),
+					onFail: `Takes ${diceCount}${diceSize} ${damageType} damage.`,
+					onSucceed: "Half as much damage.",
+				};
+			}
+			store.integrants.integrants[attackId] = atkIntegrant;
+		}
+
+		// Spell integrant (always created)
+		store.integrants.integrants[spellId] = {
+			...spellBase,
 			_prepared: true,
 			alwaysPrepared: false,
-			aoe: {shape: "Cube", size: "0"},
-			concentration: (d["Duration"] || "").toLowerCase().includes("concentration"),
+			aoe,
+			concentration: (d["Concentration"] || "") === "Yes",
 			name: spellData.name,
+			recordName: spellData.name,
 			level: levelIdx,
 			school: d["School"] || "Evocation",
 			castingTime: d["Casting Time"] || "Action",
-			range: parseNum(d["Range"]),
+			range,
 			components,
-			duration: parseNum(d["Duration"]),
+			duration,
 			description: d["data-description"] || "",
 			relations: {},
-			ritual: false,
+			ritual: (d["Ritual"] || "") === "Yes",
 			target: "0",
-			upcastText: "",
+			upcastText: d["Higher Spell Slot Desc"] || "",
+			childIDs: attackId ? JSON.stringify([attackId]) : "[]",
 		};
-
-		// Deep clone to avoid mutating the live reference
-		const store = rawStore ? JSON.parse(JSON.stringify(rawStore)) : {
-			integrants: {integrants: {}},
-			spells: {displayOrder: ["[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]"]},
-		};
-
-		if (!store.integrants) store.integrants = {integrants: {}};
-		if (!store.integrants.integrants) store.integrants.integrants = {};
-		if (!store.spells) store.spells = {displayOrder: ["[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]"]};
-		if (!store.spells.displayOrder) store.spells.displayOrder = ["[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]"];
-
-		spellEntry.arrayPosition = getNextArrayPos(store);
-		store.integrants.integrants[id] = spellEntry;
 
 		const order = JSON.parse(store.spells.displayOrder[levelIdx] || "[]");
-		order.push(id);
+		order.push(spellId);
 		store.spells.displayOrder[levelIdx] = JSON.stringify(order);
 
 		save2024Store(charModel, storeAttr, store);
