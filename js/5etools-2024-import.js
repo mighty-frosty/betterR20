@@ -1240,12 +1240,16 @@ function d20plus2024Import() {
 		}
 	}
 
-	// Returns the first {@damage XdY} found in a 5etools entries array, or null.
+	// Returns the first {@damage XdY} (with optional flat bonus) found in a 5etools entries array, or null.
 	function parseSpell2024Damage (entries) {
 		for (const entry of (entries || [])) {
 			if (typeof entry !== "string") continue;
-			const m = entry.match(/\{@damage (\d+)d(\d+)\}/i);
-			if (m) return {diceCount: parseInt(m[1], 10), diceSize: "d" + m[2]};
+			const m = entry.match(/\{@damage (\d+)d(\d+)(?:\s*([+-])\s*(\d+))?\}/i);
+			if (m) return {
+				diceCount: parseInt(m[1], 10),
+				diceSize: "d" + m[2],
+				flatBonus: m[3] && m[4] ? (m[3] === "+" ? 1 : -1) * parseInt(m[4], 10) : 0,
+			};
 		}
 		return null;
 	}
@@ -1260,6 +1264,50 @@ function d20plus2024Import() {
 			}
 		}
 		return null;
+	}
+
+	// Returns number of projectiles for repeat-fire spells (e.g. 3 for Magic Missile).
+	function parseSpell2024Repeat (entries) {
+		const wordNums = {one:1, two:2, three:3, four:4, five:5, six:6, seven:7, eight:8, nine:9, ten:10};
+		for (const entry of (entries || [])) {
+			if (typeof entry !== "string") continue;
+			const m = entry.match(/\b(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\b[^.]*\b(?:dart|missile|bolt|beam|ray|orb|needle|lance|streak)s?\b/i);
+			if (m) return wordNums[m[1].toLowerCase()] || parseInt(m[1], 10) || 1;
+		}
+		return 1;
+	}
+
+	// Returns true if the higher-level text describes adding more projectiles per slot (not more damage dice).
+	function parseSpell2024RepeatUpcast (entriesHigherLevel) {
+		for (const block of (entriesHigherLevel || [])) {
+			for (const entry of (block.entries || [])) {
+				if (typeof entry !== "string") continue;
+				if (/one more|additional|extra/i.test(entry) && /dart|missile|bolt|beam|ray/i.test(entry)) return true;
+			}
+		}
+		return false;
+	}
+
+	// Returns sorted character-level thresholds for cantrip scaling, e.g. [5, 11, 17].
+	// Prefers scalingLevelDice keys when available (Shocking Grasp style),
+	// otherwise parses "at Nth level" text (Eldritch Blast style).
+	function parseSpell2024CantripLevels (vc) {
+		if (vc.scalingLevelDice && vc.scalingLevelDice.scaling) {
+			const levels = Object.keys(vc.scalingLevelDice.scaling)
+				.map(Number)
+				.filter(l => l > 1)
+				.sort((a, b) => a - b);
+			if (levels.length) return levels;
+		}
+		const levels = [];
+		for (const entry of (vc.entries || [])) {
+			if (typeof entry !== "string") continue;
+			const re = /at (\d+)(?:st|nd|rd|th) level/gi;
+			let m;
+			while ((m = re.exec(entry)) !== null) levels.push(parseInt(m[1], 10));
+		}
+		const unique = [...new Set(levels)].sort((a, b) => a - b);
+		return unique.length ? unique : [5, 11, 17];
 	}
 
 	// Maps a 5etools areaTags entry to the 2024 sheet shape name.
@@ -1330,34 +1378,50 @@ function d20plus2024Import() {
 		const hasSave = vc && vc.savingThrow && vc.savingThrow.length;
 		const hasSpellAtk = vc && vc.spellAttack && vc.spellAttack.length;
 		const hasDamage = vc && vc.damageInflict && vc.damageInflict.length;
-		const buildChain = hasDamage && (hasSave || hasSpellAtk);
+		const buildChain = hasDamage;
+		const isAutoHit = hasDamage && !hasSave && !hasSpellAtk;
+		const isCantripScaling = vc && vc.level === 0 && (vc.miscTags || []).includes("SCL");
 
 		const parsed = buildChain ? parseSpell2024Damage(vc.entries) : null;
-		const upcast = buildChain ? parseSpell2024Upcast(vc.entriesHigherLevel) : null;
+		const repeatCount = isAutoHit ? parseSpell2024Repeat(vc.entries) : 1;
+		const isRepeatUpcast = !isCantripScaling && isAutoHit && parseSpell2024RepeatUpcast(vc.entriesHigherLevel);
+		// Standard upcast (diceCount) only for non-cantrip, non-repeat spells
+		const upcast = (!isCantripScaling && buildChain && !isRepeatUpcast) ? parseSpell2024Upcast(vc.entriesHigherLevel) : null;
+		const isDiceScaling = isCantripScaling && !!vc.scalingLevelDice;
+		const cantripLevels = (isCantripScaling && buildChain) ? parseSpell2024CantripLevels(vc) : [];
 
 		// Generate all IDs + arrayPositions upfront so parents can reference children
 		let pos = getNextArrayPos(store);
 		const {id: spellId, base: spellBase} = make2024IntegrantBase("Spell", pos++);
 		let attackId, attackBase, dmgId, dmgBase, upcastId, upcastBase;
+		let cantripUpcastEntries = []; // [{id, base, level}] for cantrip scaling
 		if (buildChain) {
 			({id: attackId, base: attackBase} = make2024IntegrantBase("Attack", pos++));
 			({id: dmgId, base: dmgBase} = make2024IntegrantBase("Damage", pos++));
-			if (upcast) ({id: upcastId, base: upcastBase} = make2024IntegrantBase("Upcasting", pos++));
+			if (isCantripScaling) {
+				cantripUpcastEntries = cantripLevels.map(lvl => {
+					const {id, base} = make2024IntegrantBase("Upcasting", pos++);
+					return {id, base, level: lvl};
+				});
+			} else if (upcast || isRepeatUpcast) {
+				({id: upcastId, base: upcastBase} = make2024IntegrantBase("Upcasting", pos++));
+			}
 		}
 
 		// Write integrants bottom-up so childIDs can reference already-known IDs
 		if (upcastId) {
+			const isRepeat = isRepeatUpcast;
 			store.integrants.integrants[upcastId] = {
 				...upcastBase,
-				name: `${spellData.name} Damage Upcast`,
-				recordName: `${spellData.name} Damage Upcast`,
-				startingLevel: upcast.startingLevel,
+				name: `${spellData.name} Upcast`,
+				recordName: `${spellData.name} Upcast`,
+				startingLevel: isRepeat ? 2 : upcast.startingLevel,
 				level: 1,
 				mode: "Per X Spell Level",
-				target: "$.diceCount",
-				value: upcast.value,
+				target: isRepeat ? "$.repeat" : "$.diceCount",
+				value: isRepeat ? 1 : upcast.value,
 				changeMode: "Add",
-				parentID: dmgId,
+				parentID: isRepeat ? attackId : dmgId,
 				childIDs: "[]",
 				relations: {},
 			};
@@ -1366,7 +1430,13 @@ function d20plus2024Import() {
 		if (dmgId) {
 			const diceCount = parsed ? parsed.diceCount : 1;
 			const diceSize = parsed ? parsed.diceSize : "d6";
-			store.integrants.integrants[dmgId] = {
+			// Dice-scaling cantrips: upcastings are children of Damage
+			const dmgUpcastChildIds = isDiceScaling ? cantripUpcastEntries.map(e => e.id) : [];
+			const dmgChildIds = upcastId && !isRepeatUpcast
+				? JSON.stringify([upcastId])
+				: dmgUpcastChildIds.length ? JSON.stringify(dmgUpcastChildIds) : "[]";
+
+			const dmgIntegrant = {
 				...dmgBase,
 				name: `${spellData.name} Damage`,
 				recordName: `${spellData.name} Damage`,
@@ -1377,39 +1447,87 @@ function d20plus2024Import() {
 				overrideCrit: false,
 				critDiceSize: "",
 				parentID: attackId,
-				childIDs: upcastId ? JSON.stringify([upcastId]) : "[]",
+				childIDs: dmgChildIds,
+				relations: {},
+			};
+			if (parsed && parsed.flatBonus) dmgIntegrant._bonus = parsed.flatBonus;
+			store.integrants.integrants[dmgId] = dmgIntegrant;
+		}
+
+		// Write cantrip scaling Upcasting integrants
+		for (const {id, base, level} of cantripUpcastEntries) {
+			const isDice = isDiceScaling;
+			// Dice scaling (scalingLevelDice): children of Damage, named "X Damage Upcast N"
+			// Repeat scaling (no scalingLevelDice): children of Attack, named "X Upcast N"
+			store.integrants.integrants[id] = {
+				...base,
+				name: isDice ? `${spellData.name} Damage Upcast ${level}` : `${spellData.name} Upcast ${level}`,
+				recordName: isDice ? `${spellData.name} Damage Upcast ${level}` : `${spellData.name} Upcast ${level}`,
+				mode: "Specific Character Level",
+				level,
+				startingLevel: 0,
+				target: isDice ? "$.diceCount" : "$.repeat",
+				value: 1,
+				changeMode: "Add",
+				parentID: isDice ? dmgId : attackId,
+				childIDs: "[]",
 				relations: {},
 			};
 		}
 
 		if (attackId) {
-			let atkType;
-			if (hasSave) atkType = "Spell Save";
-			else if (vc.spellAttack.includes("R")) atkType = "Ranged";
-			else atkType = "Melee";
-
 			const diceCount = parsed ? parsed.diceCount : 1;
 			const diceSize = parsed ? parsed.diceSize : "d6";
 			const damageType = cap(vc.damageInflict[0]);
 
-			const atkIntegrant = {
-				...attackBase,
-				name: spellData.name,
-				recordName: `${spellData.name} Attack`,
-				actionType: d["Casting Time"] || "Action",
-				range,
-				aoe,
-				attack: {type: atkType},
-				parentID: spellId,
-				childIDs: JSON.stringify([dmgId]),
-				relations: {},
-			};
-			if (hasSave) {
-				atkIntegrant.save = {
-					saveAbility: cap(vc.savingThrow[0]),
-					onFail: `Takes ${diceCount}${diceSize} ${damageType} damage.`,
-					onSucceed: "Half as much damage.",
+			let atkIntegrant;
+			if (isAutoHit) {
+				// Auto-hit spell (e.g. Magic Missile): uses autoHit + repeat, no attack object
+				const childIds = upcastId ? [dmgId, upcastId] : [dmgId];
+				atkIntegrant = {
+					...attackBase,
+					name: spellData.name,
+					recordName: `${spellData.name} Free Attack`,
+					actionType: d["Casting Time"] || "Action",
+					range,
+					autoHit: true,
+					repeat: repeatCount,
+					parentID: spellId,
+					childIDs: JSON.stringify(childIds),
+					relations: {},
 				};
+			} else {
+				// Attack roll or saving throw spell
+				let atkType;
+				if (hasSave) atkType = "Spell Save";
+				else if (hasSpellAtk) atkType = "Spell Attack";
+				else atkType = "Spell Attack";
+
+				// Repeat-scaling cantrips: Attack childIDs = [dmg, upcast5, upcast11, upcast17]
+				// Dice-scaling cantrips: Attack childIDs = [dmg] only (upcastings live under Damage)
+				const repeatChildIds = (!isDiceScaling && isCantripScaling) ? cantripUpcastEntries.map(e => e.id) : [];
+				const childIDs = JSON.stringify([dmgId, ...repeatChildIds]);
+
+				atkIntegrant = {
+					...attackBase,
+					name: spellData.name,
+					recordName: `${spellData.name} Attack`,
+					actionType: d["Casting Time"] || "Action",
+					range,
+					aoe,
+					attack: {type: atkType},
+					parentID: spellId,
+					childIDs,
+					relations: {},
+				};
+				if (isCantripScaling && !isDiceScaling) atkIntegrant.repeat = 1;
+				if (hasSave) {
+					atkIntegrant.save = {
+						saveAbility: cap(vc.savingThrow[0]),
+						onFail: `Takes ${diceCount}${diceSize} ${damageType} damage.`,
+						onSucceed: "Half as much damage.",
+					};
+				}
 			}
 			store.integrants.integrants[attackId] = atkIntegrant;
 		}
@@ -1450,6 +1568,7 @@ function d20plus2024Import() {
 	 */
 	d20plus.importer.import2024Item = function (charModel, itemData) {
 		const d = itemData.data || {};
+		const vc = itemData.Vetoolscontent || {};
 		const {attr: storeAttr, store: rawStore} = get2024Store(charModel);
 
 		const store = rawStore ? JSON.parse(JSON.stringify(rawStore)) : {
@@ -1470,90 +1589,201 @@ function d20plus2024Import() {
 		// Roll20 from deduplicating them during the Firebase write.
 		let pos = getNextArrayPos(store);
 
-		// Item integrant — always added to inventory
-		const {id: itemId, base: itemBase} = make2024IntegrantBase("Item", pos++);
-		store.integrants.integrants[itemId] = {
-			...itemBase,
-			name: itemData.name,
-			quantity: 1,
-			weight: parseFloat(d["Weight"] || "0") || 0,
-			cost: "",
-			equipData: {equippable: true, equipped: false},
-			description: itemData.content || "",
+		const parseDice = (str) => {
+			const m = (str || "").match(/(\d+)d(\d+)/i);
+			return m ? {diceCount: parseInt(m[1], 10), diceSize: `d${m[2]}`} : {diceCount: 1, diceSize: "d4"};
 		};
-		const invOrder = JSON.parse(store.inventory.equipmentDisplayOrder || "[]");
-		invOrder.push(itemId);
-		store.inventory.equipmentDisplayOrder = JSON.stringify(invOrder);
 
-		// Weapon — also create Attack + Damage integrants
-		if (d["Damage"]) {
-			const itemType = (d["Item Type"] || "").toLowerCase();
-			const isRanged = itemType.includes("ranged");
-			const atkAbility = isRanged ? "Dexterity" : "Strength";
-			const atkType = isRanged ? "Ranged" : "Melee";
+		const capitalize = (str) => str ? str.charAt(0).toUpperCase() + str.slice(1) : str;
 
-			const parseDice = (str) => {
-				const m = (str || "").match(/(\d+)d(\d+)/i);
-				return m ? {diceCount: parseInt(m[1], 10), diceSize: `d${m[2]}`} : {diceCount: 1, diceSize: "d4"};
-			};
+		// Property abbreviation → display name
+		const propMap = {
+			V: "Versatile", F: "Finesse", L: "Light", T: "Thrown",
+			"2H": "Two-Handed", R: "Reach", A: "Ammunition",
+			LD: "Loading", H: "Heavy", S: "Special",
+		};
 
-			const {id: attackId, base: attackBase} = make2024IntegrantBase("Attack", pos++);
-			const damageIds = [];
+		// Normalise vc.property entries by stripping source suffixes (e.g. "V|XPHB" → "V")
+		const vcProps = (vc.property || []).map(p => p.split("|")[0]);
+		const hasProp = (key) => vcProps.includes(key);
+		const isVersatile = hasProp("V") || !!d["Alternate Damage"];
+		const itemType = (d["Item Type"] || "").toLowerCase();
+		const isRanged = itemType.includes("ranged");
+		const baseAbility = isRanged ? "Dexterity" : "Strength";
+		const baseAtkType = isRanged ? "Ranged" : "Melee";
 
-			// Primary damage
-			const {id: dmg1Id, base: dmg1Base} = make2024IntegrantBase("Damage", pos++);
-			const {diceCount: dc1, diceSize: ds1} = parseDice(d["Damage"]);
-			store.integrants.integrants[dmg1Id] = {
-				...dmg1Base,
-				name: `${itemData.name} Damage`,
-				damageType: d["Damage Type"] || "Slashing",
-				diceCount: dc1,
-				diceSize: ds1,
-				_bonus: magicBonus,
-				ability: atkAbility,
-				critDiceSize: "",
+		// Helper: build one Attack+Damage pair and write into store
+		const makeAttackPair = (atkName, atkRecordName, dmgName, atkObj, dmgAbility, dmgStr, dmgType) => {
+			const {id: atkId, base: atkBase} = make2024IntegrantBase("Attack", pos++);
+			const {id: dmgId, base: dmgBase} = make2024IntegrantBase("Damage", pos++);
+			const {diceCount, diceSize} = parseDice(dmgStr);
+
+			const dmgIntegrant = {
+				...dmgBase,
+				name: dmgName,
+				recordName: dmgName,
+				ability: dmgAbility,
+				diceCount,
+				diceSize,
+				damageType: dmgType,
 				overrideCrit: false,
-				parentID: attackId,
+				critDiceSize: "",
+				parentID: atkId,
+				childIDs: "[]",
+				source: "",
+				relations: {},
 			};
-			damageIds.push(dmg1Id);
+			if (magicBonus > 0) dmgIntegrant._bonus = magicBonus;
 
-			// Alternate/versatile damage
-			if (d["Alternate Damage"]) {
-				const {id: dmg2Id, base: dmg2Base} = make2024IntegrantBase("Damage", pos++);
-				const {diceCount: dc2, diceSize: ds2} = parseDice(d["Alternate Damage"]);
-				store.integrants.integrants[dmg2Id] = {
-					...dmg2Base,
-					name: `${itemData.name} Damage (Versatile)`,
-					damageType: d["Alternate Damage Type"] || d["Damage Type"] || "Slashing",
-					diceCount: dc2,
-					diceSize: ds2,
-					_bonus: magicBonus,
-					ability: atkAbility,
-					critDiceSize: "",
-					overrideCrit: false,
-					parentID: attackId,
-				};
-				damageIds.push(dmg2Id);
+			const atkIntegrant = {
+				...atkBase,
+				name: atkName,
+				recordName: atkRecordName,
+				actionType: "Action",
+				attack: atkObj,
+				source: "Item",
+				sourceID: itemId,
+				parentID: itemId,
+				childIDs: JSON.stringify([dmgId]),
+				relations: {},
+			};
+			if (atkObj.type === "Ranged" && vc.range) atkIntegrant.range = vc.range;
+
+			store.integrants.integrants[dmgId] = dmgIntegrant;
+			store.integrants.integrants[atkId] = atkIntegrant;
+			return atkId;
+		};
+
+		const makeAtk = (bonus) => {
+			const obj = {abilityBonus: baseAbility, type: baseAtkType};
+			if (bonus > 0) obj.bonus = bonus;
+			return obj;
+		};
+
+		// Collect all attack IDs for Item.childIDs — created below once itemId is known
+		const allAtkIds = [];
+
+		// Item integrant — written after attacks so childIDs is known
+		const {id: itemId, base: itemBase} = make2024IntegrantBase("Item", pos++);
+
+		// Weapon — build attack+damage pairs based on properties
+		if (d["Damage"]) {
+			const dmgType = d["Damage Type"] || "Slashing";
+			const altDmgType = d["Alternate Damage Type"] || dmgType;
+			const baseName = itemData.name;
+
+			if (isVersatile) {
+				// Two-handed weapon: base attack becomes One-Handed
+				allAtkIds.push(makeAttackPair(
+					`${baseName} (One-Handed)`,
+					`${baseName} Attack One-Handed`,
+					`${baseName} Damage One-Handed`,
+					makeAtk(magicBonus),
+					"auto",
+					d["Damage"],
+					dmgType,
+				));
+				allAtkIds.push(makeAttackPair(
+					`${baseName} (Two-Handed)`,
+					`${baseName} Two-Handed Attack`,
+					`${baseName} Two Handed Damage`,
+					makeAtk(magicBonus),
+					"auto",
+					d["Alternate Damage"],
+					altDmgType,
+				));
+			} else {
+				// Base attack (non-versatile)
+				allAtkIds.push(makeAttackPair(
+					baseName,
+					`${baseName} Attack`,
+					`${baseName} Damage`,
+					makeAtk(magicBonus),
+					"auto",
+					d["Damage"],
+					dmgType,
+				));
 			}
 
-			store.integrants.integrants[attackId] = {
-				...attackBase,
-				name: itemData.name,
-				actionType: "Action",
-				description: itemData.content || "",
-				_reach: false,
-				_reachText: "",
-				attack: {
-					bonus: magicBonus,
-					proficiencyLevel: "Proficient",
-					type: atkType,
-				},
-				childIDs: JSON.stringify(damageIds),
-			};
-			const atkOrder = JSON.parse(store.attacks.attackDisplayOrder || "[]");
-			atkOrder.push(attackId);
-			store.attacks.attackDisplayOrder = JSON.stringify(atkOrder);
+			// Finesse variant (Dexterity melee)
+			if (hasProp("F")) {
+				const fAtk = {abilityBonus: "Dexterity", type: "Melee"};
+				if (magicBonus > 0) fAtk.bonus = magicBonus;
+				allAtkIds.push(makeAttackPair(
+					`${baseName} (Finesse)`,
+					`${baseName} Attack (Finesse)`,
+					`${baseName} Damage (Finesse)`,
+					fAtk,
+					"auto",
+					d["Damage"],
+					dmgType,
+				));
+			}
+
+			// Off-hand variant (Light property) — ability:"none" on damage
+			if (hasProp("L")) {
+				const lAtk = {abilityBonus: "Strength", type: "Melee"};
+				if (magicBonus > 0) lAtk.bonus = magicBonus;
+				allAtkIds.push(makeAttackPair(
+					`${baseName} (Off-hand)`,
+					`${baseName} Attack (Off-hand)`,
+					`${baseName} Damage (Off-hand)`,
+					lAtk,
+					"none",
+					d["Damage"],
+					dmgType,
+				));
+			}
+
+			// Thrown variant (Ranged)
+			if (hasProp("T")) {
+				const tAtk = {abilityBonus: "Strength", type: "Ranged"};
+				if (magicBonus > 0) tAtk.bonus = magicBonus;
+				allAtkIds.push(makeAttackPair(
+					`${baseName} (Thrown)`,
+					`${baseName} Attack (Thrown)`,
+					`${baseName} Damage (Thrown)`,
+					tAtk,
+					"auto",
+					d["Damage"],
+					dmgType,
+				));
+			}
 		}
+
+		// Build properties display string
+		let propertiesStr = undefined;
+		if (vcProps.length > 0) {
+			propertiesStr = JSON.stringify(vcProps.map(key => {
+				if (key === "V") return `Versatile (${d["Alternate Damage"] || "1d10"})`;
+				return propMap[key] || key;
+			}));
+		}
+
+		// Item integrant
+		const itemIntegrant = {
+			...itemBase,
+			name: itemData.name,
+			recordName: itemData.name,
+			quantity: 1,
+			weight: parseFloat(d["Weight"] || "0") || 0,
+			cost: (vc.value != null) ? Math.floor(vc.value / 100) + " GP" : "",
+			equipData: {equippable: true, equipped: false},
+			description: itemData.content || "",
+			source: "",
+			childIDs: JSON.stringify(allAtkIds),
+			relations: {},
+		};
+		if (propertiesStr !== undefined) itemIntegrant.properties = propertiesStr;
+		if (d["Damage"]) {
+			itemIntegrant.weaponData = {
+				category: isRanged ? "Ranged" : "Melee",
+				training: capitalize(vc.weaponCategory || "martial"),
+				type: vc.name || itemData.name,
+			};
+		}
+
+		store.integrants.integrants[itemId] = itemIntegrant;
 
 		save2024Store(charModel, storeAttr, store);
 	};
