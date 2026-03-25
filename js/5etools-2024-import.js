@@ -1254,19 +1254,37 @@ function d20plus2024Import() {
 		return null;
 	}
 
-	// Returns {startingLevel, value} from {@scaledamage base|N-M|XdY}, or null.
+	// Returns {startingLevel, value, stepLevels} from {@scaledamage} tag, or null.
+	// Handles both range format (N-M) and comma-separated level list (A,B,C,...).
 	function parseSpell2024Upcast (entriesHigherLevel) {
 		for (const block of (entriesHigherLevel || [])) {
 			for (const entry of (block.entries || [])) {
 				if (typeof entry !== "string") continue;
-				const m = entry.match(/\{@scaledamage [^|]+\|(\d+)-\d+\|(\d+)d\d+\}/i);
-				if (m) return {startingLevel: parseInt(m[1], 10) + 1, value: parseInt(m[2], 10)};
+				// Comma-separated list: {@scaledamage base|A,B,C,...|XdY}
+				// e.g. Spiritual Weapon: {@scaledamage 1d8|2,4,6,8|1d8} → starts at slot 4, every 2 levels
+				const mc = entry.match(/\{@scaledamage [^|]+\|(\d+(?:,\d+)+)\|(\d+)d\d+\}/i);
+				if (mc) {
+					const levels = mc[1].split(",").map(Number);
+					const startingLevel = levels[1]; // first slot that actually adds damage
+					const stepLevels = levels.length > 1 ? levels[1] - levels[0] : 2;
+					return {startingLevel, value: parseInt(mc[2], 10), stepLevels};
+				}
+				// Range format: {@scaledamage base|N-M|XdY}
+				const mr = entry.match(/\{@scaledamage [^|]+\|(\d+)-\d+\|(\d+)d\d+\}/i);
+				if (mr) {
+					const startingLevel = parseInt(mr[1], 10) + 1;
+					const wordNums = {one:1, two:2, three:3, four:4, five:5, six:6};
+					const sm = entry.match(/every\s+(one|two|three|four|five|six|\d+)\s+(?:spell\s+)?slot\s+levels?/i);
+					const stepLevels = sm ? (wordNums[sm[1].toLowerCase()] || parseInt(sm[1], 10) || 1) : 1;
+					return {startingLevel, value: parseInt(mr[2], 10), stepLevels};
+				}
 			}
 		}
 		return null;
 	}
 
-	// Returns number of projectiles for repeat-fire spells (e.g. 3 for Magic Missile).
+	// Returns number of projectiles for auto-hit spells (e.g. 3 for Magic Missile), or null if no projectile word found.
+	// Returns null (not 1) when no match so callers can gate isAutoHit on a real projectile being present.
 	function parseSpell2024Repeat (entries) {
 		const wordNums = {one:1, two:2, three:3, four:4, five:5, six:6, seven:7, eight:8, nine:9, ten:10};
 		for (const entry of (entries || [])) {
@@ -1274,7 +1292,7 @@ function d20plus2024Import() {
 			const m = entry.match(/\b(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\b[^.]*\b(?:dart|missile|bolt|beam|ray|orb|needle|lance|streak)s?\b/i);
 			if (m) return wordNums[m[1].toLowerCase()] || parseInt(m[1], 10) || 1;
 		}
-		return 1;
+		return null;
 	}
 
 	// Returns true if the higher-level text describes adding more projectiles per slot (not more damage dice).
@@ -1367,9 +1385,35 @@ function d20plus2024Import() {
 
 		// Range and duration as full strings, matching native Roll20 format
 		const range = vc ? Parser.spRangeToFull(vc.range) : (d["Range"] || "");
-		const duration = vc
-			? Parser.spDurationToFull(vc.duration).replace(/Concentration,\s*/gi, "")
-			: (d["Duration"] || "");
+		// Build duration from JSON to avoid Parser.spDurationToFull returning raw HTML anchor tags
+		function parseDuration2024 (durArr) {
+			if (!durArr || !durArr.length) return "Instantaneous";
+			const du = durArr[0];
+			if (du.type === "instantaneous") return "Instantaneous";
+			if (du.type === "permanent") return "Until Dispelled";
+			if (du.type === "special") return "Special";
+			if (du.type === "timed" && du.duration) {
+				const amt = du.duration.amount;
+				const unit = du.duration.type;
+				const unitStr = unit.charAt(0).toUpperCase() + unit.slice(1) + (amt !== 1 ? "s" : "");
+				return `${amt} ${unitStr}`;
+			}
+			return "Instantaneous";
+		}
+		const duration = vc ? parseDuration2024(vc.duration) : (d["Duration"] || "");
+		// Build casting time from JSON for the same reason
+		function parseCastingTime2024 (timeArr) {
+			if (!timeArr || !timeArr.length) return "Action";
+			const t = timeArr[0];
+			if (t.unit === "action") return "Action";
+			if (t.unit === "bonus") return "Bonus Action";
+			if (t.unit === "reaction") return "Reaction";
+			if (t.unit === "minute") return t.number === 1 ? "1 Minute" : `${t.number} Minutes`;
+			if (t.unit === "hour") return t.number === 1 ? "1 Hour" : `${t.number} Hours`;
+			if (t.unit === "day") return t.number === 1 ? "1 Day" : `${t.number} Days`;
+			return "Action";
+		}
+		const castingTime = vc ? parseCastingTime2024(vc.time) : (d["Casting Time"] || "Action");
 
 		// AoE
 		const aoeShape = vc && vc.areaTags && vc.areaTags.length ? areaTagTo2024Shape(vc.areaTags[0]) : "";
@@ -1380,12 +1424,17 @@ function d20plus2024Import() {
 		const hasSave = vc && vc.savingThrow && vc.savingThrow.length;
 		const hasSpellAtk = vc && vc.spellAttack && vc.spellAttack.length;
 		const hasDamage = vc && vc.damageInflict && vc.damageInflict.length;
-		const buildChain = hasDamage;
-		const isAutoHit = hasDamage && !hasSave && !hasSpellAtk;
 		const isCantripScaling = vc && vc.level === 0 && (vc.miscTags || []).includes("SCL");
 
+		// isAutoHit: only for spells with no save/attack that explicitly fire projectiles (e.g. Magic Missile).
+		// parseSpell2024Repeat returns null when no projectile word found, so buff spells like Elemental Weapon
+		// (hasDamage but no save/attack) are excluded from the auto-hit chain.
+		const rawRepeat = (hasDamage && !hasSave && !hasSpellAtk) ? parseSpell2024Repeat(vc.entries) : null;
+		const isAutoHit = rawRepeat !== null;
+		const repeatCount = rawRepeat || 1;
+		const buildChain = hasDamage && (hasSave || hasSpellAtk || isAutoHit);
+
 		const parsed = buildChain ? parseSpell2024Damage(vc.entries) : null;
-		const repeatCount = isAutoHit ? parseSpell2024Repeat(vc.entries) : 1;
 		const isRepeatUpcast = !isCantripScaling && isAutoHit && parseSpell2024RepeatUpcast(vc.entriesHigherLevel);
 		// Standard upcast (diceCount) only for non-cantrip, non-repeat spells
 		const upcast = (!isCantripScaling && buildChain && !isRepeatUpcast) ? parseSpell2024Upcast(vc.entriesHigherLevel) : null;
@@ -1421,7 +1470,7 @@ function d20plus2024Import() {
 				name: `${spellData.name} Upcast`,
 				recordName: `${spellData.name} Upcast`,
 				startingLevel: isRepeat ? 2 : upcast.startingLevel,
-				level: 1,
+				level: isRepeat ? 1 : (upcast.stepLevels || 1),
 				mode: "Per X Spell Level",
 				target: isRepeat ? "$.repeat" : "$.diceCount",
 				value: isRepeat ? 1 : upcast.value,
@@ -1493,7 +1542,7 @@ function d20plus2024Import() {
 					...attackBase,
 					name: spellData.name,
 					recordName: `${spellData.name} Free Attack`,
-					actionType: d["Casting Time"] || "Action",
+					actionType: castingTime,
 					range,
 					autoHit: true,
 					repeat: repeatCount,
@@ -1517,7 +1566,7 @@ function d20plus2024Import() {
 					...attackBase,
 					name: spellData.name,
 					recordName: `${spellData.name} Attack`,
-					actionType: d["Casting Time"] || "Action",
+					actionType: castingTime,
 					range,
 					aoe,
 					attack: {type: atkType},
@@ -1597,7 +1646,7 @@ function d20plus2024Import() {
 					...mAtkBase,
 					name: atkName,
 					recordName: atkRecordName,
-					actionType: d["Casting Time"] || "Action",
+					actionType: castingTime,
 					range,
 					aoe,
 					attack: {type: hasSave ? "Spell Save" : "Spell Attack"},
@@ -1632,14 +1681,14 @@ function d20plus2024Import() {
 			recordName: spellData.name,
 			level: levelIdx,
 			school: d["School"] || "Evocation",
-			castingTime: d["Casting Time"] || "Action",
+			castingTime: castingTime,
 			range,
 			components,
 			duration,
 			description: d["data-description"] || "",
 			relations: {},
 			ritual: (d["Ritual"] || "") === "Yes",
-			target: "0",
+			target: "",
 			upcastText: d["Higher Spell Slot Desc"] || "",
 			childIDs: spellChildIDs,
 		};
