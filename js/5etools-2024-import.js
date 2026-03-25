@@ -1283,6 +1283,39 @@ function d20plus2024Import() {
 		return null;
 	}
 
+	// Returns {diceCount, diceSize, bonus} from {@heal XdY} or {@dice XdY + N} in spell entries, or null.
+	function parseSpell2024HealDice (entries) {
+		for (const entry of (entries || [])) {
+			if (typeof entry !== "string") continue;
+			const mh = entry.match(/\{@heal (\d+)d(\d+)\}/i);
+			if (mh) return {diceCount: parseInt(mh[1], 10), diceSize: "d" + mh[2], bonus: 0};
+			const md = entry.match(/\{@dice (\d+)d(\d+)(?:\s*([+-])\s*(\d+))?\}/i);
+			if (md) return {
+				diceCount: parseInt(md[1], 10),
+				diceSize: "d" + md[2],
+				bonus: md[3] && md[4] ? (md[3] === "+" ? 1 : -1) * parseInt(md[4], 10) : 0,
+			};
+		}
+		return null;
+	}
+
+	// Returns {value, startingLevel, stepLevels, targetBonus} for heal upcasting, or null.
+	// targetBonus:true → "$._bonus" (flat HP per slot, e.g. False Life); false → "$.diceCount" (dice per slot, e.g. Cure Wounds).
+	function parseSpell2024HealUpcast (entriesHigherLevel) {
+		for (const block of (entriesHigherLevel || [])) {
+			for (const entry of (block.entries || [])) {
+				if (typeof entry !== "string") continue;
+				// Flat HP per slot: "5 additional (temporary) hit points for each slot level above 1st"
+				const mf = entry.match(/(\d+) additional (?:temporary )?hit points? for each (?:spell )?slot level above (\d+)/i);
+				if (mf) return {value: parseInt(mf[1], 10), startingLevel: parseInt(mf[2], 10) + 1, stepLevels: 1, targetBonus: true};
+			}
+		}
+		// Fall through to scaledamage for dice-based healing (e.g. Cure Wounds)
+		const scaled = parseSpell2024Upcast(entriesHigherLevel);
+		if (scaled) return {...scaled, targetBonus: false};
+		return null;
+	}
+
 	// Returns number of projectiles for auto-hit spells (e.g. 3 for Magic Missile), or null if no projectile word found.
 	// Returns null (not 1) when no match so callers can gate isAutoHit on a real projectile being present.
 	function parseSpell2024Repeat (entries) {
@@ -1426,16 +1459,21 @@ function d20plus2024Import() {
 		const hasDamage = vc && vc.damageInflict && vc.damageInflict.length;
 		const isCantripScaling = vc && vc.level === 0 && (vc.miscTags || []).includes("SCL");
 
-		// isAutoHit: only for spells with no save/attack that explicitly fire projectiles (e.g. Magic Missile).
-		// parseSpell2024Repeat returns null when no projectile word found, so buff spells like Elemental Weapon
-		// (hasDamage but no save/attack) are excluded from the auto-hit chain.
+		// isAutoHit: no save/attack but fires explicit projectiles (Magic Missile "three darts").
+		// parseSpell2024Repeat returns null when no projectile word found → excludes buff spells like Elemental Weapon.
 		const rawRepeat = (hasDamage && !hasSave && !hasSpellAtk) ? parseSpell2024Repeat(vc.entries) : null;
 		const isAutoHit = rawRepeat !== null;
 		const repeatCount = rawRepeat || 1;
+
+		// isMultiRay: leveled spell with a spell attack roll that fires multiple projectiles (Scorching Ray "three rays").
+		const rayRepeat = (!isCantripScaling && hasSpellAtk) ? parseSpell2024Repeat(vc.entries) : null;
+		const isMultiRay = rayRepeat !== null;
+
 		const buildChain = hasDamage && (hasSave || hasSpellAtk || isAutoHit);
 
 		const parsed = buildChain ? parseSpell2024Damage(vc.entries) : null;
-		const isRepeatUpcast = !isCantripScaling && isAutoHit && parseSpell2024RepeatUpcast(vc.entriesHigherLevel);
+		// isRepeatUpcast: auto-hit OR multi-ray spells that add more projectiles per slot
+		const isRepeatUpcast = !isCantripScaling && (isAutoHit || isMultiRay) && parseSpell2024RepeatUpcast(vc.entriesHigherLevel);
 		// Standard upcast (diceCount) only for non-cantrip, non-repeat spells
 		const upcast = (!isCantripScaling && buildChain && !isRepeatUpcast) ? parseSpell2024Upcast(vc.entriesHigherLevel) : null;
 		const isDiceScaling = isCantripScaling && !!vc.scalingLevelDice;
@@ -1443,6 +1481,12 @@ function d20plus2024Import() {
 		const cantripLevels = (isCantripScaling && buildChain) ? parseSpell2024CantripLevels(vc) : [];
 		// Detect whether a failed save deals half damage or no damage on success
 		const onSucceedHalf = hasSave && vc && vc.entries && vc.entries.some(e => typeof e === "string" && /\bhalf\b/i.test(e));
+
+		// Healing chain: spells that grant HP or temp HP (False Life, Cure Wounds, etc.)
+		const hasTHP = vc && (vc.miscTags || []).includes("THP");
+		const hasHeal = vc && (vc.miscTags || []).includes("HL");
+		const healParsed = (hasTHP || hasHeal) ? parseSpell2024HealDice(vc.entries) : null;
+		const healUpcastData = healParsed ? parseSpell2024HealUpcast(vc.entriesHigherLevel) : null;
 
 		// Generate all IDs + arrayPositions upfront so parents can reference children
 		let pos = getNextArrayPos(store);
@@ -1461,6 +1505,11 @@ function d20plus2024Import() {
 				({id: upcastId, base: upcastBase} = make2024IntegrantBase("Upcasting", pos++));
 			}
 		}
+		let healId, healBase, healUpcastId, healUpcastBase;
+		if (healParsed) {
+			({id: healId, base: healBase} = make2024IntegrantBase("Healing", pos++));
+			if (healUpcastData) ({id: healUpcastId, base: healUpcastBase} = make2024IntegrantBase("Upcasting", pos++));
+		}
 
 		// Write integrants bottom-up so childIDs can reference already-known IDs
 		if (upcastId) {
@@ -1469,7 +1518,7 @@ function d20plus2024Import() {
 				...upcastBase,
 				name: `${spellData.name} Upcast`,
 				recordName: `${spellData.name} Upcast`,
-				startingLevel: isRepeat ? 2 : upcast.startingLevel,
+				startingLevel: isRepeat ? levelIdx + 1 : upcast.startingLevel,
 				level: isRepeat ? 1 : (upcast.stepLevels || 1),
 				mode: "Per X Spell Level",
 				target: isRepeat ? "$.repeat" : "$.diceCount",
@@ -1575,6 +1624,8 @@ function d20plus2024Import() {
 					relations: {},
 				};
 				if (isCantripScaling && !isDiceScaling) atkIntegrant.repeat = 1;
+			if (isMultiRay) atkIntegrant.repeat = rayRepeat;
+			if (isRepeatUpcast && upcastId) atkIntegrant.childIDs = JSON.stringify([dmgId, upcastId]);
 				if (hasSave) {
 					atkIntegrant.save = {
 						saveAbility: cap(vc.savingThrow[0]),
@@ -1666,21 +1717,60 @@ function d20plus2024Import() {
 			}
 		}
 
+			// Healing chain (False Life, Cure Wounds, etc.)
+		if (healParsed) {
+			const healLabel = hasTHP ? "Temporary Hit Points" : "Hit Points";
+			if (healUpcastId) {
+				store.integrants.integrants[healUpcastId] = {
+					...healUpcastBase,
+					name: `${spellData.name} ${healLabel} Upcast`,
+					recordName: `${spellData.name} ${healLabel} Upcast`,
+					startingLevel: healUpcastData.startingLevel,
+					level: healUpcastData.stepLevels || 1,
+					mode: "Per X Spell Level",
+					target: healUpcastData.targetBonus ? "$._bonus" : "$.diceCount",
+					value: healUpcastData.value,
+					changeMode: "Add",
+					parentID: healId,
+					childIDs: "[]",
+					relations: {},
+				};
+			}
+			store.integrants.integrants[healId] = {
+				...healBase,
+				name: `${spellData.name} ${healLabel}`,
+				recordName: `${spellData.name} ${healLabel}`,
+				_bonus: healParsed.bonus,
+				ability: "none",
+				diceCount: healParsed.diceCount,
+				diceSize: healParsed.diceSize,
+				overrideCrit: false,
+				critDiceSize: "",
+				isTemp: !!hasTHP,
+				parentID: spellId,
+				childIDs: healUpcastId ? JSON.stringify([healUpcastId]) : "[]",
+				relations: {},
+			};
+		}
+
 		// Spell integrant (always created)
 		const spellChildIDs = isMultiDamage
 			? JSON.stringify(multiDamageAtkIds)
-			: (attackId ? JSON.stringify([attackId]) : "[]");
+			: attackId ? JSON.stringify([attackId])
+			: healId ? JSON.stringify([healId])
+			: "[]";
 
+		const schoolMap = {A:"Abjuration",C:"Conjuration",D:"Divination",E:"Enchantment",I:"Illusion",N:"Necromancy",T:"Transmutation",V:"Evocation"};
 		const spellIntegrant = {
 			...spellBase,
 			_prepared: true,
 			alwaysPrepared: false,
 			aoe,
-			concentration: (d["Concentration"] || "") === "Yes",
+			concentration: vc ? !!(vc.duration && vc.duration[0] && vc.duration[0].concentration) : (d["Concentration"] || "") === "Yes",
 			name: spellData.name,
 			recordName: spellData.name,
 			level: levelIdx,
-			school: d["School"] || "Evocation",
+			school: (vc && schoolMap[vc.school]) || d["School"] || "Evocation",
 			castingTime: castingTime,
 			range,
 			components,
