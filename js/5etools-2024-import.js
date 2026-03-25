@@ -1292,8 +1292,10 @@ function d20plus2024Import() {
 	// Prefers scalingLevelDice keys when available (Shocking Grasp style),
 	// otherwise parses "at Nth level" text (Eldritch Blast style).
 	function parseSpell2024CantripLevels (vc) {
-		if (vc.scalingLevelDice && vc.scalingLevelDice.scaling) {
-			const levels = Object.keys(vc.scalingLevelDice.scaling)
+		// Handle both object form {label, scaling} and array form [{label, scaling}, ...]
+		const sld = Array.isArray(vc.scalingLevelDice) ? vc.scalingLevelDice[0] : vc.scalingLevelDice;
+		if (sld && sld.scaling) {
+			const levels = Object.keys(sld.scaling)
 				.map(Number)
 				.filter(l => l > 1)
 				.sort((a, b) => a - b);
@@ -1388,14 +1390,17 @@ function d20plus2024Import() {
 		// Standard upcast (diceCount) only for non-cantrip, non-repeat spells
 		const upcast = (!isCantripScaling && buildChain && !isRepeatUpcast) ? parseSpell2024Upcast(vc.entriesHigherLevel) : null;
 		const isDiceScaling = isCantripScaling && !!vc.scalingLevelDice;
+		const isMultiDamage = isDiceScaling && Array.isArray(vc.scalingLevelDice) && vc.scalingLevelDice.length > 1;
 		const cantripLevels = (isCantripScaling && buildChain) ? parseSpell2024CantripLevels(vc) : [];
+		// Detect whether a failed save deals half damage or no damage on success
+		const onSucceedHalf = hasSave && vc && vc.entries && vc.entries.some(e => typeof e === "string" && /\bhalf\b/i.test(e));
 
 		// Generate all IDs + arrayPositions upfront so parents can reference children
 		let pos = getNextArrayPos(store);
 		const {id: spellId, base: spellBase} = make2024IntegrantBase("Spell", pos++);
 		let attackId, attackBase, dmgId, dmgBase, upcastId, upcastBase;
 		let cantripUpcastEntries = []; // [{id, base, level}] for cantrip scaling
-		if (buildChain) {
+		if (buildChain && !isMultiDamage) {
 			({id: attackId, base: attackBase} = make2024IntegrantBase("Attack", pos++));
 			({id: dmgId, base: dmgBase} = make2024IntegrantBase("Damage", pos++));
 			if (isCantripScaling) {
@@ -1525,15 +1530,99 @@ function d20plus2024Import() {
 					atkIntegrant.save = {
 						saveAbility: cap(vc.savingThrow[0]),
 						onFail: `Takes ${diceCount}${diceSize} ${damageType} damage.`,
-						onSucceed: "Half as much damage.",
+						onSucceed: onSucceedHalf ? "Half as much damage." : "No effect.",
 					};
 				}
 			}
 			store.integrants.integrants[attackId] = atkIntegrant;
 		}
 
+		// Multi-damage cantrip chains (e.g. Toll the Dead: two Attack+Damage+Upcast sets)
+		const multiDamageAtkIds = [];
+		if (isMultiDamage) {
+			const damageType = cap(vc.damageInflict[0]);
+			const onSucceed = onSucceedHalf ? "Half as much damage." : "No effect.";
+
+			for (const sldEntry of vc.scalingLevelDice) {
+				const baseDiceStr = sldEntry.scaling["1"] || "1d8";
+				const baseDiceM = baseDiceStr.match(/(\d+)d(\d+)/i);
+				const baseDiceCount = baseDiceM ? parseInt(baseDiceM[1], 10) : 1;
+				const baseDiceSize = baseDiceM ? "d" + baseDiceM[2] : "d8";
+
+				const suffix = `(${baseDiceStr})`;
+				const dmgName = `${spellData.name} ${suffix} Damage`;
+				const atkName = `${spellData.name} ${suffix}`;
+				const atkRecordName = `${spellData.name} ${suffix} Attack`;
+
+				const {id: mAtkId, base: mAtkBase} = make2024IntegrantBase("Attack", pos++);
+				const {id: mDmgId, base: mDmgBase} = make2024IntegrantBase("Damage", pos++);
+				const mUpcastEntries = cantripLevels.map(lvl => {
+					const {id, base} = make2024IntegrantBase("Upcasting", pos++);
+					return {id, base, level: lvl};
+				});
+
+				for (const {id, base, level} of mUpcastEntries) {
+					store.integrants.integrants[id] = {
+						...base,
+						name: `${dmgName} Upcast ${level}`,
+						recordName: `${dmgName} Upcast ${level}`,
+						mode: "Specific Character Level",
+						level,
+						startingLevel: 0,
+						target: "$.diceCount",
+						value: 1,
+						changeMode: "Add",
+						parentID: mDmgId,
+						childIDs: "[]",
+						relations: {},
+					};
+				}
+
+				store.integrants.integrants[mDmgId] = {
+					...mDmgBase,
+					name: dmgName,
+					recordName: dmgName,
+					ability: "none",
+					diceCount: baseDiceCount,
+					diceSize: baseDiceSize,
+					damageType,
+					overrideCrit: false,
+					critDiceSize: "",
+					parentID: mAtkId,
+					childIDs: JSON.stringify(mUpcastEntries.map(e => e.id)),
+					relations: {},
+				};
+
+				const mAtkIntegrant = {
+					...mAtkBase,
+					name: atkName,
+					recordName: atkRecordName,
+					actionType: d["Casting Time"] || "Action",
+					range,
+					aoe,
+					attack: {type: hasSave ? "Spell Save" : "Spell Attack"},
+					parentID: spellId,
+					childIDs: JSON.stringify([mDmgId]),
+					relations: {},
+				};
+				if (hasSave) {
+					mAtkIntegrant.save = {
+						saveAbility: cap(vc.savingThrow[0]),
+						onFail: `Takes ${baseDiceStr} ${damageType} damage.`,
+						onSucceed,
+					};
+				}
+				store.integrants.integrants[mAtkId] = mAtkIntegrant;
+				multiDamageAtkIds.push(mAtkId);
+			}
+		}
+
 		// Spell integrant (always created)
-		store.integrants.integrants[spellId] = {
+		const spellChildIDs = isMultiDamage
+			? JSON.stringify(multiDamageAtkIds)
+			: (attackId ? JSON.stringify([attackId]) : "[]");
+
+		const spellIntegrant = {
 			...spellBase,
 			_prepared: true,
 			alwaysPrepared: false,
@@ -1552,8 +1641,10 @@ function d20plus2024Import() {
 			ritual: (d["Ritual"] || "") === "Yes",
 			target: "0",
 			upcastText: d["Higher Spell Slot Desc"] || "",
-			childIDs: attackId ? JSON.stringify([attackId]) : "[]",
+			childIDs: spellChildIDs,
 		};
+		if (isDiceScaling) spellIntegrant.cantripScale = "Dice";
+		store.integrants.integrants[spellId] = spellIntegrant;
 
 		const order = JSON.parse(store.spells.displayOrder[levelIdx] || "[]");
 		order.push(spellId);
