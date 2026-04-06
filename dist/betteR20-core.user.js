@@ -2,7 +2,7 @@
 // @name         betteR20-beta-core-death-jumpagate-import
 // @namespace    https://5e.tools/
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      1.36.1.1jf
+// @version      1.36.1.1jg
 // @updateURL    https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/betteR20-core.meta.js
 // @downloadURL  https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/betteR20-core.user.js
 // @description  Enhance your Roll20 experience
@@ -30,7 +30,7 @@ ART_HANDOUT = "betteR20-art";
 CONFIG_HANDOUT = "betteR20-config";
 
 B20_NAME = `core`;
-B20_VERSION = `1.36.1.1jf`;
+B20_VERSION = `1.36.1.1jg`;
 B20_REPO_URL = `https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/`;
 
 // TODO automate to use mirror if main site is unavailable
@@ -287,7 +287,7 @@ function baseUtil () {
 							in<span style="color: orange; font-family: monospace"> 5etools &gt; better20 &gt; #testing </span>thread
 						</p>
 					</h1>
-					<p>This version contains following changes<br>1.35.186.14jq - Map Importer?<br>- Fix Map Importer. Thank you @helenclarko<br>1.35.186.14jr - Fix data error?<br>- Fix Import Error<br>1.35.186.14js - Fix data error?<br>- Fix Import Error<br>1.35.186.14js - HUH?<br>- Fix 2024 rolling<br>1.36.1.1ja - The Merge Collapse?<br>- Too many Changes<br>1.36.1.1jc - The Merge Collapse?<br>- Fix all Sources<br>1.36.1.1jd - Macros?<br>- add bulk macro button.<br>1.36.1.1je - Commits are real<br>- Merge PRs, and imporve Module Importer<br></p>
+					<p>This version contains following changes<br>1.35.186.14jq - Map Importer?<br>- Fix Map Importer. Thank you @helenclarko<br>1.35.186.14jr - Fix data error?<br>- Fix Import Error<br>1.35.186.14js - Fix data error?<br>- Fix Import Error<br>1.35.186.14js - HUH?<br>- Fix 2024 rolling<br>1.36.1.1ja - The Merge Collapse?<br>- Too many Changes<br>1.36.1.1jc - The Merge Collapse?<br>- Fix all Sources<br>1.36.1.1jd - Macros?<br>- add bulk macro button.<br>1.36.1.1je - Commits are real<br>- Merge PRs, and imporve Module Importer<br>1.36.1.1jg - Commits are real<br>- Fix drag and Drop.<br><br></p>
 				</div>
 			`);
 			}, 6000);
@@ -10343,6 +10343,45 @@ function d20plusArt () {
 		});
 	};
 
+	d20plus.art._setCharacterDefaultTokenPreview = ($dropbox, url) => {
+		const $inner = $dropbox.find(".inner");
+		if (!url) {
+			$dropbox.removeClass("filled");
+			$inner.html(`<h4 style="padding-bottom: 0px; marigin-bottom: 0px; color: #777;">Drop a file from your <br>Art Library or computer<small>(JPG, GIF, PNG, WEBM, WP4)</small></h4><br /> or<button class="btn">Click to Upload</button><input class="manual" type="file" />`);
+			return;
+		}
+
+		$dropbox.addClass("filled");
+		$inner.html(/.+\.webm(\?.*)?$/i.test(url)
+			? `<video src="${url}" draggable="false" muted autoplay loop></video><div class='remove'><a href='#'>Remove</a></div>`
+			: `<img src="${url}" draggable="false"><div class='remove'><a href='#'>Remove</a></div>`);
+	};
+
+	// Backward-compatibility shim for older builds/cached scripts which may still call the
+	// previously-added default-token dropbox binding hooks.
+	d20plus.art._bindCharacterDefaultTokenDropboxes = () => {};
+	d20plus.art._initCharacterDefaultTokenDropboxObserver = () => {
+		d20plus.art._bindCharacterDefaultTokenDropboxes();
+	};
+
+	d20plus.art._setCharacterDefaultTokenImage = (char, url) => {
+		if (char?.view?.saveDefaultTokenImage) {
+			if (char.view.updateModel) char.view.updateModel();
+			char.view.saveDefaultTokenImage(url);
+			return;
+		}
+
+		char._getLatestBlob("defaulttoken", (blob) => {
+			blob = blob && blob.trim() ? JSON.parse(blob) : {};
+			blob.imgsrc = url;
+			const serialized = JSON.stringify(blob);
+			char._blobcache = char._blobcache || {};
+			char._blobcache.defaulttoken = serialized;
+			char.updateBlobs({defaulttoken: serialized});
+			char.save({defaulttoken: (new Date()).getTime()});
+		});
+	};
+
 	d20plus.art.pLoadArt = async () => {
 		d20plus.ut.log("Loading custom art");
 		const handout = d20plus.art.getArtHandout();
@@ -10440,16 +10479,25 @@ function d20plusArt () {
 		});
 
 		$(`.token-image-by-url`).live("click", function () {
-			const cId = $(this).closest(`[data-characterid]`).attr(`data-characterid`);
+			const $dialog = $(this).closest(`[data-characterid]`);
+			const cId = $dialog.attr(`data-characterid`);
 			const url = window.prompt("Enter a URL", d20plus.art.getLastImageUrl());
 			if (url) {
 				d20plus.art.setLastImageUrl(url);
 				const char = d20.Campaign.characters.get(cId);
-				char._getLatestBlob("defaulttoken", (blob) => {
-					blob = blob && blob.trim() ? JSON.parse(blob) : {};
-					blob.imgsrc = url;
-					char.updateBlobs({defaulttoken: JSON.stringify(blob)});
-				});
+				d20plus.art._bindCharacterDefaultTokenDropboxes();
+				setTimeout(() => {
+					const $dropbox = $(this).closest(`.charactereditor`).find(`.defaultToken.dropbox`);
+					if ($dropbox.length) {
+						const $inner = $dropbox.find(`.inner`);
+						$dropbox.addClass(`filled`);
+						$inner.html(/.+\.webm(\?.*)?$/i.test(url)
+							? `<video src="${url}" draggable="false" muted autoplay loop></video><div class='remove'><a href='#'>Remove</a></div>`
+							: `<img src="${url}" draggable="false"><div class='remove'><a href='#'>Remove</a></div>`);
+					}
+				}, 0);
+				d20plus.art._setCharacterDefaultTokenImage(char, url);
+				d20plus.art._setCharacterDefaultTokenPreview($dialog.find(`.defaultToken.dropbox`), url);
 			}
 		});
 
@@ -13638,19 +13686,20 @@ function initHTMLroll20EditorsMisc () {
 								<strong>Default Token (Optional)</strong>
 								<a class='showtip pictos' title='The default token will be used when this character is dragged from the Journal Tab to the Virtual Tabletop. For regular 1x1 tokens representing this character, you may use images from your Art Library or computer. For larger tokens, create a token on the Virtual Tabletop and use &quot;Use Selected Token.&quot;'>?</a>
 							</label>
-							<div class="defaultToken dropbox <$! this.defaultTokenImage != "" ? "filled" : "" $>">
+							<$ var defaultTokenImage = this.defaultTokenImage || ""; $>
+							<div class="defaultToken dropbox <$! defaultTokenImage != "" ? "filled" : "" $>">
 								<div class="status"></div>
 								<div class="inner">
-									<$ if(this.defaultTokenImage == "") { $>
+									<$ if(defaultTokenImage == "") { $>
 									<h4 style="padding-bottom: 0px; marigin-bottom: 0px; color: #777;">Drop a file from your <br>Art Library or computer<small>(JPG, GIF, PNG, WEBM, WP4)</small></h4>
 									<br /> or
 									<button class="btn">Click to Upload</button>
 									<input class="manual" type="file" />
 									<$ } else { $>
-									<$ if(/.+\\.webm(\\?.*)?$/i.test(this.defaultTokenImage)) { $>
-									<video src="<$!this.defaultTokenImage$>" draggable="false" muted autoplay loop />
+									<$ if(/.+\\.webm(\\?.*)?$/i.test(defaultTokenImage)) { $>
+									<video src="<$!defaultTokenImage$>" draggable="false" muted autoplay loop />
 									<$ } else { $>
-									<img src="<$!this.defaultTokenImage$>" draggable="false" />
+									<img src="<$!defaultTokenImage$>" draggable="false" />
 									<$ } $>
 									<div class='remove'><a href='#'>Remove</a></div>
 									<$ } $>
@@ -16252,6 +16301,23 @@ function d20plusEngine () {
 	d20plus.engine.removeLinkConfirmation = function () {
 		d20.utils.handleURL = d20plus.mod.handleURL;
 		$(document).off("click", "a").on("click", "a", d20.utils.handleURL);
+	};
+
+	d20plus.engine.fixHandleHtmlInput = function () {
+		if (d20plus.engine._hasPatchedHandleHtmlInput) return;
+		if (!d20?.utils?.autoLink || !d20?.utils?.handleHTMLInput) return;
+
+		const originalAutoLink = d20.utils.autoLink.bind(d20.utils);
+		d20.utils.autoLink = function (value) {
+			return originalAutoLink(value == null ? "" : `${value}`);
+		};
+
+		const originalHandleHtmlInput = d20.utils.handleHTMLInput.bind(d20.utils);
+		d20.utils.handleHTMLInput = function (value) {
+			return originalHandleHtmlInput(value == null ? "" : `${value}`);
+		};
+
+		d20plus.engine._hasPatchedHandleHtmlInput = true;
 	};
 
 	d20plus.engine.repairPrototypeMethods = function () {
@@ -29270,6 +29336,7 @@ const betteR20Core = function () {
 				d20plus.remoteLibre.init();
 				d20plus.jukeboxWidget.init();
 			}
+			d20plus.engine.fixHandleHtmlInput();
 			d20plus.engine.enhancePathWidths();
 			// d20plus.ut.fix3dDice(); // FIXME(165) re-enable when we have a better solution
 			// d20plus.engine.addLayers();

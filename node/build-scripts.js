@@ -1,6 +1,6 @@
 const fs = require("fs");
 
-const SCRIPT_VERSION = "1.36.1.1jf";
+const SCRIPT_VERSION = "1.36.1.1jg";
 const SCRIPT_REPO = "https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/";
 
 const SCRIPT_BETA_DESCRIPTION = `This version contains following changes
@@ -20,6 +20,9 @@ const SCRIPT_BETA_DESCRIPTION = `This version contains following changes
 - add bulk macro button.
 1.36.1.1je - Commits are real
 - Merge PRs, and imporve Module Importer
+1.36.1.1jg - Commits are real
+- Fix drag and Drop.
+
 `;
 
 const AUTHORS_CORE = `TheGiddyLimit/Redweller`;
