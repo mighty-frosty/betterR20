@@ -2,15 +2,9 @@
 // @name         betteR20-beta-core-death-jumpagate-import
 // @namespace    https://5e.tools/
 // @license      MIT (https://opensource.org/licenses/MIT)
-<<<<<<< HEAD
 // @version      1.36.1.1devja
 // @updateURL    https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/JumpGate-Dev/dist/betteR20-core.meta.js
 // @downloadURL  https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/JumpGate-Dev/dist/betteR20-core.user.js
-=======
-// @version      1.36.1.1jga
-// @updateURL    https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/betteR20-core.meta.js
-// @downloadURL  https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/betteR20-core.user.js
->>>>>>> 78b92290ec7c5ba2038c45d5c4b73c5ece69f60b
 // @description  Enhance your Roll20 experience
 // @author       TheGiddyLimit/Redweller
 
@@ -36,13 +30,8 @@ ART_HANDOUT = "betteR20-art";
 CONFIG_HANDOUT = "betteR20-config";
 
 B20_NAME = `core`;
-<<<<<<< HEAD
 B20_VERSION = `1.36.1.1devja`;
 B20_REPO_URL = `https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/JumpGate-Dev/dist/`;
-=======
-B20_VERSION = `1.36.1.1jga`;
-B20_REPO_URL = `https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/`;
->>>>>>> 78b92290ec7c5ba2038c45d5c4b73c5ece69f60b
 
 // TODO automate to use mirror if main site is unavailable
 BASE_SITE_URL = `https://5e.tools/`; // "https://5e.tools/";
@@ -248,7 +237,7 @@ function baseUtil () {
 			<div class="${classname}">
 				<img src="" class="userscript-b20img" style="content: unset; width:30px;position: relative;top: 10px;float: right;margin-left:-20px">
 				<h1 style="display: inline-block;line-height: 25px;margin-top: 5px; font-size: 22px;">
-					betteR20 
+					betteR20
 					<span style=" font-size: 13px ; font-weight: normal">by 5etools</span>
 					<p style="font-size: 11px;line-height: 15px;font-family: monospace;color: rgb(32, 194, 14);">VTTES ${vttv} detected<br>${b20v} loaded</p>
 				</h1>
@@ -287,7 +276,7 @@ function baseUtil () {
 				$bored.remove();
 				clearInterval(d20plus.ut.cursor);
 			}, 2000);
-		
+
 			d20plus.ut.sendHackerChat(`
 				<div class="userscript-b20intro">
 					<h1 style="display: inline-block;line-height: 25px;margin-top: 5px; font-size: 22px;">
@@ -5118,7 +5107,7 @@ function baseToolUnlock () {
 					<button class="btn" name="btn-refresh">Refresh</button>
 				</p>
 				<p class="split">
-					<label><input type="checkbox" title="Select all" name="cb-all"> Select All</label> 
+					<label><input type="checkbox" title="Select all" name="cb-all"> Select All</label>
 					<button class="btn" name="btn-unlock">Unlock Selected</button>
 				</p>
 				<div id="token-unlocker-list-container">
@@ -20174,7 +20163,7 @@ function baseCss () {
 		}
 		.ba-list ul[data-list="spells"] .selector:hover .submenu {
 			display: flex;
-			margin-left: 0px; 
+			margin-left: 0px;
 		}
 		.ba-list ul[data-list="spells"] .submenu .parameters > .submenu {
 			display: none;
@@ -21436,7 +21425,7 @@ function d20plusMod () {
 	d20plus.mod.setAlpha = function (layer) {
 		const l = ["map", "floors", "walls", "weather", "background", "objects", "roofs", "foreground", "gmlayer"];
 		const o = ["background", "objects", "foreground"];
-		return !window.is_gm 
+		return !window.is_gm
 			|| (o.includes(layer) && o.includes(window.currentEditingLayer))
 			|| (l.indexOf(window.currentEditingLayer) >= l.indexOf(layer)
 				&& !((layer === "roofs" || o.includes(layer)) && window.currentEditingLayer === "gmlayer"))
@@ -44411,14 +44400,14 @@ init(true);function init(packaged) {
 
     if (!global || !global.document)
         return;
-    
+
     config.set("packaged", packaged || require.packaged || module.packaged || (global.define && define.packaged));
 
     var scriptOptions = {};
     var scriptUrl = "";
     var currentScript = (document.currentScript || document._currentScript ); // native or polyfill
     var currentDocument = currentScript && currentScript.ownerDocument || document;
-    
+
     var scripts = currentDocument.getElementsByTagName("script");
     for (var i=0; i<scripts.length; i++) {
         var script = scripts[i];
@@ -50823,7 +50812,7 @@ function Folding() {
                 else if (cmp == 2) {
                     continue;
                 }
-                else 
+                else
                 if (cmp == 42) {
                     break;
                 }
@@ -51026,23 +51015,23 @@ function Folding() {
         if (folds.length == 1) {
             foldLines.splice(foldLines.indexOf(foldLine), 1);
         }
-        else 
+        else
         if (foldLine.range.isEnd(fold.end.row, fold.end.column)) {
             folds.pop();
             foldLine.end.row = folds[folds.length - 1].end.row;
             foldLine.end.column = folds[folds.length - 1].end.column;
         }
-        else 
+        else
         if (foldLine.range.isStart(fold.start.row, fold.start.column)) {
             folds.shift();
             foldLine.start.row = folds[0].start.row;
             foldLine.start.column = folds[0].start.column;
         }
-        else 
+        else
         if (fold.sameRow) {
             folds.splice(folds.indexOf(fold), 1);
         }
-        else 
+        else
         {
             var newFoldLine = foldLine.split(fold.start.row, fold.start.column);
             folds = newFoldLine.folds;
@@ -52586,7 +52575,7 @@ EditSession.$uid = 0;
                             foldLine.addRemoveChars(lastRow, 0, end.column - start.column);
                         }
                     }
-                    else 
+                    else
                     if (cmp == -1) {
                         foldLine.addRemoveChars(firstRow, 0, end.column - start.column);
                         foldLine.shiftRow(len);
@@ -60229,7 +60218,7 @@ var WorkerClient = function(worker) {
                 break;
         }
     };
-    
+
     this.reportError = function(err) {
         window.console && console.error && console.error(err);
     };
@@ -69236,11 +69225,11 @@ EXT_LIB_API_SCRIPTS.push((function lib_script_7 () {
 /**
  * This is a small library for (mostly 2D) vector mathematics.
  * Internally, the vectors used by this library are simple arrays of numbers.
- * The functions provided by this library do not alter the input vectors, 
+ * The functions provided by this library do not alter the input vectors,
  * treating each vector as an immutable object.
  */
 var VecMath = (function() {
-    
+
     /**
      * Adds two vectors.
      * @param {vec} a
@@ -69254,8 +69243,8 @@ var VecMath = (function() {
         }
         return result;
     };
-    
-    
+
+
     /**
      * Creates a cloned copy of a vector.
      * @param {vec} v
@@ -69268,10 +69257,10 @@ var VecMath = (function() {
         }
         return result;
     };
-    
-    
-    /** 
-     * Returns an array representing the cross product of two 3D vectors. 
+
+
+    /**
+     * Returns an array representing the cross product of two 3D vectors.
      * @param {vec3} a
      * @param {vec3} b
      * @return {vec3}
@@ -69282,9 +69271,9 @@ var VecMath = (function() {
         var z = a[0]*b[1] - a[1]*b[0];
         return [x, y, z];
     };
-    
-    
-    /** 
+
+
+    /**
      * Returns the degree of a vector - the number of dimensions it has.
      * @param {vec} vector
      * @return {int}
@@ -69292,8 +69281,8 @@ var VecMath = (function() {
     var degree = function(vector) {
         return vector.length;
     };
-    
-    
+
+
     /**
      * Computes the distance between two points.
      * @param {vec} pt1
@@ -69304,10 +69293,10 @@ var VecMath = (function() {
         var v = vec(pt1, pt2);
         return length(v);
     };
-    
-    
-    /** 
-     * Returns the dot product of two vectors. 
+
+
+    /**
+     * Returns the dot product of two vectors.
      * @param {vec} a
      * @param {vec} b
      * @return {number}
@@ -69319,21 +69308,21 @@ var VecMath = (function() {
         }
         return result;
     };
-    
-    
+
+
     /**
      * Tests if two vectors are equal.
      * @param {vec} a
      * @param {vec} b
-     * @param {float} [tolerance] A tolerance threshold for comparing vector 
-     *                            components.  
-     * @return {boolean} true iff the each of the vectors' corresponding 
+     * @param {float} [tolerance] A tolerance threshold for comparing vector
+     *                            components.
+     * @return {boolean} true iff the each of the vectors' corresponding
      *                  components are equal.
      */
     var equal = function(a, b, tolerance) {
         if(a.length != b.length)
             return false;
-        
+
         for(var i=0; i<a.length; i++) {
             if(tolerance !== undefined) {
                 if(Math.abs(a[i] - b[i]) > tolerance) {
@@ -69345,11 +69334,11 @@ var VecMath = (function() {
         }
         return true;
     };
-    
-    
-    
-    /** 
-     * Returns the length of a vector. 
+
+
+
+    /**
+     * Returns the length of a vector.
      * @param {vec} vector
      * @return {number}
      */
@@ -69360,9 +69349,9 @@ var VecMath = (function() {
         }
         return Math.sqrt(length);
     };
-    
-    
-    
+
+
+
     /**
      * Computes the normalization of a vector - its unit vector.
      * @param {vec} v
@@ -69370,16 +69359,16 @@ var VecMath = (function() {
      */
     var normalize = function(v) {
         var vHat = [];
-        
+
         var vLength = length(v);
         for(var i=0; i < v.length; i++) {
             vHat[i] = v[i]/vLength;
         }
-        
+
         return vHat;
     };
-    
-    
+
+
     /**
      * Computes the projection of vector b onto vector a.
      * @param {vec} a
@@ -69389,13 +69378,13 @@ var VecMath = (function() {
     var projection = function(a, b) {
         var scalar = scalarProjection(a, b);
         var aHat = normalize(a);
-        
+
         return scale(aHat, scalar);
     };
-    
-    
-    /** 
-     * Computes the distance from a point to an infinitely stretching line. 
+
+
+    /**
+     * Computes the distance from a point to an infinitely stretching line.
      * Works for either 2D or 3D points.
      * @param {vec2 || vec3} pt
      * @param {vec2 || vec3} linePt1   A point on the line.
@@ -69405,21 +69394,21 @@ var VecMath = (function() {
     var ptLineDist = function(pt, linePt1, linePt2) {
         var a = vec(linePt1, linePt2);
         var b = vec(linePt1, pt);
-        
+
         // Make 2D vectors 3D to compute the cross product.
         if(!a[2])
             a[2] = 0;
         if(!b[2])
             b[2] = 0;
-        
+
         var aHat = normalize(a);
         var aHatCrossB = cross(aHat, b);
         return length(aHatCrossB);
     };
-    
-    
-    /** 
-     * Computes the distance from a point to a line segment. 
+
+
+    /**
+     * Computes the distance from a point to a line segment.
      * Works for either 2D or 3D points.
      * @param {vec2 || vec3} pt
      * @param {vec2 || vec3} linePt1   The start point of the segment.
@@ -69430,24 +69419,24 @@ var VecMath = (function() {
         var a = vec(linePt1, linePt2);
         var b = vec(linePt1, pt);
         var aDotb = dot(a,b);
-        
+
         // Is pt behind linePt1?
         if(aDotb < 0) {
             return length(vec(pt, linePt1));
         }
-        
+
         // Is pt after linePt2?
         else if(aDotb > dot(a,a)) {
             return length(vec(pt, linePt2));
         }
-        
+
         // Pt must be between linePt1 and linePt2.
         else {
             return ptLineDist(pt, linePt1, linePt2);
         }
     };
-    
-    
+
+
     /**
      * Computes the scalar projection of b onto a.
      * @param {vec2} a
@@ -69457,12 +69446,12 @@ var VecMath = (function() {
     var scalarProjection = function(a, b) {
         var aDotB = dot(a, b);
         var aLength = length(a);
-        
+
         return aDotB/aLength;
     };
-    
-    
-    
+
+
+
     /**
      * Computes a scaled vector.
      * @param {vec2} v
@@ -69471,15 +69460,15 @@ var VecMath = (function() {
      */
     var scale = function(v, scalar) {
         var result = [];
-        
+
         for(var i=0; i<v.length; i++) {
             result[i] = v[i]*scalar;
         }
         return result;
     };
-    
-    
-    /** 
+
+
+    /**
      * Computes the difference of two vectors.
      * @param {vec} a
      * @param {vec} b
@@ -69492,10 +69481,10 @@ var VecMath = (function() {
         }
         return result;
     };
-    
-    
-    /** 
-     * Returns the vector from pt1 to pt2. 
+
+
+    /**
+     * Returns the vector from pt1 to pt2.
      * @param {vec} pt1
      * @param {vec} pt2
      * @return {vec}
@@ -69505,11 +69494,11 @@ var VecMath = (function() {
         for(var i=0; i<pt1.length; i++) {
             result.push( pt2[i] - pt1[i] );
         }
-        
+
         return result;
     };
-    
-    
+
+
     // The exposed API.
     return {
         add: add,
@@ -69546,12 +69535,12 @@ var VecMath = (function() {
             log("UNIT TEST FAILED: " + failMsg);
         }
     };
-    
-    
+
+
     var a = [1, 5];
     var b = [17, -8];
-    
-    
+
+
     // VecMath.equal
     assert(
         VecMath.equal([2, -3, 4, 8], [2, -3, 4, 8]),
@@ -69573,7 +69562,7 @@ var VecMath = (function() {
         !VecMath.equal([1,2], [1,2,3]),
         "!VecMath.equal([1,2], [1,2,3])"
     );
-    
+
     // VecMath.add
     assert(
         VecMath.equal(
@@ -69589,7 +69578,7 @@ var VecMath = (function() {
         ),
         "VecMath.add([0, 0, 0], [1, 2, 3]) equals [1, 2, 3]"
     );
-    
+
     // VecMath.clone
     assert(
         VecMath.equal( VecMath.clone(a), a),
@@ -69599,7 +69588,7 @@ var VecMath = (function() {
         VecMath.clone(a) != a,
         "VecMath.clone(a) != a"
     );
-    
+
     // VecMath.cross
     assert(
         VecMath.equal(
@@ -69615,7 +69604,7 @@ var VecMath = (function() {
         ),
         "VecMath.cross([1,2,3], [-10, 3, 5]) equals [1, -35, 23]"
     );
-    
+
     // VecMath.degree
     assert(
         VecMath.degree([1,2,3]) == 3,
@@ -69629,7 +69618,7 @@ var VecMath = (function() {
         VecMath.degree([1,1,1,1,1]) == 5,
         "VecMath.degree([1,1,1,1,1]) == 5"
     );
-    
+
     // VecMath.dist
     assert(
         VecMath.dist([1,2], [4,6]) == 5,
@@ -69639,7 +69628,7 @@ var VecMath = (function() {
         VecMath.dist([3,4], [-3, -4]) == 10,
         "VecMath.dist([3,4], [-3, -4]) == 10"
     );
-    
+
     // VecMath.dot
     assert(
         VecMath.dot([1, 2, 3], [-1, -2, -3]) == -14,
@@ -69661,7 +69650,7 @@ var VecMath = (function() {
         VecMath.dot([1,0], [1, 0]) == 1,
         "VecMath.dot([1,0], [1, 0]) == 1"
     );
-    
+
     // VecMath.length
     assert(
         VecMath.length([1,0,0]) == 1,
@@ -69675,7 +69664,7 @@ var VecMath = (function() {
         VecMath.length([-3, 0, 4, 0]) == 5,
         "VecMath.length([-3, 0, 4, 0]) == 5"
     );
-    
+
     // VecMath.normalize
     assert(
         VecMath.equal(
@@ -69691,7 +69680,7 @@ var VecMath = (function() {
         ),
         "VecMath.normalize([0,-3]) equals [0,-1]"
     );
-    
+
     // VecMath.projection
     assert(
         VecMath.equal(
@@ -69708,7 +69697,7 @@ var VecMath = (function() {
         ),
         "VecMath.projection([5,5], [0, 6]) equals [3, 3]"
     );
-    
+
     // VecMath.ptLineDist
     assert(
         VecMath.ptLineDist([0,3], [-100,5], [100,5]) == 2,
@@ -69718,7 +69707,7 @@ var VecMath = (function() {
         VecMath.ptLineDist([3,0], [5,5], [5,10]) == 2,
         "VecMath.ptLineDist([3,0], [5,5], [5,10]) == 2"
     );
-    
+
     // VecMath.ptSegDist
     assert(
         VecMath.ptSegDist([0,3], [-5,5], [5,5]) == 2,
@@ -69736,13 +69725,13 @@ var VecMath = (function() {
         VecMath.ptSegDist([-2,-4], [1,0], [5,0]) == 5,
         "VecMath.ptSegDist([-2,-4], [1,0], [5,0]) == 5"
     );
-    
+
     // VecMath.scalarProjection
     assert(
         VecMath.scalarProjection([5,0], [3, 4]) == 3,
         "VecMath.scalarProjection([5,0], [3, 4]) == 3"
     );
-    
+
     // VecMath.scale
     assert(
         VecMath.equal(
@@ -69751,7 +69740,7 @@ var VecMath = (function() {
         ),
         "VecMath.scale([1,-2,3], 6) equals [6, -12, 18]"
     );
-    
+
     // VecMath.sub
     assert(
         VecMath.equal(
@@ -69760,7 +69749,7 @@ var VecMath = (function() {
         ),
         "VecMath.sub([10, 8, 6], [-4, 6, 1]) equals [14, 2, 5]"
     );
-    
+
     // VecMath.vec
     assert(
         VecMath.equal(
