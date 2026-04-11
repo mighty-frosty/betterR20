@@ -2,7 +2,7 @@
 // @name         betteR20-beta-core-death-jumpagate-import
 // @namespace    https://5e.tools/
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      1.36.1.1jg
+// @version      1.36.1.1jga
 // @updateURL    https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/betteR20-core.meta.js
 // @downloadURL  https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/betteR20-core.user.js
 // @description  Enhance your Roll20 experience
@@ -30,7 +30,7 @@ ART_HANDOUT = "betteR20-art";
 CONFIG_HANDOUT = "betteR20-config";
 
 B20_NAME = `core`;
-B20_VERSION = `1.36.1.1jg`;
+B20_VERSION = `1.36.1.1jga`;
 B20_REPO_URL = `https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/`;
 
 // TODO automate to use mirror if main site is unavailable
@@ -287,7 +287,7 @@ function baseUtil () {
 							in<span style="color: orange; font-family: monospace"> 5etools &gt; better20 &gt; #testing </span>thread
 						</p>
 					</h1>
-					<p>This version contains following changes<br>1.35.186.14jq - Map Importer?<br>- Fix Map Importer. Thank you @helenclarko<br>1.35.186.14jr - Fix data error?<br>- Fix Import Error<br>1.35.186.14js - Fix data error?<br>- Fix Import Error<br>1.35.186.14js - HUH?<br>- Fix 2024 rolling<br>1.36.1.1ja - The Merge Collapse?<br>- Too many Changes<br>1.36.1.1jc - The Merge Collapse?<br>- Fix all Sources<br>1.36.1.1jd - Macros?<br>- add bulk macro button.<br>1.36.1.1je - Commits are real<br>- Merge PRs, and imporve Module Importer<br>1.36.1.1jg - Commits are real<br>- Fix drag and Drop.<br><br></p>
+					<p>This version contains following changes<br>1.36.1.1jd - Macros?<br>- add bulk macro button.<br>1.36.1.1je - Commits are real<br>- Merge PRs, and imporve Module Importer<br>1.36.1.1jg - Commits are real<br>- Fix drag and Drop.<br>1.36.1.1jga - Macros?<br>- add bulk macro button again.<br><br></p>
 				</div>
 			`);
 			}, 6000);
@@ -16503,9 +16503,15 @@ function baseMenu () {
 				closeContextMenu();
 			});
 
+			const macroBtn = createSubmenuItem('Macro', null, () => {
+				d20plus.menu.massRollMacro();
+				closeContextMenu();
+			});
+
 			submenu.appendChild(initBtn);
 			submenu.appendChild(savesBtn);
 			submenu.appendChild(skillsBtn);
+			submenu.appendChild(macroBtn);
 
 			// Click handler to toggle submenu
 			massRollBtn.addEventListener('click', (e) => {
@@ -16633,6 +16639,12 @@ function baseMenu () {
 				closeContextMenu();
 			});
 			massRollSubmenu.appendChild(skillsBtn);
+
+			const customMacroBtn = createSubmenuItem('Macro', () => {
+				d20plus.menu.massRollMacro();
+				closeContextMenu();
+			});
+			massRollSubmenu.appendChild(customMacroBtn);
 
 			// Click handler for Mass Roll to toggle its submenu
 			massRollBtn.addEventListener('click', (e) => {
