@@ -1,11 +1,11 @@
 const fs = require("fs");
 
-const SCRIPT_VERSION = "1.36.1.1devja";
+const SCRIPT_VERSION = "1.36.1.1devjb";
 const SCRIPT_REPO = "https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/JumpGate-Dev/dist/";
 
 const SCRIPT_BETA_DESCRIPTION = `This version contains following changes
-
-
+-- 1.36.1.1devjb --
+Merge 2024 Importing
 `;
 
 const AUTHORS_CORE = `TheGiddyLimit/Redweller`;
