@@ -136,57 +136,55 @@ const betteR205etoolsMain = function () {
 	 * defaultSource: if there are multiple sources, the one to be shown by default
 	 * finalText: any text to be shown after the buttons
 	 */
-	// Use getters for baseUrl so values are evaluated at access time, not definition time
-	// This allows updateBaseSiteUrl() to change the URLs and have IMPORT_CATEGORIES reflect those changes
 	const IMPORT_CATEGORIES = [
 		{
 			name: "adventure",
 			plural: "adventures",
-			get baseUrl() { return ADVENTURE_DATA_DIR; },
+			baseUrl: ADVENTURE_DATA_DIR,
 			uniqueImport: true,
 		},
 		{
 			name: "background",
 			plural: "backgrounds",
 			playerImport: true,
-			get baseUrl() { return BACKGROUND_DATA_URL; },
+			baseUrl: BACKGROUND_DATA_URL,
 		},
 		{
 			name: "class",
 			plural: "classes",
 			playerImport: true,
-			get baseUrl() { return CLASS_DATA_DIR; },
+			baseUrl: CLASS_DATA_DIR,
 		},
 		{
 			name: "deity",
 			plural: "deities",
-			get baseUrl() { return DEITY_DATA_URL; },
+			baseUrl: DEITY_DATA_URL,
 		},
 		{
 			name: "feat",
 			plural: "feats",
 			playerImport: true,
-			get baseUrl() { return FEAT_DATA_URL; },
+			baseUrl: FEAT_DATA_URL,
 		},
 		{
 			name: "item",
 			plural: "items",
 			playerImport: true,
-			get baseUrl() { return ITEM_DATA_URL; },
+			baseUrl: ITEM_DATA_URL,
 		},
 		{
 			name: "monster",
 			plural: "monsters",
 			allImport: true,
 			fileImport: true,
-			get baseUrl() { return MONSTER_DATA_DIR; },
+			baseUrl: MONSTER_DATA_DIR,
 			defaultSource: "MM",
 			finalText: ` WARNING: Importing huge numbers of character sheets slows the game down. We recommend you import them as needed.<br>The "Import Monsters From All Sources" button presents a list containing monsters from official sources only.<br>To import from third-party sources, either individually select one available in the list, enter a custom URL, or upload a custom file, and "Import Monsters."`,
 		},
 		{
 			name: "object",
 			plural: "objects",
-			get baseUrl() { return OBJECT_DATA_URL; },
+			baseUrl: OBJECT_DATA_URL,
 		},
 		{
 			name: "optionalfeature",
@@ -194,36 +192,36 @@ const betteR205etoolsMain = function () {
 			titleSing: "Optional Feature (Invocations, etc.)",
 			titlePl: "Optional Features (Invocations, etc.)",
 			playerImport: true,
-			get baseUrl() { return OPT_FEATURE_DATA_URL; },
+			baseUrl: OPT_FEATURE_DATA_URL,
 		},
 		{
 			name: "psionic",
 			plural: "psionics",
 			playerImport: true,
-			get baseUrl() { return PSIONIC_DATA_URL; },
+			baseUrl: PSIONIC_DATA_URL,
 		},
 		{
 			name: "race",
 			plural: "races",
 			playerImport: true,
-			get baseUrl() { return RACE_DATA_URL; },
+			baseUrl: RACE_DATA_URL,
 		},
 		{
 			name: "spell",
 			plural: "spells",
 			playerImport: true,
-			get baseUrl() { return SPELL_DATA_DIR; },
+			baseUrl: SPELL_DATA_DIR,
 		},
 		{
 			name: "subclass",
 			plural: "subclasses",
 			playerImport: true,
-			get baseUrl() { return ""; },
+			baseUrl: "",
 		},
 		{
 			name: "vehicle",
 			plural: "vehicles",
-			get baseUrl() { return VEHICLE_DATA_URL; },
+			baseUrl: VEHICLE_DATA_URL,
 		},
 	]
 
@@ -309,24 +307,20 @@ const betteR205etoolsMain = function () {
 		// d20plus.js.scripts.push({name: "5etoolsScalecreature", url: `${SITE_JS_URL}scalecreature.js`});
 	}
 
-	// Build JSON URLs dynamically (called after config is loaded so custom base URL is used)
-	d20plus.initJsonUrls = function () {
-		d20plus.json = [
-			{name: "class index", url: `${CLASS_DATA_DIR}index.json`},
-			{name: "spell index", url: `${SPELL_DATA_DIR}index.json`},
-			{name: "spell metadata", url: SPELL_META_URL},
-			{name: "bestiary index", url: `${MONSTER_DATA_DIR}index.json`},
-			{name: "bestiary fluff index", url: `${MONSTER_DATA_DIR}fluff-index.json`},
-			{name: "bestiary metadata", url: `${MONSTER_DATA_DIR}legendarygroups.json`},
-			{name: "adventures index", url: `${DATA_URL}adventures.json`},
-			{name: "base items", url: `${DATA_URL}items-base.json`},
-			{name: "item modifiers", url: `https://5e.tools/data/roll20-items.json`},
-		];
-	};
+	d20plus.json = [
+		{name: "class index", url: `${CLASS_DATA_DIR}index.json`},
+		{name: "spell index", url: `${SPELL_DATA_DIR}index.json`},
+		{name: "spell metadata", url: SPELL_META_URL},
+		{name: "bestiary index", url: `${MONSTER_DATA_DIR}index.json`},
+		{name: "bestiary fluff index", url: `${MONSTER_DATA_DIR}fluff-index.json`},
+		{name: "bestiary metadata", url: `${MONSTER_DATA_DIR}legendarygroups.json`},
+		{name: "adventures index", url: `${DATA_URL}adventures.json`},
+		{name: "base items", url: `${DATA_URL}items-base.json`},
+		{name: "item modifiers", url: `https://5e.tools/data/roll20-items.json`},
+	];
 
 	// add JSON index/metadata
 	d20plus.pAddJson = async function () {
-		d20plus.initJsonUrls(); // Build URLs using current config
 		d20plus.ut.log("Load JSON");
 
 		try {
@@ -676,7 +670,7 @@ const betteR205etoolsMain = function () {
 			d20plus.importer.bindFakeCompendiumDraggable($(e));
 		});
 
-		function importData (character, data, event) {
+		function importDataOGL (character, data, event) {
 			// TODO remove feature import workarounds below when roll20 and sheets supports their drag-n-drop properly
 			if (data.data.Category === "Feats") {
 				d20plus.feats.importFeat(character, data);
@@ -701,6 +695,19 @@ const betteR205etoolsMain = function () {
 			}
 		}
 
+		function importData (character, data, event) {
+			const charModel = character.model || character;
+			const sheetName = charModel.get ? charModel.get("charactersheetname")
+				: charModel?.attributes?.charactersheetname;
+			if (typeof d20plus.importer?.is2024Sheet === "function" && d20plus.importer.is2024Sheet(sheetName)) {
+				if (typeof d20plus.importer?.import2024Data === "function") {
+					d20plus.importer.import2024Data(character, data, event, importDataOGL);
+					return;
+				}
+			}
+			importDataOGL(character, data, event);
+		}
+
 		d20.Campaign.characters.models.each(function (v, i) {
 			/* eslint-disable */
 
@@ -718,7 +725,7 @@ const betteR205etoolsMain = function () {
 
 			v.view.bindCompendiumDropTarget = function () {
 				if (this.popoutWindow) return;
-				if (!this.$compendiumDropTarget) return;
+				if (!this.$compendiumDropTarget) return; // 2024 sheet doesn't have this
 				const e = this;
 
 				this.$compendiumDropTarget.droppable({
@@ -736,10 +743,9 @@ const betteR205etoolsMain = function () {
 						const character = d20.Campaign.characters.get(characterid).view;
 						const $hlpr = $(i.helper[0]);
 
-						if ($hlpr.hasClass("handout") || $hlpr.hasClass("Vetools-draggable")) {
+						if ($hlpr.hasClass("handout")) {
+							console.log("Handout item dropped onto target!");
 							t.originalEvent.dropHandled = !0;
-							t.stopPropagation();
-							t.preventDefault();
 							if (e.activeDrop) {
 								e.dragOver = !1;
                             	e.childWindow.d20.deactivateDrop();
@@ -747,11 +753,7 @@ const betteR205etoolsMain = function () {
 
 							if ($hlpr.hasClass(`player-imported`)) {
 								const data = d20plus.importer.retrievePlayerImport($hlpr.attr("data-playerimportid"));
-								if (data) {
-									importData(character, data, t);
-								} else {
-									console.warn("Player import data not found (session expired?). Please re-import the item.");
-								}
+								importData(character, data, t);
 							} else {
 								var id = $hlpr.attr("data-itemid");
 								var handout = d20.Campaign.handouts.get(id);
@@ -770,30 +772,12 @@ const betteR205etoolsMain = function () {
 									handout._getLatestBlob("gmnotes", function (gmnotes) {
 										data = decodeIfURI(gmnotes);
 										handout.updateBlobs({gmnotes: gmnotes});
-										if (data && data.trim()) {
-											try {
-												const parsedData = JSON.parse(data);
-												importData(character, parsedData, t);
-											} catch (e) {
-												console.error("Failed to parse handout JSON:", e);
-											}
-										} else {
-											console.warn("Handout gmnotes are empty or invalid, skipping import");
-										}
+										importData(character, JSON.parse(data), t);
 									});
 								} else {
 									handout._getLatestBlob("notes", function (notes) {
 										data = $(decodeIfURI(notes)).filter("del").html();
-										if (data && data.trim()) {
-											try {
-												const parsedData = JSON.parse(data);
-												importData(character, parsedData, t);
-											} catch (e) {
-												console.error("Failed to parse handout JSON:", e);
-											}
-										} else {
-											console.warn("Handout notes are empty or invalid, skipping import");
-										}
+										importData(character, JSON.parse(data), t);
 									});
 								}
 							}
@@ -849,6 +833,146 @@ const betteR205etoolsMain = function () {
 
 			/* eslint-enable */
 		});
+
+		// region 2024 Jumpgate sheet drag-drop support
+		// The 2024 sheet is an iframe with id="advanced-charsheet-dialog__charsheet"
+		// and name="iframe_<characterId>" - we make the parent droppable
+		function bind2024SheetDropTarget ($iframe) {
+			const $dropTarget = $iframe.closest(".characterdialog[data-characterid]");
+			if (!$dropTarget.length) return;
+			if ($dropTarget.data("b20-droppable-2024")) return;
+			$dropTarget.data("b20-droppable-2024", true);
+
+			$dropTarget.droppable({
+				accept: ".compendium-item",
+				tolerance: "pointer",
+				drop (t, i) {
+					t.originalEvent.dropHandled = true;
+
+					// Extract character ID from iframe name: "iframe_-OmXOQN5oXtFp-BQBa0A" -> "-OmXOQN5oXtFp-BQBa0A"
+					const charId = $iframe.attr("name").replace("iframe_", "");
+					const charModel = d20.Campaign.characters.get(charId);
+					if (!charModel) {
+						console.warn("betterR20: Could not find character for 2024 sheet drop, ID:", charId);
+						return;
+					}
+					const charView = charModel.view;
+					const $hlpr = $(i.helper[0]);
+
+					function decodeIfURI (notes) {
+						if (!notes) return "";
+						return notes.charAt(0) === "%" ? decodeURIComponent(notes) : notes;
+					}
+
+					if ($hlpr.hasClass("player-imported")) {
+						const data = d20plus.importer.retrievePlayerImport($hlpr.attr("data-playerimportid"));
+						if (data) importData(charView, data, t);
+						else console.warn("betterR20: Player import data not found. Please re-import.");
+						return;
+					}
+
+					if (!$hlpr.hasClass("handout")) return;
+
+					const handout = d20.Campaign.handouts.get($hlpr.attr("data-itemid"));
+					if (!handout) return;
+					if (window.is_gm) {
+						handout._getLatestBlob("gmnotes", function (gmnotes) {
+							importData(charView, JSON.parse(decodeIfURI(gmnotes)), t);
+						});
+					} else {
+						handout._getLatestBlob("notes", function (notes) {
+							importData(charView, JSON.parse($(decodeIfURI(notes)).filter("del").html()), t);
+						});
+					}
+				},
+			});
+		}
+
+		function bindOGLSheetDropTarget ($iframe) {
+			const $dropTarget = $iframe.closest(".characterdialog[data-characterid]");
+			if (!$dropTarget.length) return;
+			if ($dropTarget.data("b20-droppable-ogl")) return;
+			$dropTarget.data("b20-droppable-ogl", true);
+
+			$dropTarget.droppable({
+				accept: ".compendium-item",
+				tolerance: "pointer",
+				drop (t, i) {
+					if (t.originalEvent.dropHandled) return;
+					t.originalEvent.dropHandled = true;
+					const characterid = $dropTarget.attr("data-characterid");
+					const charModel = d20.Campaign.characters.get(characterid);
+					if (!charModel) return;
+					const charView = charModel.view;
+					const $hlpr = $(i.helper[0]);
+
+					function decodeIfURI (notes) {
+						if (!notes) return "";
+						return notes.charAt(0) === "%" ? decodeURIComponent(notes) : notes;
+					}
+
+					if ($hlpr.hasClass("player-imported")) {
+						const data = d20plus.importer.retrievePlayerImport($hlpr.attr("data-playerimportid"));
+						if (data) importData(charView, data, t);
+						else console.warn("betterR20: Player import data not found. Please re-import.");
+						return;
+					}
+
+					if (!$hlpr.hasClass("handout")) return;
+
+					const handout = d20.Campaign.handouts.get($hlpr.attr("data-itemid"));
+					if (!handout) return;
+					if (window.is_gm) {
+						handout._getLatestBlob("gmnotes", function (gmnotes) {
+							importData(charView, JSON.parse(decodeIfURI(gmnotes)), t);
+						});
+					} else {
+						handout._getLatestBlob("notes", function (notes) {
+							importData(charView, JSON.parse($(decodeIfURI(notes)).filter("del").html()), t);
+						});
+					}
+				},
+			});
+		}
+		d20plus._bindOGLSheetDropTarget = bindOGLSheetDropTarget;
+
+		// Store so MutationObserver always calls the latest (captures importData closure)
+		d20plus._bind2024SheetDropTarget = bind2024SheetDropTarget;
+
+		// Bind any already-open 2024 sheets
+		$("iframe[id='advanced-charsheet-dialog__charsheet']").each(function () {
+			bind2024SheetDropTarget($(this));
+		});
+
+		// Watch for new 2024 sheet iframes being added to the DOM
+		if (!d20plus._observer2024) {
+			d20plus._observer2024 = new MutationObserver(function (mutations) {
+				mutations.forEach(function (m) {
+					m.addedNodes.forEach(function (node) {
+						if (node.nodeType !== 1) return;
+						const $n = $(node);
+						if ($n.is("iframe[id='advanced-charsheet-dialog__charsheet']")) {
+							d20plus._bind2024SheetDropTarget($n);
+						}
+						$n.find("iframe[id='advanced-charsheet-dialog__charsheet']").each(function () {
+							d20plus._bind2024SheetDropTarget($(this));
+						});
+
+						// OGL iframes in mixed games (any iframe inside a characterdialog that isn't the 2024 sheet)
+						if ($n.is("iframe:not([id='advanced-charsheet-dialog__charsheet'])")) {
+							const $dialog = $n.closest(".characterdialog[data-characterid]");
+							if ($dialog.length) d20plus._bindOGLSheetDropTarget($n);
+						}
+						$n.find("iframe:not([id='advanced-charsheet-dialog__charsheet'])").each(function () {
+							const $dialog = $(this).closest(".characterdialog[data-characterid]");
+							if ($dialog.length) d20plus._bindOGLSheetDropTarget($(this));
+						});
+					});
+				});
+			});
+			d20plus._observer2024.observe(document.body, {childList: true, subtree: true});
+		}
+		// endregion
 	};
 
 	// Create editable HP variable and autocalculate + or -
@@ -954,11 +1078,8 @@ const betteR205etoolsMain = function () {
 			throw new Error("No character sheet selected!");
 		}
 		const firstSheet = d20.journal.customSheets ?? sheets.first();
-		// Modern Roll20 uses 'ogl5e' for the OGL sheet (works in both 2014 and 2024 games)
-		if (d20.journal.characterSheetsManager.sheets.ogl5e) d20plus.sheet = "ogl";
 		if (d20.journal.characterSheetsManager.sheets.shaped_d20) d20plus.sheet = "shaped";
 		if (d20.journal.characterSheetsManager.sheets.DnD5e_Character_Sheet) d20plus.sheet = "community";
-		// Note: dnd2024byroll20 uses a different architecture (relay system) - not yet supported
 		d20plus.ut.log(`Switched Character Sheet Template to ${d20plus.sheet}`);
 	};
 	// Return Initiative Tracker template with formulas

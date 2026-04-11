@@ -302,7 +302,7 @@ function d20plusImporter () {
 
 		character.attributes.avatar = outPortraitUrl;
 		character.updateBlobs({avatar: outPortraitUrl, defaulttoken: JSON.stringify(defaulttoken)});
-		character.save({defaulttoken: (new Date()).getTime()});
+		character.save();
 	};
 
 	d20plus.importer._baseAddAction = function (character, baseAction, name, actionText, prefix, index, expand) {
@@ -802,7 +802,8 @@ function d20plusImporter () {
 			iframeFix: !0,
 			start () {
 				$(".characterdialog iframe").css("pointer-events", "none"),
-				$(".characterdialog .charsheet-compendium-drop-target").show()
+				$(".characterdialog .charsheet-compendium-drop-target").show(),
+				$("iframe[id='advanced-charsheet-dialog__charsheet']").css("pointer-events", "none")
 			},
 			drag (e) {
 				let t; let i = 0;
@@ -831,7 +832,8 @@ function d20plusImporter () {
 			},
 			stop () {
 				$(".characterdialog iframe").css("pointer-events", "auto"),
-				$(".characterdialog .charsheet-compendium-drop-target").hide()
+				$(".characterdialog .charsheet-compendium-drop-target").hide(),
+				$("iframe[id='advanced-charsheet-dialog__charsheet']").css("pointer-events", "auto")
 			},
 			// endregion END ROLL20 CODE
 		});
