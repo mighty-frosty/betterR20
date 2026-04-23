@@ -755,45 +755,68 @@ function d20plus2024Import() {
 	/**
 	 * Extract attack info from action entries
 	 */
-	function extractMonsterAttackInfo(entries, renderer) {
-		const text = renderer.render({ entries }, 1);
+	function extractMonsterAttackInfo(entries) {
 		const result = {
 			isAttack: false,
 			attackType: "Melee",
 			toHit: 0,
 			damages: [],
+			reach: 5,
+			reachText: "5 ft.",
+			range: "",
 		};
 
-		const attackMatch = text.match(/(Melee|Ranged)\s+(?:Weapon|Spell)\s+Attack:\s*\+(\d+)\s+to hit/i);
-		if (attackMatch) {
-			result.isAttack = true;
-			result.attackType = attackMatch[1];
-			result.toHit = parseInt(attackMatch[2], 10);
-		}
+		for (const entry of (entries || [])) {
+			if (typeof entry !== "string") continue;
 
-		const hitMatch = text.match(/Hit:\s*(\d+)\s*\(([^)]+)\)\s*(\w+)\s*damage/i);
-		if (hitMatch) {
-			const diceStr = hitMatch[2];
-			const damageType = hitMatch[3];
-			const parsed = parse2024MonsterDamage(diceStr);
-			if (parsed) {
-				result.damages.push({
-					...parsed,
-					damageType: damageType.charAt(0).toUpperCase() + damageType.slice(1).toLowerCase(),
-				});
+			// Attack tag — handles {@atk mw} (2014) and {@atkr m} (2024)
+			const atkMatch = entry.match(/\{@atkr?\s+([^}]+)\}/i);
+			if (atkMatch) {
+				result.isAttack = true;
+				const tag = atkMatch[1].toLowerCase().replace(/\s/g, "");
+				const isSpell  = tag.includes("s");
+				const isMelee  = tag.includes("m");
+				const isRanged = tag.includes("r");
+				if      (isSpell)              result.attackType = "Spell Attack";
+				else if (isRanged && !isMelee) result.attackType = "Ranged";
+				else                           result.attackType = "Melee";
 			}
-		}
 
-		const plusMatch = text.match(/plus\s*(\d+)\s*\(([^)]+)\)\s*(\w+)\s*damage/i);
-		if (plusMatch) {
-			const diceStr = plusMatch[2];
-			const damageType = plusMatch[3];
-			const parsed = parse2024MonsterDamage(diceStr);
-			if (parsed) {
-				result.damages.push({
-					...parsed,
-					damageType: damageType.charAt(0).toUpperCase() + damageType.slice(1).toLowerCase(),
-				});
+			// To-hit: {@hit N} (2024) or literal +N to hit (2014)
+			const hitTagMatch = entry.match(/\{@hit\s+(\d+)\}/i);
+			if (hitTagMatch) result.toHit = parseInt(hitTagMatch[1], 10);
+			else {
+				const toHitMatch = entry.match(/\+(\d+)\s+to hit/i);
+				if (toHitMatch) result.toHit = parseInt(toHitMatch[1], 10);
+			}
+
+			// Reach: "reach N ft."
+			const reachMatch = entry.match(/reach\s+(\d+)\s*ft/i);
+			if (reachMatch) {
+				result.reach = parseInt(reachMatch[1], 10);
+				result.reachText = `${result.reach} ft.`;
+			}
+
+			// Range: "range N/N ft." or "range N ft."
+			const rangeMatch = entry.match(/range\s+(\d+)(?:\/(\d+))?\s*ft/i);
+			if (rangeMatch) {
+				result.range = rangeMatch[2]
+					? `${rangeMatch[1]}/${rangeMatch[2]} ft.`
+					: `${rangeMatch[1]} ft.`;
+			}
+
+			// Damages: {@damage XdY+Z} tags in the hit section (after {@h})
+			const hitSection = entry.split(/\{@h\}/i)[1];
+			if (hitSection) {
+				const dmgPattern = /\{@damage\s+([^}]+)\}\)\s*(\w+)\s*damage/gi;
+				let m;
+				while ((m = dmgPattern.exec(hitSection)) !== null) {
+					const parsed = parse2024MonsterDamage(m[1]);
+					if (parsed) result.damages.push({
+						...parsed,
+						damageType: m[2].charAt(0).toUpperCase() + m[2].slice(1).toLowerCase(),
+					});
+				}
 			}
 		}
 
@@ -815,12 +838,22 @@ function d20plus2024Import() {
 				mythicActionDisplayOrder: "[]",
 			},
 			attacks: { attackDisplayOrder: "[]" },
-			spells: { displayOrder: ["[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]"] },
+			spells: {
+				displayOrder: { "0": "[]", "1": "[]", "2": "[]", "3": "[]", "4": "[]", "5": "[]", "6": "[]", "7": "[]", "8": "[]", "9": "[]" },
+				generalSpellSettings: { defaultToFullscreen: false, showPreparedBar: false, showPreparedSpellsOnly: false, spellcastings: "$__$[]", useSlotDefault: true, useSlotAlwaysPrepared: false },
+			},
 			npc: {},
-			about: { characteristics: {} },
+			about: { characteristics: {}, aboutTabApperancesDisplayOrder: "[]", aboutTabCharacteristicsDisplayOrder: "[]", aboutItems: {} },
 			character: {},
-			settings: { layoutState: "Stat Block" },
+			features: { classFeatureDisplayOrder: "[]", speciesTraitsDisplayOrder: "[]", featsDisplayOrder: "[]", otherDisplayOrder: "[]" },
+			background: { aboutTabBackgroundDisplayOrder: "[]" },
+			effects: { effectDisplayOrder: "[]" },
+			inventory: { incrementalQuantityEditing: true, equipmentDisplayOrder: "[]", otherPossessionsDisplayOrder: "[]" },
+			notes: { order: {}, emptyCategories: "[]", notes: {} },
+			settings: { layoutState: "Stat Block", newRules: true },
 			hitpoints: { deathSaves: { failures: 0, open: false, successes: 0 } },
+			npcEdit: {},
+			proficiencies: {},
 		};
 
 		let arrayPosition = 100;
@@ -909,9 +942,17 @@ function d20plus2024Import() {
 		};
 		store.character.creatureType = creatureType;
 
-		// Challenge Rating
+		// Challenge Rating, HP formula, habitat, treasure
 		const cr = data.cr ? (data.cr.cr || data.cr) : "0";
 		store.npc.challengeRating = String(cr);
+		if (data.hp && data.hp.formula) store.npc.rollHP = data.hp.formula;
+		if (data.environment && data.environment.length) {
+			const hab = data.environment[0];
+			store.npc.habitat = hab.charAt(0).toUpperCase() + hab.slice(1);
+		}
+		if (data.treasure && data.treasure.length) {
+			store.npc.treasure = data.treasure.map(t => t.charAt(0).toUpperCase() + t.slice(1)).join(", ");
+		}
 
 		// Speeds
 		const speeds = parse2024MonsterSpeeds(data.speed);
@@ -951,172 +992,208 @@ function d20plus2024Import() {
 			};
 		}
 
-		// Defenses - Resistances
+		// Saving Throws
+		const saveAbilityMap = { str: "Strength", dex: "Dexterity", con: "Constitution", int: "Intelligence", wis: "Wisdom", cha: "Charisma" };
+		for (const [key] of Object.entries(data.save || {})) {
+			const abilityName = saveAbilityMap[key.toLowerCase()];
+			if (!abilityName) continue;
+			const { id, base } = createIntegrantBase("Proficiency");
+			integrants[id] = {
+				...base,
+				name: "Saving Throw Proficiency",
+				category: "Saving Throw",
+				proficiency: abilityName,
+				proficiencyLevel: "Proficient",
+				increaseIfAlreadyAt: false,
+				rollAbility: "Query Attribute",
+				notes: "",
+				cascades: {},
+				relations: {},
+			};
+		}
+
+		// Skills
+		const skillAbilityMap = {
+			athletics: "str",
+			acrobatics: "dex", "sleight of hand": "dex", stealth: "dex",
+			arcana: "int", history: "int", investigation: "int", nature: "int", religion: "int",
+			"animal handling": "wis", insight: "wis", medicine: "wis", perception: "wis", survival: "wis",
+			deception: "cha", intimidation: "cha", performance: "cha", persuasion: "cha",
+		};
+		const crNum = parseFloat(String(cr).replace(/\//g, ".")) || 0;
+		const profBonus = crNum < 5 ? 2 : crNum < 9 ? 3 : crNum < 13 ? 4 : crNum < 17 ? 5 : crNum < 21 ? 6 : crNum < 25 ? 7 : crNum < 29 ? 8 : 9;
+		for (const [skill, bonusStr] of Object.entries(data.skill || {})) {
+			const skillLower = skill.toLowerCase();
+			const skillName = skill.charAt(0).toUpperCase() + skill.slice(1);
+			const abilityKey = skillAbilityMap[skillLower] || "wis";
+			const abilityScore = data[abilityKey] || 10;
+			const abilityMod = Math.floor((abilityScore - 10) / 2);
+			const bonusNum = parseInt(bonusStr, 10) || 0;
+			const proficiencyLevel = bonusNum >= abilityMod + profBonus * 2 ? "Expertise" : "Proficient";
+			const { id, base } = createIntegrantBase("Proficiency");
+			integrants[id] = {
+				...base,
+				name: "Skill Proficiency",
+				category: "Skill",
+				proficiency: skillName,
+				proficiencyLevel,
+				increaseIfAlreadyAt: false,
+				rollAbility: "Query Attribute",
+				notes: "",
+				cascades: {},
+				relations: {},
+			};
+		}
+
+		// Defenses — field is "damage" for damage types, "condition" for conditions (matching native sheet)
+		const makeDefense = (defense, value) => {
+			const cap = v => v.charAt(0).toUpperCase() + v.slice(1).toLowerCase();
+			const { id, base } = createIntegrantBase("Defense");
+			integrants[id] = { ...base, name: `${defense}: ${cap(value)}`, defense, damage: cap(value), cascades: {}, relations: {} };
+		};
+
 		if (data.resist) {
 			const resistances = d20plus.importer.getCleanText(Parser.getFullImmRes(data.resist));
-			if (resistances) {
-				for (const res of resistances.split(",").map(s => s.trim()).filter(s => s)) {
-					const { id, base } = createIntegrantBase("Defense");
-					integrants[id] = {
-						...base,
-						name: res,
-						defense: "Resistance",
-						damageType: res.charAt(0).toUpperCase() + res.slice(1).toLowerCase(),
-					};
-				}
-			}
+			if (resistances) resistances.split(",").map(s => s.trim()).filter(s => s).forEach(r => makeDefense("Resistance", r));
 		}
-
-		// Defenses - Immunities
 		if (data.immune) {
 			const immunities = d20plus.importer.getCleanText(Parser.getFullImmRes(data.immune));
-			if (immunities) {
-				for (const imm of immunities.split(",").map(s => s.trim()).filter(s => s)) {
-					const { id, base } = createIntegrantBase("Defense");
-					integrants[id] = {
-						...base,
-						name: imm,
-						defense: "Immunity",
-						damageType: imm.charAt(0).toUpperCase() + imm.slice(1).toLowerCase(),
-					};
-				}
-			}
+			if (immunities) immunities.split(",").map(s => s.trim()).filter(s => s).forEach(i => makeDefense("Immunity", i));
 		}
-
-		// Defenses - Vulnerabilities
 		if (data.vulnerable) {
 			const vulnerabilities = d20plus.importer.getCleanText(Parser.getFullImmRes(data.vulnerable));
-			if (vulnerabilities) {
-				for (const vuln of vulnerabilities.split(",").map(s => s.trim()).filter(s => s)) {
-					const { id, base } = createIntegrantBase("Defense");
-					integrants[id] = {
-						...base,
-						name: vuln,
-						defense: "Vulnerability",
-						damageType: vuln.charAt(0).toUpperCase() + vuln.slice(1).toLowerCase(),
-					};
-				}
-			}
+			if (vulnerabilities) vulnerabilities.split(",").map(s => s.trim()).filter(s => s).forEach(v => makeDefense("Vulnerability", v));
 		}
-
-		// Condition Immunities
 		if (data.conditionImmune) {
 			const conditions = d20plus.importer.getCleanText(Parser.getFullCondImm(data.conditionImmune));
 			if (conditions) {
 				for (const cond of conditions.split(",").map(s => s.trim()).filter(s => s)) {
+					const cap = v => v.charAt(0).toUpperCase() + v.slice(1).toLowerCase();
 					const { id, base } = createIntegrantBase("Defense");
-					integrants[id] = {
-						...base,
-						name: cond,
-						defense: "Condition Immunity",
-						conditionType: cond.charAt(0).toUpperCase() + cond.slice(1).toLowerCase(),
-					};
+					integrants[id] = { ...base, name: `Condition Immunity: ${cap(cond)}`, defense: "Condition Immunity", condition: cap(cond), cascades: {}, relations: {} };
 				}
 			}
 		}
 
-		// Traits
+		// Traits (Features) — add to speciesTraitsDisplayOrder so they appear in the Traits section
+		const traitDisplayOrder = [];
 		if (data.trait) {
 			for (const trait of data.trait) {
 				const name = d20plus.importer.getCleanText(renderer.render(trait.name));
 				const text = d20plus.importer.getCleanText(renderer.render({ entries: trait.entries }, 1));
-				const { id, base } = createIntegrantBase("Feature");
+				const { id, base } = createIntegrantBase("Features");
 				integrants[id] = {
 					...base,
 					name: name,
 					description: text,
+					source: "Species",
+					cascades: {},
+					relations: {},
 				};
+				traitDisplayOrder.push(id);
 			}
 		}
+		store.features.speciesTraitsDisplayOrder = JSON.stringify(traitDisplayOrder);
 
 		// Actions
 		const actionDisplayOrder = [];
 		const attackDisplayOrder = [];
 
-		if (data.action) {
-			for (const action of data.action) {
-				const name = d20plus.importer.getCleanText(renderer.render(action.name));
-				const text = d20plus.importer.getCleanText(renderer.render({ entries: action.entries }, 1));
-				const attackInfo = extractMonsterAttackInfo(action.entries, renderer);
-
-				if (attackInfo.isAttack && attackInfo.damages.length > 0) {
-					const { id: attackIntId, base: attackBase } = createIntegrantBase("Attack");
-					const damageIds = [];
-
-					for (let i = 0; i < attackInfo.damages.length; i++) {
-						const dmg = attackInfo.damages[i];
-						const { id: dmgId, base: dmgBase } = createIntegrantBase("Damage");
-						integrants[dmgId] = {
-							...dmgBase,
-							name: `${name} ${dmg.damageType}`,
-							damageType: dmg.damageType,
-							diceSize: dmg.diceSize,
-							diceCount: dmg.diceCount,
-							_bonus: dmg.bonus,
-							ability: "",
-							parentID: attackIntId,
-						};
-						damageIds.push(dmgId);
-					}
-
-					integrants[attackIntId] = {
-						...attackBase,
-						name: name,
-						actionType: "Action",
-						description: text,
-						attack: {
-							abilityBonus: attackInfo.attackType === "Melee" ? "Strength" : "Dexterity",
-							proficiencyLevel: "Proficient",
-							type: attackInfo.attackType,
-						},
-						childIDs: JSON.stringify(damageIds),
-					};
-					attackDisplayOrder.push(attackIntId);
-				} else {
-					const { id: actionIntId, base: actionBase } = createIntegrantBase("Action");
-					integrants[actionIntId] = {
-						...actionBase,
-						name: name,
-						actionType: "Action",
-						description: text,
-					};
-					actionDisplayOrder.push(actionIntId);
-				}
+		// Spellcasting — render as an Action integrant with the full spellcasting description
+		if (data.spellcasting && data.spellcasting.length > 0) {
+			for (const sc of data.spellcasting) {
+				const scName = d20plus.importer.getCleanText(renderer.render(sc.name || "Spellcasting"));
+				const scText = d20plus.importer.getCleanText(renderer.render({ type: "spellcasting", ...sc }, 1));
+				const { id, base } = createIntegrantBase("Action");
+				integrants[id] = {
+					...base,
+					name: scName,
+					actionType: sc.displayAs === "bonus" ? "Bonus" : "Action",
+					description: scText,
+					cascades: {},
+					relations: {},
+				};
+				actionDisplayOrder.push(id);
 			}
+		}
+
+		// Helper: build Attack + Damage integrants for any action category that has an attack roll
+		const buildAttackIntegrants = (actionData, actionType, displayOrder) => {
+			const name = d20plus.importer.getCleanText(renderer.render(actionData.name));
+			const text = d20plus.importer.getCleanText(renderer.render({ entries: actionData.entries }, 1));
+			const attackInfo = extractMonsterAttackInfo(actionData.entries);
+
+			if (attackInfo.isAttack && attackInfo.damages.length > 0) {
+				const { id: attackIntId, base: attackBase } = createIntegrantBase("Attack");
+				const damageIds = [];
+
+				for (let i = 0; i < attackInfo.damages.length; i++) {
+					const dmg = attackInfo.damages[i];
+					const { id: dmgId, base: dmgBase } = createIntegrantBase("Damage");
+					integrants[dmgId] = {
+						...dmgBase,
+						name: i === 0 ? `${name} Damage` : `${name} Damage ${i + 1}`,
+						damageType: dmg.damageType,
+						diceCount: dmg.diceCount,
+						diceSize: dmg.diceSize,
+						_bonus: dmg.bonus,
+						ability: "none",
+						overrideCrit: false,
+						critDiceSize: "",
+						parentID: attackIntId,
+						childIDs: "[]",
+						cascades: {},
+						relations: {},
+					};
+					damageIds.push(dmgId);
+				}
+
+				integrants[attackIntId] = {
+					...attackBase,
+					name: name,
+					actionType,
+					description: text,
+					attack: {
+						type: attackInfo.attackType,
+						proficiencyLevel: "Proficient",
+					},
+					_reach: attackInfo.attackType === "Melee",
+					_reachText: "",
+					range: attackInfo.range,
+					childIDs: JSON.stringify(damageIds),
+					parentID: "",
+					cascades: {},
+					relations: {},
+				};
+				attackDisplayOrder.push(attackIntId);
+			} else {
+				const { id, base } = createIntegrantBase("Action");
+				integrants[id] = {
+					...base,
+					name: name,
+					actionType,
+					description: text,
+					cascades: {},
+					relations: {},
+				};
+				displayOrder.push(id);
+			}
+		};
+
+		if (data.action) {
+			for (const action of data.action) buildAttackIntegrants(action, "Action", actionDisplayOrder);
 		}
 
 		// Bonus Actions
 		const bonusActionDisplayOrder = [];
 		if (data.bonus) {
-			for (const bonus of data.bonus) {
-				const name = d20plus.importer.getCleanText(renderer.render(bonus.name));
-				const text = d20plus.importer.getCleanText(renderer.render({ entries: bonus.entries }, 1));
-				const { id, base } = createIntegrantBase("Action");
-				integrants[id] = {
-					...base,
-					name: name,
-					actionType: "Bonus",
-					description: text,
-				};
-				bonusActionDisplayOrder.push(id);
-			}
+			for (const bonus of data.bonus) buildAttackIntegrants(bonus, "Bonus", bonusActionDisplayOrder);
 		}
 
 		// Reactions
 		const reactionDisplayOrder = [];
 		if (data.reaction) {
-			for (const reaction of data.reaction) {
-				const name = d20plus.importer.getCleanText(renderer.render(reaction.name));
-				const text = d20plus.importer.getCleanText(renderer.render({ entries: reaction.entries }, 1));
-				const { id, base } = createIntegrantBase("Action");
-				integrants[id] = {
-					...base,
-					name: name,
-					actionType: "Reaction",
-					description: text,
-				};
-				reactionDisplayOrder.push(id);
-			}
+			for (const reaction of data.reaction) buildAttackIntegrants(reaction, "Reaction", reactionDisplayOrder);
 		}
 
 		// Legendary Actions
@@ -1124,36 +1201,13 @@ function d20plus2024Import() {
 		if (data.legendary) {
 			const legendaryCount = data.legendaryActions || 3;
 			store.npc.legendaryActionCount = legendaryCount;
-
-			for (const legendary of data.legendary) {
-				const name = d20plus.importer.getCleanText(renderer.render(legendary.name));
-				const text = d20plus.importer.getCleanText(renderer.render({ entries: legendary.entries }, 1));
-				const { id, base } = createIntegrantBase("Action");
-				integrants[id] = {
-					...base,
-					name: name,
-					actionType: "Legendary",
-					description: text,
-				};
-				legendaryActionDisplayOrder.push(id);
-			}
+			for (const legendary of data.legendary) buildAttackIntegrants(legendary, "Legendary", legendaryActionDisplayOrder);
 		}
 
 		// Mythic Actions
 		const mythicActionDisplayOrder = [];
 		if (data.mythic) {
-			for (const mythic of data.mythic) {
-				const name = d20plus.importer.getCleanText(renderer.render(mythic.name));
-				const text = d20plus.importer.getCleanText(renderer.render({ entries: mythic.entries }, 1));
-				const { id, base } = createIntegrantBase("Action");
-				integrants[id] = {
-					...base,
-					name: mythic.name,
-					actionType: "Mythic",
-					description: text,
-				};
-				mythicActionDisplayOrder.push(id);
-			}
+			for (const mythic of data.mythic) buildAttackIntegrants(mythic, "Mythic", mythicActionDisplayOrder);
 		}
 
 		// Update display orders

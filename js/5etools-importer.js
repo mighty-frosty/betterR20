@@ -210,8 +210,8 @@ function d20plusImporter () {
 
 	d20plus.importer.getSetAvatarImage = async function (character, avatar, portraitUrl) {
 		let tokensize = 1;
-		if (character.size[0] === "T") tokensize = 0.572; // 40 (most tiny creature images have padding)
-		else if (character.size[0] === "S") tokensize = 0.572; // 40
+		if (character.size[0] === "T") tokensize = 0.5;  // Tiny: half-square
+		// Small intentionally 1 — Small creatures occupy a full 1x1 square
 		else if (character.size[0] === "L") tokensize = 2;
 		else if (character.size[0] === "H") tokensize = 3;
 		else if (character.size[0] === "G") tokensize = 4;
@@ -243,9 +243,25 @@ function d20plusImporter () {
 			case "Below": defaulttoken.bar_location = "below"; break;
 		}
 
-		// Link token bars to character sheet attributes
-		if (character.attribs) {
-			// Bar 1 - link to configured attribute (default: npc_hpbase for HP)
+		// Token bars — Jumpgate 2024 stores HP/AC in the store blob, not individual attribs.
+		// Use static values from the store; OGL path links bars to attributes as before.
+		const storeAttr = character.attribs?.find(a => a.get("name") === "store");
+		if (storeAttr) {
+			const store = storeAttr.get("current");
+			if (store && typeof store === "object") {
+				const hp = store.hitpoints?.currentHP;
+				if (hp != null) {
+					defaulttoken.bar1_value = String(hp);
+					defaulttoken.bar1_max = String(hp);
+				}
+				const acInt = Object.values(store.integrants?.integrants || {})
+					.find(i => i.type === "Armor Class");
+				if (acInt?.valueFormula?.flatValue != null) {
+					defaulttoken.bar2_value = String(acInt.valueFormula.flatValue);
+				}
+			}
+		} else if (character.attribs) {
+			// OGL: link bars to attributes by name/id
 			const bar1AttrName = d20plus.cfg.getOrDefault("token", "bar1");
 			if (bar1AttrName) {
 				const bar1Attr = character.attribs.find(a => a.get("name").toLowerCase() === bar1AttrName.toLowerCase());
@@ -257,7 +273,6 @@ function d20plusImporter () {
 					}
 				}
 			}
-			// Bar 2 - link to configured attribute (default: npc_ac for AC)
 			const bar2AttrName = d20plus.cfg.getOrDefault("token", "bar2");
 			if (bar2AttrName) {
 				const bar2Attr = character.attribs.find(a => a.get("name").toLowerCase() === bar2AttrName.toLowerCase());
@@ -269,7 +284,6 @@ function d20plusImporter () {
 					}
 				}
 			}
-			// Bar 3 - link to configured attribute (default: passive for Passive Perception)
 			const bar3AttrName = d20plus.cfg.getOrDefault("token", "bar3");
 			if (bar3AttrName) {
 				const bar3Attr = character.attribs.find(a => a.get("name").toLowerCase() === bar3AttrName.toLowerCase());
@@ -302,7 +316,9 @@ function d20plusImporter () {
 
 		character.attributes.avatar = outPortraitUrl;
 		character.updateBlobs({avatar: outPortraitUrl, defaulttoken: JSON.stringify(defaulttoken)});
-		character.save();
+		// Explicit defaulttoken timestamp tells Roll20 to use the blob on drag-to-map.
+		// Without it, Roll20 ignores the blob and creates a 1x1 avatar token instead.
+		character.save({defaulttoken: (new Date()).getTime()});
 	};
 
 	d20plus.importer._baseAddAction = function (character, baseAction, name, actionText, prefix, index, expand) {
