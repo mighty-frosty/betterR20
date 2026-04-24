@@ -314,11 +314,18 @@ function d20plusImporter () {
 			});
 		}
 
-		character.attributes.avatar = outPortraitUrl;
-		character.updateBlobs({avatar: outPortraitUrl, defaulttoken: JSON.stringify(defaulttoken)});
+		// Avatar = token image so the journal shows the token art
+		character.attributes.avatar = avatar;
+		character.updateBlobs({avatar: avatar, defaulttoken: JSON.stringify(defaulttoken)});
 		// Explicit defaulttoken timestamp tells Roll20 to use the blob on drag-to-map.
 		// Without it, Roll20 ignores the blob and creates a 1x1 avatar token instead.
 		character.save({defaulttoken: (new Date()).getTime()});
+
+		// Portrait/fluff image → Bio & Info page (written first; renderFluff will append after)
+		if (outPortraitUrl && outPortraitUrl !== avatar) {
+			character.updateBlobs({bio: `<p><img src="${outPortraitUrl}" style="max-width:100%;"></p>`});
+			character.save({bio: (new Date()).getTime()});
+		}
 	};
 
 	d20plus.importer._baseAddAction = function (character, baseAction, name, actionText, prefix, index, expand) {
