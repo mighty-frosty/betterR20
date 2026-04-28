@@ -335,7 +335,7 @@ function d20plus2024Import() {
 					createdTime: Date.now(),
 					arrayPosition: arrayPosition++,
 					shortID: id.substring(0, 9),
-					source: "Custom",
+					source: "",
 				},
 			};
 		};
@@ -377,7 +377,7 @@ function d20plus2024Import() {
 		integrants[acId] = {
 			...acBase,
 			defaultAbility: false,
-			calculation: "Set Value",
+			calculation: "Set Base",
 			name: "",
 			valueFormula: { flatValue: ac },
 		};
@@ -850,8 +850,8 @@ function d20plus2024Import() {
 			effects: { effectDisplayOrder: "[]" },
 			inventory: { incrementalQuantityEditing: true, equipmentDisplayOrder: "[]", otherPossessionsDisplayOrder: "[]" },
 			notes: { order: {}, emptyCategories: "[]", notes: {} },
-			settings: { layoutState: "Stat Block", newRules: true },
-			hitpoints: { deathSaves: { failures: 0, open: false, successes: 0 } },
+			settings: { layoutState: "Stat Block", newRules: true, rolls: { advancedMode: "Normal", mode: "Automatic", privacy: "gm" } },
+			hitpoints: { deathSaves: { failures: 0, open: false, successes: 0 }, tempHP: 0 },
 			npcEdit: {},
 			proficiencies: {},
 		};
@@ -875,7 +875,7 @@ function d20plus2024Import() {
 					createdTime: Date.now(),
 					arrayPosition: arrayPosition++,
 					shortID: id.substring(0, 9),
-					source: "Custom",
+					source: "",
 				},
 			};
 		};
@@ -896,7 +896,7 @@ function d20plus2024Import() {
 			integrants[id] = {
 				...base,
 				ability: ability.name,
-				calculation: "Set Value",
+				calculation: "Set Base",
 				name: "",
 				valueFormula: { flatValue: value },
 			};
@@ -924,7 +924,7 @@ function d20plus2024Import() {
 		integrants[acId] = {
 			...acBase,
 			defaultAbility: false,
-			calculation: "Set Value",
+			calculation: "Set Base",
 			name: "",
 			valueFormula: { flatValue: ac },
 		};
@@ -945,13 +945,28 @@ function d20plus2024Import() {
 		// Challenge Rating, HP formula, habitat, treasure
 		const cr = data.cr ? (data.cr.cr || data.cr) : "0";
 		store.npc.challengeRating = String(cr);
-		if (data.hp && data.hp.formula) store.npc.rollHP = data.hp.formula;
+		store.npc.acNotes = "";
+		store.npc.gear = "";
+		if (data.hp && data.hp.formula) store.npc.rollHP = data.hp.formula.replace(/\s/g, "");
 		if (data.environment && data.environment.length) {
-			const hab = data.environment[0];
-			store.npc.habitat = hab.charAt(0).toUpperCase() + hab.slice(1);
+			store.npc.habitat = data.environment.map(e => e.charAt(0).toUpperCase() + e.slice(1)).join(", ");
 		}
 		if (data.treasure && data.treasure.length) {
 			store.npc.treasure = data.treasure.map(t => t.charAt(0).toUpperCase() + t.slice(1)).join(", ");
+		}
+		// Initiative override: 10 + DEX mod + initiative proficiency bonus
+		if (data.dex !== undefined) {
+			const dexMod = Math.floor((data.dex - 10) / 2);
+			const initProf = (data.initiative && data.initiative.proficiency) ? data.initiative.proficiency : 0;
+			store.npc.initiativeModOverride = 10 + dexMod + initProf;
+		}
+		// Custom XP from CR (with lair bonus if present)
+		const regularXP = Parser.crToXpNumber(cr);
+		if (regularXP) {
+			const lairXP = data.cr && data.cr.xpLair;
+			store.npc.customXP = lairXP
+				? `${Number(regularXP).toLocaleString()}, or ${Number(lairXP).toLocaleString()} in lair`
+				: String(regularXP);
 		}
 
 		// Speeds
@@ -971,6 +986,7 @@ function d20plus2024Import() {
 		const sensesArr = data.senses instanceof Array ? data.senses : (data.senses ? [data.senses] : []);
 		const senses = parse2024MonsterSenses(sensesArr);
 		for (const sense of senses) {
+			if (!sense.value) continue;
 			const { id, base } = createIntegrantBase("Sense");
 			integrants[id] = {
 				...base,
@@ -1108,7 +1124,7 @@ function d20plus2024Import() {
 				integrants[id] = {
 					...base,
 					name: scName,
-					actionType: sc.displayAs === "bonus" ? "Bonus" : "Action",
+					actionType: sc.displayAs === "bonus" ? "Bonus" : sc.displayAs === "reaction" ? "Reaction" : "Action",
 					description: scText,
 					cascades: {},
 					relations: {},
@@ -1226,6 +1242,165 @@ function d20plus2024Import() {
 	 */
 	d20plus.monsters.shouldUse2024 = function() {
 		return IS_2024_SHEET.has(d20plus.cfg.getOrDefault("import", "importSheetFormat"));
+	};
+
+	/**
+	 * After build2024Store saves the monster, asynchronously load each spell listed
+	 * in the spellcasting block and call import2024Spell for each one sequentially.
+	 */
+	d20plus.monsters.import2024Spells = function (charModel, monsterData) {
+		if (!monsterData.spellcasting || !monsterData.spellcasting.length) return;
+
+		// All slot key names that can contain spell references
+		const SLOT_KEYS = ["constant", "will", "rest", "restLong", "restShort", "daily", "weekly"];
+
+		function extractSpellRefs (sc) {
+			const refs = [];
+			SLOT_KEYS.forEach(k => {
+				if (!sc[k]) return;
+				Object.values(sc[k]).forEach(spOrArr => {
+					(Array.isArray(spOrArr) ? spOrArr : [spOrArr]).forEach(sp => refs.push(sp));
+				});
+			});
+			if (sc.spells) {
+				Object.values(sc.spells).forEach(lvlData => {
+					(lvlData.spells || []).forEach(sp => refs.push(sp));
+				});
+			}
+			return refs;
+		}
+
+		function parseSpellTag (sp) {
+			if (typeof sp !== "string") return null;
+			const m = sp.match(/\{@spell ([^|}]+?)(?:\|([^}]+?))?\}/i);
+			if (!m) return null;
+			return {name: m[1].trim(), source: (m[2] || "PHB").trim()};
+		}
+
+		// Collect all unique spells to fetch
+		const toLoad = [];
+		const seen = new Set();
+		monsterData.spellcasting.forEach(sc => {
+			extractSpellRefs(sc).forEach(sp => {
+				const parsed = parseSpellTag(sp);
+				if (!parsed) return;
+				const key = `${parsed.name.toLowerCase()}|${parsed.source.toLowerCase()}`;
+				if (seen.has(key)) return;
+				seen.add(key);
+				toLoad.push(parsed);
+			});
+		});
+
+		if (!toLoad.length) return;
+
+		setTimeout(() => {
+			Promise.all(toLoad.map(({name, source}) => {
+				const urlKey = Object.keys(spellDataUrls).find(src => src.toLowerCase() === source.toLowerCase());
+				if (!urlKey) {
+					console.warn(`betterR20: No spell data URL for source "${source}" (${name})`);
+					return null;
+				}
+				const url = d20plus.spells.formSpellUrl(spellDataUrls[urlKey]);
+				return DataUtil.loadJSON(url).then(spellFile => {
+					const spell = spellFile.spell.find(s => s.name.toLowerCase() === name.toLowerCase());
+					if (!spell) {
+						console.warn(`betterR20: Spell "${name}" not found in ${source}`);
+						return null;
+					}
+					const [, gmnotes] = d20plus.spells._getHandoutData(spell);
+					return JSON.parse(gmnotes);
+				}).catch(err => {
+					console.warn(`betterR20: Error fetching spell "${name}" from ${source}:`, err);
+					return null;
+				});
+			})).then(spellDataList => {
+				const {attr: storeAttr, store: rawStore} = get2024Store(charModel);
+				const store = rawStore ? JSON.parse(JSON.stringify(rawStore)) : {
+					integrants: {integrants: {}},
+					spells: {displayOrder: ["[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]"]},
+				};
+
+				// Build Class + Spellcasting config integrants — one pair per spellcasting block.
+				// The 2024 sheet derives the dropdown label from the Class integrant's name + ability,
+				// e.g. "Adult Gold Dragon (CHA)" or "Arch-hag (INT)".
+				const abilityMap = {str:"Strength",dex:"Dexterity",con:"Constitution",int:"Intelligence",wis:"Wisdom",cha:"Charisma"};
+				const monsterName = monsterData._displayName || monsterData.name;
+				const configIds = [];
+				const classIds = [];
+
+				// spellSourceMap: spellNameLower → {configId, classId} for correct per-block linking
+				const spellSourceMap = {};
+
+				monsterData.spellcasting.forEach(sc => {
+					const scName = sc.name || "Spellcasting";
+					const ability = abilityMap[(sc.ability || "").toLowerCase()] || "Intelligence";
+
+					let scPos = getNextArrayPos(store);
+					const {id: classId, base: classBase} = make2024IntegrantBase("Class", scPos++);
+					const {id: configId, base: configBase} = make2024IntegrantBase("Spellcasting", scPos++);
+
+					store.integrants.integrants[classId] = {
+						...classBase,
+						name: monsterName,
+						_label: monsterName,
+						parentID: "",
+						childIDs: JSON.stringify([configId]),
+						cascades: {},
+						relations: {},
+					};
+					store.integrants.integrants[configId] = {
+						...configBase,
+						name: scName,
+						ability,
+						casterType: "other",
+						overviewDisplay: true,
+						parentID: classId,
+						sourceID: classId,
+						childIDs: "[]",
+						cascades: {},
+						relations: {},
+					};
+					classIds.push(classId);
+					configIds.push(configId);
+
+					// Map each spell in this block to its config so multi-ability monsters link correctly
+					extractSpellRefs(sc).forEach(sp => {
+						const parsed = parseSpellTag(sp);
+						if (parsed && !spellSourceMap[parsed.name.toLowerCase()]) {
+							spellSourceMap[parsed.name.toLowerCase()] = {configId, classId};
+						}
+					});
+				});
+
+				// Batch-add all spell integrant chains
+				for (const spellData of spellDataList) {
+					if (spellData) d20plus.importer.import2024Spell(charModel, spellData, store);
+				}
+
+				// Wire up each Spell integrant to its block's Class (dropdown source) and
+				// each spell Attack integrant to its block's Spellcasting config (DC/to-hit).
+				Object.entries(store.integrants.integrants).forEach(([id, integrant]) => {
+					if (integrant.type === "Spell") {
+						const mapping = spellSourceMap[integrant.name.toLowerCase()];
+						integrant.sourceID = mapping ? mapping.classId : (classIds[0] || "");
+					} else if (integrant.type === "Attack" && integrant.attack) {
+						const t = integrant.attack.type;
+						if (t !== "Spell Save" && t !== "Spell Attack") return;
+						const parentSpell = store.integrants.integrants[integrant.parentID];
+						const mapping = parentSpell ? spellSourceMap[parentSpell.name.toLowerCase()] : null;
+						const targetConfigId = mapping ? mapping.configId : (configIds[0] || null);
+						if (!targetConfigId) return;
+						const targetConfig = store.integrants.integrants[targetConfigId];
+						if (!targetConfig) return;
+						integrant.relations = integrant.relations || {};
+						integrant.relations[targetConfigId] = "uses";
+						targetConfig.relations[id] = "usedBy";
+					}
+				});
+
+				save2024Store(charModel, storeAttr, store);
+			});
+		}, 500);
 	};
 
 	// ========================================
@@ -1438,15 +1613,23 @@ function d20plus2024Import() {
 	 * When Vetoolscontent is present builds the full native
 	 * Spell → Attack → Damage → Upcasting integrant chain.
 	 */
-	d20plus.importer.import2024Spell = function (charModel, spellData) {
+	// _batchStore: if provided, mutate it in place and skip the read/save (batch mode for monster import).
+	d20plus.importer.import2024Spell = function (charModel, spellData, _batchStore) {
 		const d = spellData.data;
 		const vc = spellData.Vetoolscontent || null;
 
-		const {attr: storeAttr, store: rawStore} = get2024Store(charModel);
-		const store = rawStore ? JSON.parse(JSON.stringify(rawStore)) : {
-			integrants: {integrants: {}},
-			spells: {displayOrder: ["[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]"]},
-		};
+		let storeAttr, store;
+		if (_batchStore) {
+			storeAttr = null;
+			store = _batchStore;
+		} else {
+			const s = get2024Store(charModel);
+			storeAttr = s.attr;
+			store = s.store ? JSON.parse(JSON.stringify(s.store)) : {
+				integrants: {integrants: {}},
+				spells: {displayOrder: ["[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]"]},
+			};
+		}
 		if (!store.integrants) store.integrants = {integrants: {}};
 		if (!store.integrants.integrants) store.integrants.integrants = {};
 		if (!store.spells) store.spells = {displayOrder: ["[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]"]};
@@ -1460,14 +1643,15 @@ function d20plus2024Import() {
 
 		// Components
 		const compStr = (d["Components"] || "").toUpperCase();
-		const components = {
-			verbal: compStr.includes("V"),
-			somatic: compStr.includes("S"),
-			material: compStr.includes("M"),
-		};
-		if (vc && vc.components && vc.components.m) {
-			components.materialDescription = typeof vc.components.m === "string"
-				? vc.components.m : (vc.components.m.text || "");
+		const components = {};
+		if (compStr.includes("V")) components.verbal = true;
+		if (compStr.includes("S")) components.somatic = true;
+		if (compStr.includes("M")) {
+			components.material = true;
+			if (vc && vc.components && vc.components.m) {
+				components.materialDescription = typeof vc.components.m === "string"
+					? vc.components.m : (vc.components.m.text || "");
+			}
 		}
 
 		// Range and duration as full strings, matching native Roll20 format
@@ -1482,8 +1666,9 @@ function d20plus2024Import() {
 			if (du.type === "timed" && du.duration) {
 				const amt = du.duration.amount;
 				const unit = du.duration.type;
-				const unitStr = unit.charAt(0).toUpperCase() + unit.slice(1) + (amt !== 1 ? "s" : "");
-				return `${amt} ${unitStr}`;
+				const plural = amt !== 1 ? "s" : "";
+				if (du.concentration) return `Concentration, up to ${amt} ${unit}${plural}`;
+				return `${amt} ${unit}${plural}`;
 			}
 			return "Instantaneous";
 		}
@@ -1500,7 +1685,9 @@ function d20plus2024Import() {
 			if (t.unit === "day") return t.number === 1 ? "1 Day" : `${t.number} Days`;
 			return "Action";
 		}
-		const castingTime = vc ? parseCastingTime2024(vc.time) : (d["Casting Time"] || "Action");
+		const castingTimeBase = vc ? parseCastingTime2024(vc.time) : (d["Casting Time"] || "Action");
+		const isRitual = vc ? !!(vc.meta && vc.meta.ritual) : (d["Ritual"] || "") === "Yes";
+		const castingTime = isRitual ? `${castingTimeBase} or Ritual` : castingTimeBase;
 
 		// AoE
 		const aoeShape = vc && vc.areaTags && vc.areaTags.length ? areaTagTo2024Shape(vc.areaTags[0]) : "";
@@ -1523,7 +1710,8 @@ function d20plus2024Import() {
 		const rayRepeat = (!isCantripScaling && hasSpellAtk) ? parseSpell2024Repeat(vc.entries) : null;
 		const isMultiRay = rayRepeat !== null;
 
-		const buildChain = hasDamage && (hasSave || hasSpellAtk || isAutoHit);
+		// Build chain for any spell with a save, attack roll, or auto-hit (damage OR save-only like Zone of Truth)
+		const buildChain = hasSave || hasSpellAtk || isAutoHit;
 
 		const parsed = buildChain ? parseSpell2024Damage(vc.entries) : null;
 		// isRepeatUpcast: auto-hit OR multi-ray spells that add more projectiles per slot
@@ -1549,14 +1737,16 @@ function d20plus2024Import() {
 		let cantripUpcastEntries = []; // [{id, base, level}] for cantrip scaling
 		if (buildChain && !isMultiDamage) {
 			({id: attackId, base: attackBase} = make2024IntegrantBase("Attack", pos++));
-			({id: dmgId, base: dmgBase} = make2024IntegrantBase("Damage", pos++));
-			if (isCantripScaling) {
-				cantripUpcastEntries = cantripLevels.map(lvl => {
-					const {id, base} = make2024IntegrantBase("Upcasting", pos++);
-					return {id, base, level: lvl};
-				});
-			} else if (upcast || isRepeatUpcast) {
-				({id: upcastId, base: upcastBase} = make2024IntegrantBase("Upcasting", pos++));
+			if (hasDamage) {
+				({id: dmgId, base: dmgBase} = make2024IntegrantBase("Damage", pos++));
+				if (isCantripScaling) {
+					cantripUpcastEntries = cantripLevels.map(lvl => {
+						const {id, base} = make2024IntegrantBase("Upcasting", pos++);
+						return {id, base, level: lvl};
+					});
+				} else if (upcast || isRepeatUpcast) {
+					({id: upcastId, base: upcastBase} = make2024IntegrantBase("Upcasting", pos++));
+				}
 			}
 		}
 		let healId, healBase, healUpcastId, healUpcastBase;
@@ -1635,7 +1825,7 @@ function d20plus2024Import() {
 		if (attackId) {
 			const diceCount = parsed ? parsed.diceCount : 1;
 			const diceSize = parsed ? parsed.diceSize : "d6";
-			const damageType = cap(vc.damageInflict[0]);
+			const damageType = hasDamage ? cap(vc.damageInflict[0]) : "";
 
 			let atkIntegrant;
 			if (isAutoHit) {
@@ -1663,7 +1853,7 @@ function d20plus2024Import() {
 				// Repeat-scaling cantrips: Attack childIDs = [dmg, upcast5, upcast11, upcast17]
 				// Dice-scaling cantrips: Attack childIDs = [dmg] only (upcastings live under Damage)
 				const repeatChildIds = (!isDiceScaling && isCantripScaling) ? cantripUpcastEntries.map(e => e.id) : [];
-				const childIDs = JSON.stringify([dmgId, ...repeatChildIds]);
+				const childIDs = dmgId ? JSON.stringify([dmgId, ...repeatChildIds]) : "[]";
 
 				atkIntegrant = {
 					...attackBase,
@@ -1671,10 +1861,11 @@ function d20plus2024Import() {
 					recordName: `${spellData.name} Attack`,
 					actionType: castingTime,
 					range,
-					aoe,
+					...(aoe.shape ? {aoe} : {}),
 					attack: {type: atkType},
 					parentID: spellId,
 					childIDs,
+					cascades: {[spellId]: '["Prepare"]'},
 					relations: {},
 				};
 				if (isCantripScaling && !isDiceScaling) atkIntegrant.repeat = 1;
@@ -1683,9 +1874,9 @@ function d20plus2024Import() {
 				if (hasSave) {
 					atkIntegrant.save = {
 						saveAbility: cap(vc.savingThrow[0]),
-						onFail: `Takes ${diceCount}${diceSize} ${damageType} damage.`,
-						onSucceed: onSucceedHalf ? "Half as much damage." : "No effect.",
+						onFail: hasDamage ? `Takes ${diceCount}${diceSize} ${damageType} damage.` : "",
 					};
+					if (hasDamage && onSucceedHalf) atkIntegrant.save.onSucceed = "Half as much damage.";
 				}
 			}
 			store.integrants.integrants[attackId] = atkIntegrant;
@@ -1695,7 +1886,6 @@ function d20plus2024Import() {
 		const multiDamageAtkIds = [];
 		if (isMultiDamage) {
 			const damageType = cap(vc.damageInflict[0]);
-			const onSucceed = onSucceedHalf ? "Half as much damage." : "No effect.";
 
 			for (const sldEntry of vc.scalingLevelDice) {
 				const baseDiceStr = sldEntry.scaling["1"] || "1d8";
@@ -1753,18 +1943,19 @@ function d20plus2024Import() {
 					recordName: atkRecordName,
 					actionType: castingTime,
 					range,
-					aoe,
+					...(aoe.shape ? {aoe} : {}),
 					attack: {type: hasSave ? "Spell Save" : "Spell Attack"},
 					parentID: spellId,
 					childIDs: JSON.stringify([mDmgId]),
+					cascades: {[spellId]: '["Prepare"]'},
 					relations: {},
 				};
 				if (hasSave) {
 					mAtkIntegrant.save = {
 						saveAbility: cap(vc.savingThrow[0]),
 						onFail: `Takes ${baseDiceStr} ${damageType} damage.`,
-						onSucceed,
 					};
+					if (onSucceedHalf) mAtkIntegrant.save.onSucceed = "Half as much damage.";
 				}
 				store.integrants.integrants[mAtkId] = mAtkIntegrant;
 				multiDamageAtkIds.push(mAtkId);
@@ -1817,23 +2008,21 @@ function d20plus2024Import() {
 		const schoolMap = {A:"Abjuration",C:"Conjuration",D:"Divination",E:"Enchantment",I:"Illusion",N:"Necromancy",T:"Transmutation",V:"Evocation"};
 		const spellIntegrant = {
 			...spellBase,
-			_prepared: true,
+			_prepared: !!_batchStore ? false : true,  // NPC batch imports are not "prepared"
 			alwaysPrepared: false,
-			aoe,
+			...(aoe.shape ? {aoe} : {}),
 			concentration: vc ? !!(vc.duration && vc.duration[0] && vc.duration[0].concentration) : (d["Concentration"] || "") === "Yes",
 			name: spellData.name,
 			recordName: spellData.name,
 			level: levelIdx,
 			school: (vc && schoolMap[vc.school]) || d["School"] || "Evocation",
-			castingTime: castingTime,
+			castingTime,
 			range,
 			components,
 			duration,
 			description: d["data-description"] || "",
 			relations: {},
-			ritual: (d["Ritual"] || "") === "Yes",
-			target: "",
-			upcastText: d["Higher Spell Slot Desc"] || "",
+			ritual: isRitual,
 			childIDs: spellChildIDs,
 		};
 		if (isDiceScaling) spellIntegrant.cantripScale = "Dice";
@@ -1843,7 +2032,7 @@ function d20plus2024Import() {
 		order.push(spellId);
 		store.spells.displayOrder[levelIdx] = JSON.stringify(order);
 
-		save2024Store(charModel, storeAttr, store);
+		if (!_batchStore) save2024Store(charModel, storeAttr, store);
 	};
 
 	/**

@@ -454,6 +454,10 @@ function d20plusMonsters () {
 						].map(a => character.attribs.push(a));
 						toSave.forEach(s => s.syncedSave());
 
+						if (typeof d20plus.monsters.import2024Spells === "function") {
+							d20plus.monsters.import2024Spells(character, data);
+						}
+
 						if (renderFluff) {
 							setTimeout(() => {
 								const fluffAs = d20plus.cfg.get("import", "importFluffAs") || d20plus.cfg.getDefault("import", "importFluffAs");
