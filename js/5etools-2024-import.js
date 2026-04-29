@@ -723,10 +723,11 @@ function d20plus2024Import() {
 			const match = sense.match(/(\w+)\s+(\d+)/i);
 			if (match) {
 				const senseType = match[1].toLowerCase();
-				if (validSenses.includes(senseType)) {
+				const senseValue = parseInt(match[2], 10);
+				if (validSenses.includes(senseType) && senseValue > 0) {
 					senses.push({
 						type: senseType.charAt(0).toUpperCase() + senseType.slice(1),
-						value: parseInt(match[2], 10),
+						value: senseValue,
 					});
 				}
 			}
@@ -954,11 +955,13 @@ function d20plus2024Import() {
 		if (data.treasure && data.treasure.length) {
 			store.npc.treasure = data.treasure.map(t => t.charAt(0).toUpperCase() + t.slice(1)).join(", ");
 		}
-		// Initiative override: 10 + DEX mod + initiative proficiency bonus
+		// initiativeModOverride = DEX mod + PB × initiative.proficiency
+		// (the value is the total bonus, not a score — the sheet adds 10 for the static display)
 		if (data.dex !== undefined) {
 			const dexMod = Math.floor((data.dex - 10) / 2);
+			const pb = Parser.crToPb ? Parser.crToPb(cr) : 2;
 			const initProf = (data.initiative && data.initiative.proficiency) ? data.initiative.proficiency : 0;
-			store.npc.initiativeModOverride = 10 + dexMod + initProf;
+			store.npc.initiativeModOverride = dexMod + pb * initProf;
 		}
 		// Custom XP from CR (with lair bonus if present)
 		const regularXP = Parser.crToXpNumber(cr);
@@ -1124,8 +1127,9 @@ function d20plus2024Import() {
 				integrants[id] = {
 					...base,
 					name: scName,
-					actionType: sc.displayAs === "bonus" ? "Bonus" : sc.displayAs === "reaction" ? "Reaction" : "Action",
+					actionType: sc.displayAs === "bonus" ? "Bonus Action" : sc.displayAs === "reaction" ? "Reaction" : "Action",
 					description: scText,
+					excludeFamilialResources: false,
 					cascades: {},
 					relations: {},
 				};
@@ -1189,6 +1193,7 @@ function d20plus2024Import() {
 					name: name,
 					actionType,
 					description: text,
+					excludeFamilialResources: false,
 					cascades: {},
 					relations: {},
 				};
@@ -1203,7 +1208,7 @@ function d20plus2024Import() {
 		// Bonus Actions
 		const bonusActionDisplayOrder = [];
 		if (data.bonus) {
-			for (const bonus of data.bonus) buildAttackIntegrants(bonus, "Bonus", bonusActionDisplayOrder);
+			for (const bonus of data.bonus) buildAttackIntegrants(bonus, "Bonus Action", bonusActionDisplayOrder);
 		}
 
 		// Reactions
@@ -1226,13 +1231,10 @@ function d20plus2024Import() {
 			for (const mythic of data.mythic) buildAttackIntegrants(mythic, "Mythic", mythicActionDisplayOrder);
 		}
 
-		// Update display orders
-		store.actions.actionDisplayOrder = JSON.stringify(actionDisplayOrder);
-		store.actions.bonusActionDisplayOrder = JSON.stringify(bonusActionDisplayOrder);
-		store.actions.reactionDisplayOrder = JSON.stringify(reactionDisplayOrder);
-		store.actions.legendaryActionDisplayOrder = JSON.stringify(legendaryActionDisplayOrder);
-		store.actions.mythicActionDisplayOrder = JSON.stringify(mythicActionDisplayOrder);
-		store.attacks.attackDisplayOrder = JSON.stringify(attackDisplayOrder);
+		// Leave all display orders as "[]" — the 2024 sheet auto-discovers integrants
+		// by type/actionType in stat block mode (matches native compendium behaviour).
+		// Explicitly populating them causes the sheet to use a lookup that fails to
+		// match integrants by shortID, so bonus/reaction actions don't appear.
 
 		return store;
 	};
