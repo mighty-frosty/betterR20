@@ -2263,6 +2263,422 @@ function d20plus2024Import() {
 		save2024Store(charModel, storeAttr, store);
 	};
 
+	// Helper: append IDs to a JSON-stringified display order array in the store.
+	function push2024DisplayOrder (store, section, key, ids) {
+		if (!store[section]) store[section] = {};
+		const current = JSON.parse(store[section][key] || "[]");
+		store[section][key] = JSON.stringify([...current, ...ids]);
+	}
+
+	/**
+	 * Import a 5etools feat onto a 2024 Jumpgate character.
+	 * Creates a Features integrant and adds it to featsDisplayOrder.
+	 */
+	d20plus.importer.import2024Feat = function (charModel, data) {
+		const {attr: storeAttr, store} = get2024Store(charModel);
+		if (!store) return;
+
+		let pos = getNextArrayPos(store);
+		const ints = store.integrants.integrants;
+
+		const {id, base} = make2024IntegrantBase("Features", pos++);
+		ints[id] = {
+			...base,
+			name: data.name,
+			recordName: data.name,
+			description: data.Vetoolscontent || "",
+			source: "Feat",
+			parentID: "",
+			childIDs: "[]",
+			cascades: {},
+			relations: {},
+		};
+
+		push2024DisplayOrder(store, "features", "featsDisplayOrder", [id]);
+
+		save2024Store(charModel, storeAttr, store);
+	};
+
+	/**
+	 * Import a 5etools race/subrace onto a 2024 Jumpgate character.
+	 * Creates: Species → Speed, Size, Features (one per trait), Sense (for darkvision)
+	 */
+	d20plus.importer.import2024Race = function (charModel, data) {
+		const race = data.Vetoolscontent;
+		if (!race) return;
+
+		const {attr: storeAttr, store} = get2024Store(charModel);
+		if (!store) return;
+
+		let pos = getNextArrayPos(store);
+		const ints = store.integrants.integrants;
+		const renderer = Renderer.get().setBaseUrl(LINK_BASE_URL);
+
+		const makeBase = (type) => {
+			const {id, base} = make2024IntegrantBase(type, pos++);
+			base.source = "Species";
+			return {id, base};
+		};
+
+		const sizeAbvMap = {T: "Tiny", S: "Small", M: "Medium", L: "Large", H: "Huge", G: "Gargantuan"};
+		const firstSizeAbv = (race.size && race.size[0]) || "M";
+		const firstSize = sizeAbvMap[firstSizeAbv] || "Medium";
+		const walkSpeed = typeof race.speed === "number" ? race.speed : (race.speed && race.speed.walk) || 30;
+		const raceName = race.name || "Unknown";
+		const darkvision = race.darkvision || 0;
+
+		// --- Species (top-level) ---
+		const {id: speciesId, base: speciesBase} = makeBase("Species");
+		ints[speciesId] = {
+			...speciesBase,
+			name: raceName,
+			recordName: raceName,
+			description: "",
+			source: "Custom",
+			parentID: "",
+			childIDs: "[]",
+			cascades: {},
+			relations: {},
+		};
+
+		const speciesChildren = [];
+
+		// Speed
+		const {id: speedId, base: speedBase} = makeBase("Speed");
+		ints[speedId] = {
+			...speedBase,
+			name: `${walkSpeed} Speed`,
+			recordName: `${raceName} Speed`,
+			speed: "Walking",
+			calculation: "Set Base",
+			valueFormula: {flatValue: walkSpeed},
+			parentID: speciesId,
+			sourceID: speciesId,
+			childIDs: "[]",
+			cascades: {},
+			relations: {},
+		};
+		speciesChildren.push(speedId);
+
+		// Size
+		const {id: sizeId, base: sizeBase} = makeBase("Size");
+		ints[sizeId] = {
+			...sizeBase,
+			name: `${firstSize} Size`,
+			recordName: `${raceName} Size`,
+			size: firstSize,
+			parentID: speciesId,
+			sourceID: speciesId,
+			childIDs: "[]",
+			cascades: {},
+			relations: {},
+		};
+		speciesChildren.push(sizeId);
+
+		// Features (one per entry in race.entries)
+		let hasDarkvisionFeature = false;
+		for (const entry of (race.entries || [])) {
+			if (!entry || typeof entry === "string" || !entry.name) continue;
+
+			const renderStack = [];
+			if (entry.entries) renderer.recursiveRender({entries: entry.entries}, renderStack);
+			const description = d20plus.importer.getCleanText(renderStack.join(""));
+
+			const {id: featId, base: featBase} = makeBase("Features");
+			const featChildren = [];
+
+			ints[featId] = {
+				...featBase,
+				name: entry.name,
+				recordName: `${raceName} ${entry.name}`,
+				description,
+				parentID: speciesId,
+				sourceID: speciesId,
+				childIDs: "[]",
+				cascades: {},
+				relations: {},
+			};
+			speciesChildren.push(featId);
+
+			// Darkvision entry → add Sense child
+			if (/darkvision/i.test(entry.name) && darkvision) {
+				hasDarkvisionFeature = true;
+				const {id: senseId, base: senseBase} = makeBase("Sense");
+				ints[senseId] = {
+					...senseBase,
+					name: "Darkvision",
+					recordName: `${raceName} Darkvision`,
+					calculation: "Set Base",
+					valueFormula: {flatValue: darkvision},
+					parentID: featId,
+					sourceID: speciesId,
+					childIDs: "[]",
+					cascades: {},
+					relations: {},
+				};
+				featChildren.push(senseId);
+			}
+
+			if (featChildren.length) ints[featId].childIDs = JSON.stringify(featChildren);
+		}
+
+		// Darkvision from data root if no Darkvision entry was found in entries
+		if (darkvision && !hasDarkvisionFeature) {
+			const {id: featId, base: featBase} = makeBase("Features");
+			const {id: senseId, base: senseBase} = makeBase("Sense");
+			ints[featId] = {
+				...featBase,
+				name: "Darkvision",
+				recordName: `${raceName} Darkvision`,
+				description: `You can see in dim light within ${darkvision} feet of you as if it were bright light, and in darkness as if it were dim light. You can't discern color in darkness, only shades of gray.`,
+				parentID: speciesId,
+				sourceID: speciesId,
+				childIDs: JSON.stringify([senseId]),
+				cascades: {},
+				relations: {},
+			};
+			speciesChildren.push(featId);
+			ints[senseId] = {
+				...senseBase,
+				name: "Darkvision",
+				recordName: `${raceName} Darkvision`,
+				calculation: "Set Base",
+				valueFormula: {flatValue: darkvision},
+				parentID: featId,
+				sourceID: speciesId,
+				childIDs: "[]",
+				cascades: {},
+				relations: {},
+			};
+		}
+
+		ints[speciesId].childIDs = JSON.stringify(speciesChildren);
+
+		// Add all Features children to speciesTraitsDisplayOrder so the sheet shows them
+		const speciesFeatureIds = speciesChildren.filter(id => ints[id] && ints[id].type === "Features");
+		push2024DisplayOrder(store, "features", "speciesTraitsDisplayOrder", speciesFeatureIds);
+
+		save2024Store(charModel, storeAttr, store);
+	};
+
+	/**
+	 * Import a 5etools class onto a 2024 Jumpgate character.
+	 * Creates: Class → Class Level(s) → Hit Dice, Hit Points, Features
+	 * For spellcasting classes: Spellcasting Features → Spellcasting config + Spell Slots
+	 */
+	d20plus.importer.import2024Class = async function (charModel, data) {
+		const clss = data.Vetoolscontent;
+		if (!clss || !clss.classFeatures) return;
+
+		const levelInput = prompt(`Import ${clss.name} at what level? (1-20)`, "1");
+		if (levelInput === null) return;
+		const maxLevel = Math.min(20, Math.max(1, parseInt(levelInput, 10) || 1));
+
+		const {attr: storeAttr, store} = get2024Store(charModel);
+		if (!store) return;
+
+		let pos = getNextArrayPos(store);
+
+		const makeBase = (type) => {
+			const {id, base} = make2024IntegrantBase(type, pos++);
+			base.source = "Class";
+			return {id, base};
+		};
+
+		const ints = store.integrants.integrants;
+		const renderer = Renderer.get().setBaseUrl(LINK_BASE_URL);
+
+		const abilityMap = {str: "Strength", dex: "Dexterity", con: "Constitution", int: "Intelligence", wis: "Wisdom", cha: "Charisma"};
+		const spellAbility = clss.spellcastingAbility ? abilityMap[clss.spellcastingAbility] : null;
+		const casterTypeMap = {"full": "full", "1/2": "half", "1/3": "third", "artificer": "half", "pact": "pact"};
+		const casterType = (spellAbility && clss.casterProgression) ? (casterTypeMap[clss.casterProgression] || "full") : null;
+
+		const spellProgressionTable = clss.classTableGroups
+			?.find(g => g.rowsSpellProgression)?.rowsSpellProgression || null;
+
+		const classFeatureIds = []; // collect all top-level Features for classFeatureDisplayOrder
+
+		// --- Class integrant (top-level) ---
+		const {id: classId, base: classBase} = makeBase("Class");
+		ints[classId] = {
+			...classBase,
+			name: clss.name,
+			recordName: clss.name,
+			isPooledCaster: !!spellAbility,
+			source: "Custom",
+			parentID: "",
+			childIDs: "[]",
+			cascades: {},
+			relations: {},
+		};
+
+		const classChildren = [];
+		const avgHP = Math.ceil((clss.hd.faces + 1) / 2);
+
+		// --- One Class Level integrant per level ---
+		for (let lvl = 1; lvl <= maxLevel; lvl++) {
+			const {id: lvlId, base: lvlBase} = makeBase("Class Level");
+			ints[lvlId] = {
+				...lvlBase,
+				name: clss.name,
+				recordName: `${clss.name} Level ${lvl}`,
+				level: lvl,
+				totalLevel: lvl,
+				classID: classId,
+				parentID: classId,
+				sourceID: classId,
+				subClassID: "",
+				childIDs: "[]",
+				cascades: {},
+				relations: {},
+			};
+			classChildren.push(lvlId);
+
+			const lvlChildren = [];
+
+			// Hit Dice
+			const {id: hdId, base: hdBase} = makeBase("Hit Dice");
+			ints[hdId] = {
+				...hdBase,
+				name: `${clss.name} Hit Dice (Level ${lvl})`,
+				recordName: `${clss.name} Hit Dice (Level ${lvl})`,
+				ability: "Constitution",
+				dieCount: 1,
+				dieSize: clss.hd.faces,
+				recovery: "Long",
+				classID: classId,
+				parentID: lvlId,
+				sourceID: classId,
+				childIDs: "[]",
+				cascades: {},
+				relations: {},
+			};
+			lvlChildren.push(hdId);
+
+			// Hit Points (max at level 1, average thereafter)
+			const {id: hpId, base: hpBase} = makeBase("Hit Points");
+			ints[hpId] = {
+				...hpBase,
+				_label: `Hit Points - Max - Level ${lvl}`,
+				name: `Hit Points - Max - Level ${lvl}`,
+				hitpointType: "Maximum",
+				calculation: "Modify",
+				isFixed: lvl === 1,
+				parentID: lvlId,
+				sourceID: classId,
+				childIDs: "[]",
+				valueFormula: {
+					flatValue: lvl === 1 ? clss.hd.faces : avgHP,
+					ability: {add: true, name: "Constitution"},
+				},
+				cascades: {},
+				relations: {},
+			};
+			lvlChildren.push(hpId);
+
+			// Features gained at this level
+			const levelFeatures = clss.classFeatures[lvl - 1] || [];
+			for (const feature of levelFeatures) {
+				if (!feature || !feature.name) continue;
+				if (feature.gainSubclassFeature) continue;
+				if (feature.name === "Ability Score Improvement") continue;
+
+				const renderStack = [];
+				if (feature.entries) renderer.recursiveRender({entries: feature.entries}, renderStack);
+				const description = d20plus.importer.getCleanText(renderStack.join(""));
+
+				const {id: featId, base: featBase} = makeBase("Features");
+				ints[featId] = {
+					...featBase,
+					name: feature.name,
+					recordName: `${clss.name} ${feature.name}`,
+					description,
+					parentID: lvlId,
+					sourceID: classId,
+					childIDs: "[]",
+					cascades: {},
+					relations: {},
+				};
+				lvlChildren.push(featId);
+				classFeatureIds.push(featId);
+
+				// Build spellcasting subtree under the Spellcasting feature
+				if (feature.name === "Spellcasting" && spellAbility && casterType) {
+					const scChildren = [];
+
+					// Rest Display
+					const {id: rdId, base: rdBase} = makeBase("Rest Display");
+					ints[rdId] = {
+						...rdBase,
+						name: `${clss.name} Spellcasting Rest Display`,
+						recordName: `${clss.name} Spellcasting Rest Display`,
+						description: `Whenever you finish a Long Rest, you can replace one spell on your list with another ${clss.name} spell for which you have spell slots.`,
+						parentID: featId,
+						sourceID: classId,
+						restType: "[\"Long Rest\"]",
+						childIDs: "[]",
+						cascades: {},
+						relations: {},
+					};
+					scChildren.push(rdId);
+
+					// Spellcasting config
+					const {id: configId, base: configBase} = makeBase("Spellcasting");
+					ints[configId] = {
+						...configBase,
+						name: clss.name,
+						recordName: `${clss.name} ${spellAbility} Spellcasting`,
+						ability: spellAbility,
+						casterType,
+						multiclassRoundUp: casterType === "half",
+						overviewDisplay: true,
+						parentID: featId,
+						sourceID: classId,
+						childIDs: "[]",
+						cascades: {},
+						relations: {},
+					};
+					scChildren.push(configId);
+
+					// Spell slots for maxLevel total
+					if (spellProgressionTable) {
+						const slotsRow = spellProgressionTable[maxLevel - 1] || [];
+						slotsRow.forEach((count, slotIdx) => {
+							if (!count) return;
+							const spellLevel = slotIdx + 1;
+							const {id: ssId, base: ssBase} = makeBase("Spell Slot");
+							ints[ssId] = {
+								...ssBase,
+								name: `${clss.name} Level ${maxLevel} Spell Slot ${count}`,
+								recordName: `${clss.name} Level ${maxLevel} Spell Slot ${count}`,
+								_slotType: casterType,
+								spellLevel,
+								valueFormula: {flatValue: count},
+								calculation: "Set Base",
+								parentID: featId,
+								sourceID: classId,
+								childIDs: "[]",
+								cascades: {},
+								relations: {},
+							};
+							scChildren.push(ssId);
+						});
+					}
+
+					ints[featId].childIDs = JSON.stringify(scChildren);
+				}
+			}
+
+			ints[lvlId].childIDs = JSON.stringify(lvlChildren);
+		}
+
+		ints[classId].childIDs = JSON.stringify(classChildren);
+
+		push2024DisplayOrder(store, "features", "classFeatureDisplayOrder", classFeatureIds);
+
+		save2024Store(charModel, storeAttr, store);
+	};
+
 	/**
 	 * Route a drag-drop import to the appropriate 2024 handler.
 	 * Falls back to the standard importData path for unhandled categories.
@@ -2275,6 +2691,12 @@ function d20plus2024Import() {
 			d20plus.importer.import2024Spell(charModel, data);
 		} else if (category === "Items") {
 			d20plus.importer.import2024Item(charModel, data);
+		} else if (category === "Classes") {
+			d20plus.importer.import2024Class(charModel, data);
+		} else if (category === "Races") {
+			d20plus.importer.import2024Race(charModel, data);
+		} else if (category === "Feats") {
+			d20plus.importer.import2024Feat(charModel, data);
 		} else {
 			// For other categories fall back to the standard path
 			importDataFallback(charView, data, event);
