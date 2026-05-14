@@ -1485,6 +1485,57 @@ function d20plus2024Import() {
 		return null;
 	}
 
+	// For spells with multiple damage types, parse each {@damage XdY} tag alongside the
+	// damage type keyword(s) that follow it in the text.
+	// Handles:
+	//   "{@damage 20d6} fire damage"          → "Fire"
+	//   "{@damage 5d6} radiant or necrotic"   → "Radiant or Necrotic" (combined, matching native)
+	// Returns [{diceCount, diceSize, flatBonus, damageType}] in text order.
+	function parseAllSpell2024DamagesTyped (entries, damageInflict) {
+		const capWord = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : "";
+		const knownTypes = (damageInflict || []).map(t => t.toLowerCase());
+		const tagRe = /\{@damage (\d+)d(\d+)(?:\s*([+-])\s*(\d+))?\}/gi;
+
+		for (const entry of (entries || [])) {
+			if (typeof entry !== "string") continue;
+
+			// Collect all tag positions first so we can bound each context window
+			const tags = [];
+			let m;
+			while ((m = tagRe.exec(entry)) !== null) {
+				tags.push({
+					diceCount: parseInt(m[1], 10),
+					diceSize: "d" + m[2],
+					flatBonus: m[3] && m[4] ? (m[3] === "+" ? 1 : -1) * parseInt(m[4], 10) : 0,
+					tagStart: m.index,
+					tagEnd: m.index + m[0].length,
+				});
+			}
+			if (!tags.length) continue;
+
+			// For each tag, look at the text between its end and the next tag's start
+			const orTypeRe = knownTypes.length > 1
+				? new RegExp(`(${knownTypes.join("|")}) or (${knownTypes.join("|")})`)
+				: null;
+
+			const results = tags.map((tag, i) => {
+				const contextEnd = i + 1 < tags.length ? tags[i + 1].tagStart : entry.length;
+				const context = entry.slice(tag.tagEnd, contextEnd).toLowerCase();
+				let damageType;
+				const orMatch = orTypeRe && context.match(orTypeRe);
+				if (orMatch) {
+					damageType = `${capWord(orMatch[1])} or ${capWord(orMatch[2])}`;
+				} else {
+					const single = knownTypes.find(t => context.includes(t));
+					damageType = capWord(single || knownTypes[i] || "");
+				}
+				return {diceCount: tag.diceCount, diceSize: tag.diceSize, flatBonus: tag.flatBonus, damageType};
+			});
+			return results;
+		}
+		return [];
+	}
+
 	// Returns {startingLevel, value, stepLevels} from {@scaledamage} tag, or null.
 	// Handles both range format (N-M) and comma-separated level list (A,B,C,...).
 	function parseSpell2024Upcast (entriesHigherLevel) {
@@ -1737,10 +1788,25 @@ function d20plus2024Import() {
 		const {id: spellId, base: spellBase} = make2024IntegrantBase("Spell", pos++);
 		let attackId, attackBase, dmgId, dmgBase, upcastId, upcastBase;
 		let cantripUpcastEntries = []; // [{id, base, level}] for cantrip scaling
+		// Multi-type damage (e.g. Meteor Swarm: Fire + Bludgeoning). Each type gets its own
+		// Damage integrant named "${spell} ${Type} Damage", matching the native Roll20 format.
+		const multiDmgTypes = (!isCantripScaling && !isMultiDamage && hasDamage && vc.damageInflict && vc.damageInflict.length > 1)
+			? parseAllSpell2024DamagesTyped(vc.entries, vc.damageInflict)
+			: [];
+		const isMultiDmgType = multiDmgTypes.length > 1;
+		// Extra damage integrant entries beyond the first [{id, base, parsed}]
+		let extraDmgEntries = [];
 		if (buildChain && !isMultiDamage) {
 			({id: attackId, base: attackBase} = make2024IntegrantBase("Attack", pos++));
 			if (hasDamage) {
 				({id: dmgId, base: dmgBase} = make2024IntegrantBase("Damage", pos++));
+				// Allocate IDs for extra damage types
+				if (isMultiDmgType) {
+					extraDmgEntries = multiDmgTypes.slice(1).map(p => {
+						const {id, base} = make2024IntegrantBase("Damage", pos++);
+						return {id, base, parsed: p};
+					});
+				}
 				if (isCantripScaling) {
 					cantripUpcastEntries = cantripLevels.map(lvl => {
 						const {id, base} = make2024IntegrantBase("Upcasting", pos++);
@@ -1777,8 +1843,11 @@ function d20plus2024Import() {
 		}
 
 		if (dmgId) {
-			const diceCount = parsed ? parsed.diceCount : 1;
-			const diceSize = parsed ? parsed.diceSize : "d6";
+			const firstParsed = isMultiDmgType ? multiDmgTypes[0] : parsed;
+			const diceCount = firstParsed ? firstParsed.diceCount : (parsed ? parsed.diceCount : 1);
+			const diceSize  = firstParsed ? firstParsed.diceSize  : (parsed ? parsed.diceSize  : "d6");
+			const dmgType   = isMultiDmgType ? multiDmgTypes[0].damageType : cap(vc.damageInflict[0]);
+			const dmgName   = isMultiDmgType ? `${spellData.name} ${dmgType} Damage` : `${spellData.name} Damage`;
 			// Dice-scaling cantrips: upcastings are children of Damage
 			const dmgUpcastChildIds = isDiceScaling ? cantripUpcastEntries.map(e => e.id) : [];
 			const dmgChildIds = upcastId && !isRepeatUpcast
@@ -1787,20 +1856,40 @@ function d20plus2024Import() {
 
 			const dmgIntegrant = {
 				...dmgBase,
-				name: `${spellData.name} Damage`,
-				recordName: `${spellData.name} Damage`,
+				name: dmgName,
+				recordName: dmgName,
 				ability: "none",
 				diceCount,
 				diceSize,
-				damageType: cap(vc.damageInflict[0]),
+				damageType: dmgType,
 				overrideCrit: false,
 				critDiceSize: "",
 				parentID: attackId,
 				childIDs: dmgChildIds,
 				relations: {},
 			};
-			if (parsed && parsed.flatBonus) dmgIntegrant._bonus = parsed.flatBonus;
+			if (firstParsed && firstParsed.flatBonus) dmgIntegrant._bonus = firstParsed.flatBonus;
 			store.integrants.integrants[dmgId] = dmgIntegrant;
+
+			// Write extra damage integrants for multi-type spells (e.g. Bludgeoning for Meteor Swarm)
+			for (const {id, base, parsed: ep} of extraDmgEntries) {
+				const eName = `${spellData.name} ${ep.damageType} Damage`;
+				store.integrants.integrants[id] = {
+					...base,
+					name: eName,
+					recordName: eName,
+					ability: "none",
+					diceCount: ep.diceCount,
+					diceSize: ep.diceSize,
+					damageType: ep.damageType,
+					overrideCrit: false,
+					critDiceSize: "",
+					parentID: attackId,
+					childIDs: "[]",
+					relations: {},
+				};
+				if (ep.flatBonus) store.integrants.integrants[id]._bonus = ep.flatBonus;
+			}
 		}
 
 		// Write cantrip scaling Upcasting integrants
@@ -1831,7 +1920,8 @@ function d20plus2024Import() {
 
 			let atkIntegrant;
 			if (isAutoHit) {
-				// Auto-hit spell (e.g. Magic Missile): uses autoHit + repeat, no attack object
+				// Auto-hit spell (e.g. Magic Missile): uses autoHit + repeat, no attack object.
+				// Range goes on the attack integrant for auto-hit spells (matches native Roll20 format).
 				const childIds = upcastId ? [dmgId, upcastId] : [dmgId];
 				atkIntegrant = {
 					...attackBase,
@@ -1843,6 +1933,7 @@ function d20plus2024Import() {
 					repeat: repeatCount,
 					parentID: spellId,
 					childIDs: JSON.stringify(childIds),
+					cascades: {},
 					relations: {},
 				};
 			} else {
@@ -1854,29 +1945,40 @@ function d20plus2024Import() {
 
 				// Repeat-scaling cantrips: Attack childIDs = [dmg, upcast5, upcast11, upcast17]
 				// Dice-scaling cantrips: Attack childIDs = [dmg] only (upcastings live under Damage)
+				// Multi-damage-type: Attack childIDs = [dmg1, dmg2, ...] (all damage integrants)
 				const repeatChildIds = (!isDiceScaling && isCantripScaling) ? cantripUpcastEntries.map(e => e.id) : [];
-				const childIDs = dmgId ? JSON.stringify([dmgId, ...repeatChildIds]) : "[]";
+				const allDmgIds = dmgId ? [dmgId, ...extraDmgEntries.map(e => e.id)] : [];
+				const childIDs = allDmgIds.length ? JSON.stringify([...allDmgIds, ...repeatChildIds]) : "[]";
 
 				atkIntegrant = {
 					...attackBase,
 					name: spellData.name,
 					recordName: `${spellData.name} Attack`,
 					actionType: castingTime,
-					range,
 					...(aoe.shape ? {aoe} : {}),
 					attack: {type: atkType},
 					parentID: spellId,
 					childIDs,
-					cascades: {[spellId]: '["Prepare"]'},
+					cascades: {},
 					relations: {},
 				};
 				if (isCantripScaling && !isDiceScaling) atkIntegrant.repeat = 1;
 			if (isMultiRay) atkIntegrant.repeat = rayRepeat;
 			if (isRepeatUpcast && upcastId) atkIntegrant.childIDs = JSON.stringify([dmgId, upcastId]);
 				if (hasSave) {
+					let onFailText = "";
+					if (hasDamage) {
+						if (isMultiDmgType) {
+							// e.g. "Takes 20d6 Fire damage and 20d6 Bludgeoning damage."
+							const allDmgParts = multiDmgTypes.map(p => `${p.diceCount}${p.diceSize} ${p.damageType}`);
+							onFailText = `Takes ${allDmgParts.join(" damage and ")} damage.`;
+						} else {
+							onFailText = `Takes ${diceCount}${diceSize} ${damageType} damage.`;
+						}
+					}
 					atkIntegrant.save = {
 						saveAbility: cap(vc.savingThrow[0]),
-						onFail: hasDamage ? `Takes ${diceCount}${diceSize} ${damageType} damage.` : "",
+						onFail: onFailText,
 					};
 					if (hasDamage && onSucceedHalf) atkIntegrant.save.onSucceed = "Half as much damage.";
 				}
@@ -1944,12 +2046,11 @@ function d20plus2024Import() {
 					name: atkName,
 					recordName: atkRecordName,
 					actionType: castingTime,
-					range,
 					...(aoe.shape ? {aoe} : {}),
 					attack: {type: hasSave ? "Spell Save" : "Spell Attack"},
 					parentID: spellId,
 					childIDs: JSON.stringify([mDmgId]),
-					cascades: {[spellId]: '["Prepare"]'},
+					cascades: {},
 					relations: {},
 				};
 				if (hasSave) {
