@@ -655,7 +655,7 @@ function baseToolModule () {
 						$win.dialog("open");
 						$wrpDataLoadingMessage.html("<i>Loading...</i>");
 						// Load the chosen module
-						DataUtil.loadJSON(`${urlbase}${sel.filename}`)
+						DataUtil.loadJSON(`${urlbase}${encodeURIComponent(sel.filename)}`)
 							.then(moduleFile => {
 								$wrpDataLoadingMessage.html("");
 								preprocessModuleData(moduleFile);

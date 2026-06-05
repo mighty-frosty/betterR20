@@ -153,9 +153,15 @@ function baseMenu () {
 				closeContextMenu();
 			});
 
+			const macroBtn = createSubmenuItem('Macro', null, () => {
+				d20plus.menu.massRollMacro();
+				closeContextMenu();
+			});
+
 			submenu.appendChild(initBtn);
 			submenu.appendChild(savesBtn);
 			submenu.appendChild(skillsBtn);
+			submenu.appendChild(macroBtn);
 
 			// Click handler to toggle submenu
 			massRollBtn.addEventListener('click', (e) => {
@@ -283,6 +289,12 @@ function baseMenu () {
 				closeContextMenu();
 			});
 			massRollSubmenu.appendChild(skillsBtn);
+
+			const customMacroBtn = createSubmenuItem('Macro', () => {
+				d20plus.menu.massRollMacro();
+				closeContextMenu();
+			});
+			massRollSubmenu.appendChild(customMacroBtn);
 
 			// Click handler for Mass Roll to toggle its submenu
 			massRollBtn.addEventListener('click', (e) => {
