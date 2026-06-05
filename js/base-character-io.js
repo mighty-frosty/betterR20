@@ -34,6 +34,8 @@ function baseCharacterIo () {
 	const applyCharacterImport = (character, entry) => {
 		const safeAttributes = {...(entry.attributes || {})};
 		delete safeAttributes.id;
+		delete safeAttributes.inplayerjournals;
+		delete safeAttributes.controlledby;
 		character.set(safeAttributes);
 		character.save();
 
