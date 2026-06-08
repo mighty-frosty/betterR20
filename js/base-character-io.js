@@ -121,7 +121,7 @@ function baseCharacterIo () {
 
 				const [bio, gmnotes, defaulttoken] = await Promise.all([
 					getBlobData(character, "bio"),
-					getBlobData(character, "gmnotes"),
+					window.is_gm ? getBlobData(character, "gmnotes") : Promise.resolve(null),
 					getBlobData(character, "defaulttoken"),
 				]);
 
