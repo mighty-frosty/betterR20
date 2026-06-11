@@ -196,10 +196,11 @@ function baseMenu () {
 			const contextMenu = document.querySelector('.context-menu');
 			if (!contextMenu) return;
 
-			// Check if already added
-			if (contextMenu.querySelector('.better20-tools-button')) return;
-
 			if (!window.is_gm) return;
+
+			// Remove stale button so grid label always reflects current state
+			const existing = contextMenu.querySelector('.better20-tools-button');
+			if (existing) existing.remove();
 
 			// Create Better20 Tools button with submenu
 			const toolsBtn = document.createElement('button');
@@ -341,6 +342,21 @@ function baseMenu () {
 			});
 			submenu.appendChild(editBtn);
 
+			// Add Toggle Grid
+			const activePage = d20.Campaign && d20.Campaign.activePage ? d20.Campaign.activePage() : null;
+			if (activePage) {
+				const gridEnabled = activePage.get("showgrid");
+				const gridToggleBtn = createSubmenuItem(gridEnabled ? 'Disable Grid' : 'Enable Grid', () => {
+					const page = d20.Campaign && d20.Campaign.activePage ? d20.Campaign.activePage() : null;
+					if (page) {
+						page.set("showgrid", !page.get("showgrid"));
+						page.save();
+					}
+					closeContextMenu();
+				});
+				submenu.appendChild(gridToggleBtn);
+			}
+
 			// Add Animate Token (only if animations exist)
 			const hasAnims = d20plus.anim?.animatorTool?._anims
 				&& typeof d20plus.anim.animatorTool._anims === 'object'
@@ -390,6 +406,53 @@ function baseMenu () {
 			contextMenu.insertBefore(toolsBtn, contextMenu.firstChild);
 		}
 
+		// Function to add Grid Toggle to canvas right-click menu
+		function addGridToggleToMenu() {
+			const contextMenu = document.querySelector('.context-menu');
+			if (!contextMenu) return;
+
+			if (!window.is_gm) return;
+
+			const activePage = d20.Campaign && d20.Campaign.activePage ? d20.Campaign.activePage() : null;
+			if (!activePage) return;
+
+			// Remove stale button so the label always reflects current grid state
+			const existing = contextMenu.querySelector('.better20-grid-toggle-button');
+			if (existing) existing.remove();
+
+			const gridEnabled = activePage.get("showgrid");
+			const label = gridEnabled ? 'Disable Grid' : 'Enable Grid';
+
+			const gridBtn = document.createElement('button');
+			gridBtn.className = 'better20-grid-toggle-button';
+			gridBtn.type = 'button';
+			gridBtn.setAttribute('data-v-2aed8a8e', '');
+			gridBtn.setAttribute('data-v-060adf8b', '');
+			gridBtn.innerHTML = `
+				<div data-v-2aed8a8e="" class="submenu-button-outer">
+					<div data-v-2aed8a8e="" class="submenu-button-inner">
+						<div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 4px;">
+							<span data-v-2f0bc668="" data-v-060adf8b="" class="grimoire__roll20-icon" style="--7353a950: inherit;">grid</span>
+							<div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 8px;">
+								<span data-v-2aed8a8e="" style="flex: 1 1 0%; text-align: start;">${label}</span>
+							</div>
+						</div>
+					</div>
+				</div>
+			`;
+
+			gridBtn.addEventListener('click', () => {
+				const page = d20.Campaign && d20.Campaign.activePage ? d20.Campaign.activePage() : null;
+				if (page) {
+					page.set("showgrid", !page.get("showgrid"));
+					page.save();
+				}
+				closeContextMenu();
+			});
+
+			contextMenu.appendChild(gridBtn);
+		}
+
 		// Watch for context menu appearing
 		const observer = new MutationObserver(() => {
 			const menu = document.querySelector('.context-menu');
@@ -402,11 +465,16 @@ function baseMenu () {
 				if (hasTokenOptions) {
 					// Add custom menu items for token menus
 					addBetter20ToolsToMenu();
+					// Clean up any canvas-only buttons
+					const existingGridToggle = menu.querySelector('.better20-grid-toggle-button');
+					if (existingGridToggle) existingGridToggle.remove();
                 } else {
                     const existingBetter20 = menu.querySelector('.better20-tools-button');
                     if (existingBetter20) {
                         existingBetter20.remove();
                     }
+					// Add grid toggle for canvas right-click
+					addGridToggleToMenu();
                 }
             }
         });
