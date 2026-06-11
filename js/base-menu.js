@@ -430,7 +430,6 @@ function baseMenu () {
 				<div data-v-2aed8a8e="" class="submenu-button-outer">
 					<div data-v-2aed8a8e="" class="submenu-button-inner">
 						<div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 4px;">
-							<span data-v-2f0bc668="" data-v-060adf8b="" class="grimoire__roll20-icon" style="--7353a950: inherit;">grid</span>
 							<div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 8px;">
 								<span data-v-2aed8a8e="" style="flex: 1 1 0%; text-align: start;">${label}</span>
 							</div>
