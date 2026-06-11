@@ -198,9 +198,8 @@ function baseMenu () {
 
 			if (!window.is_gm) return;
 
-			// Remove stale button so grid label always reflects current state
-			const existing = contextMenu.querySelector('.better20-tools-button');
-			if (existing) existing.remove();
+			// Remove any existing instance before adding fresh one (prevents duplicates)
+			contextMenu.querySelectorAll('.better20-tools-button').forEach(el => el.remove());
 
 			// Create Better20 Tools button with submenu
 			const toolsBtn = document.createElement('button');
@@ -416,9 +415,8 @@ function baseMenu () {
 			const activePage = d20.Campaign && d20.Campaign.activePage ? d20.Campaign.activePage() : null;
 			if (!activePage) return;
 
-			// Remove stale button so the label always reflects current grid state
-			const existing = contextMenu.querySelector('.better20-grid-toggle-button');
-			if (existing) existing.remove();
+			// Remove any existing instance before adding fresh one (prevents duplicates)
+			contextMenu.querySelectorAll('.better20-grid-toggle-button').forEach(el => el.remove());
 
 			const gridEnabled = activePage.get("showgrid");
 			const label = gridEnabled ? 'Disable Grid' : 'Enable Grid';
@@ -453,31 +451,35 @@ function baseMenu () {
 			contextMenu.appendChild(gridBtn);
 		}
 
+		// Track menu visibility so we only run setup on open, not on every style mutation
+		let _contextMenuVisible = false;
+
 		// Watch for context menu appearing
 		const observer = new MutationObserver(() => {
 			const menu = document.querySelector('.context-menu');
-			if (menu && menu.style.display !== 'none') {
-				// Check if this is a token context menu using icon identifiers (language-independent)
+			const isVisible = !!(menu && menu.style.display !== 'none');
+
+			if (isVisible && !_contextMenuVisible) {
+				// Menu just opened — rebuild buttons with fresh state
+				_contextMenuVisible = true;
+
 				const hasTokenOptions = Array.from(menu.querySelectorAll('.grimoire__roll20-icon')).some(
 					icon => icon.textContent === 'characterSheet' || icon.textContent === 'turnOrderAdd'
 				);
 
 				if (hasTokenOptions) {
-					// Add custom menu items for token menus
 					addBetter20ToolsToMenu();
-					// Clean up any canvas-only buttons
 					const existingGridToggle = menu.querySelector('.better20-grid-toggle-button');
 					if (existingGridToggle) existingGridToggle.remove();
-                } else {
-                    const existingBetter20 = menu.querySelector('.better20-tools-button');
-                    if (existingBetter20) {
-                        existingBetter20.remove();
-                    }
-					// Add grid toggle for canvas right-click
+				} else {
+					const existingBetter20 = menu.querySelector('.better20-tools-button');
+					if (existingBetter20) existingBetter20.remove();
 					addGridToggleToMenu();
-                }
-            }
-        });
+				}
+			} else if (!isVisible) {
+				_contextMenuVisible = false;
+			}
+		});
 
         observer.observe(document.body, {
             childList: true,
