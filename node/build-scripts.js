@@ -1,11 +1,26 @@
 const fs = require("fs");
 
-const SCRIPT_VERSION = "1.36.1.1devjb";
-const SCRIPT_REPO = "https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/JumpGate-Dev/dist/";
+const SCRIPT_VERSION = "1.36.1.1ji";
+const SCRIPT_REPO = "https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/";
 
 const SCRIPT_BETA_DESCRIPTION = `This version contains following changes
--- 1.36.1.1devjb --
-Merge 2024 Importing
+1.36.1.1ji - 2024 Sheet Support (First Release)
+- Added drag & drop import for Spells, Items, Feats, Species/Races, and Classes directly into the new 2024 (Jumpgate) character sheet
+- Convert existing OGL 2014 character sheets to the 2024 sheet format
+- 2024-compatible Monster/NPC import, including monster spellcasting
+- Monster fluff/bio text is now appended instead of overwritten
+- Reworked token image and portrait handling for character imports
+- Numerous spell mapping fixes (scaling, repeating attacks, healing, Toll the Dead, etc.)
+1.36.1.1jh - Page Settings?
+- Added Map Thumbnail tools (Upload / Reload Default) to Page Settings
+1.36.1.1jd - Macros?
+- add bulk macro button.
+1.36.1.1je - Commits are real
+- Merge PRs, and imporve Module Importer
+1.36.1.1jg - Commits are real
+- Fix drag and Drop.
+1.36.1.1jga - Macros?
+- add bulk macro button again.
 `;
 
 const AUTHORS_CORE = `TheGiddyLimit/Redweller`;
