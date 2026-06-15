@@ -1,11 +1,19 @@
 const fs = require("fs");
 
-const SCRIPT_VERSION = "1.36.1.1jg";
+const SCRIPT_VERSION = "1.36.1.1jh";
 const SCRIPT_REPO = "https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/";
 
 const SCRIPT_BETA_DESCRIPTION = `This version contains following changes
-1.36.1.1jg - Page Settings?
+1.36.1.1jh - Page Settings?
 - Added Map Thumbnail tools (Upload / Reload Default) to Page Settings
+1.36.1.1jd - Macros?
+- add bulk macro button.
+1.36.1.1je - Commits are real
+- Merge PRs, and imporve Module Importer
+1.36.1.1jg - Commits are real
+- Fix drag and Drop.
+1.36.1.1jga - Macros?
+- add bulk macro button again.
 `;
 
 const AUTHORS_CORE = `TheGiddyLimit/Redweller`;
