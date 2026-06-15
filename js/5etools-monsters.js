@@ -454,12 +454,19 @@ function d20plusMonsters () {
 						].map(a => character.attribs.push(a));
 						toSave.forEach(s => s.syncedSave());
 
+						if (typeof d20plus.monsters.import2024Spells === "function") {
+							d20plus.monsters.import2024Spells(character, data);
+						}
+
 						if (renderFluff) {
 							setTimeout(() => {
 								const fluffAs = d20plus.cfg.get("import", "importFluffAs") || d20plus.cfg.getDefault("import", "importFluffAs");
 								let k = fluffAs === "Bio" ? "bio" : "gmnotes";
-								character.updateBlobs({ [k]: Markdown.parse(renderFluff) });
-								character.save({ [k]: (new Date()).getTime() });
+								character._getLatestBlob(k, (existing) => {
+									const content = Markdown.parse(renderFluff);
+									character.updateBlobs({[k]: (existing || "") + content});
+									character.save({[k]: (new Date()).getTime()});
+								});
 							}, 500);
 						}
 
@@ -1486,11 +1493,10 @@ function d20plusMonsters () {
 						setTimeout(() => {
 							const fluffAs = d20plus.cfg.get("import", "importFluffAs") || d20plus.cfg.getDefault("import", "importFluffAs");
 							let k = fluffAs === "Bio" ? "bio" : "gmnotes";
-							character.updateBlobs({
-								[k]: Markdown.parse(renderFluff),
-							});
-							character.save({
-								[k]: (new Date()).getTime(),
+							character._getLatestBlob(k, (existing) => {
+								const content = Markdown.parse(renderFluff);
+								character.updateBlobs({[k]: (existing || "") + content});
+								character.save({[k]: (new Date()).getTime()});
 							});
 						}, 500);
 					}
