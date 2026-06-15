@@ -3929,6 +3929,8 @@ function baseToolModule () {
 						if (!handled) d20.journal.addItemToFolderStructure(itId, genericFolder.id);
 					};
 
+					const charIdMap = {};
+					const importedPageIds = [];
 					const doImport = () => {
 						if (isCancelled) {
 							$name.text("Import cancelled.");
@@ -3945,6 +3947,7 @@ function baseToolModule () {
 									case "maps": {
 										const map = d20.Campaign.pages.create(entry.attributes);
 										map.save();
+										importedPageIds.push(map.id);
 
 										// Wait for Roll20 to initialize, then add graphics
 										setTimeout(async () => {
@@ -4034,6 +4037,7 @@ function baseToolModule () {
 											{
 												success: function (character) {
 													const newCharId = character.id;
+													charIdMap[oldCharId] = newCharId;
 
 													// 2. THE VTTES TRICK: Global String Replace for Attributes
 													let attribsStr = JSON.stringify(entry.attribs);
@@ -4089,6 +4093,40 @@ function baseToolModule () {
 						} else {
 							$name.text("Import complete!");
 							$remain.text(`${queue.length} remaining.`);
+							if (importedPageIds.length) {
+								setTimeout(async () => {
+									// Build name->newCharId lookup for tokens where represents was never set
+									const charNameMap = {};
+									Object.values(charIdMap).forEach(newId => {
+										const char = d20.Campaign.characters.get(newId);
+										if (char) charNameMap[char.get("name").toLowerCase()] = newId;
+									});
+									// Also scan all characters in case module had no represents IDs at all
+									d20.Campaign.characters.models.forEach(char => {
+										const key = char.get("name").toLowerCase();
+										if (!charNameMap[key]) charNameMap[key] = char.id;
+									});
+									for (const pageId of importedPageIds) {
+										const page = d20.Campaign.pages.get(pageId);
+										if (!page) continue;
+										if (!page.thegraphics) await page.fullyLoadPage();
+										page.thegraphics.models.forEach(g => {
+											const oldRepresents = g.get("represents");
+											if (oldRepresents && charIdMap[oldRepresents]) {
+												// Token had an old char ID -- remap to new ID
+												g.save({represents: charIdMap[oldRepresents]});
+											} else if (!oldRepresents) {
+												// Token has no represents -- try matching by name
+												const tokenName = (g.get("name") || "").toLowerCase();
+												if (tokenName && charNameMap[tokenName]) {
+													g.save({represents: charNameMap[tokenName]});
+												}
+											}
+										});
+									}
+									d20plus.ut.log("[B20 Module] Token-character links updated.");
+								}, 2000);
+							}
 						}
 					};
 
