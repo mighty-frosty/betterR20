@@ -302,7 +302,9 @@ function d20plusImporter () {
 
 		character.attributes.avatar = outPortraitUrl;
 		character.updateBlobs({avatar: outPortraitUrl, defaulttoken: JSON.stringify(defaulttoken)});
-		character.save();
+		// Explicit defaulttoken timestamp tells Roll20 to use the blob on drag-to-map.
+		// Without it, Roll20 ignores the blob and creates a 1x1 avatar token instead.
+		character.save({defaulttoken: (new Date()).getTime()});
 	};
 
 	d20plus.importer._baseAddAction = function (character, baseAction, name, actionText, prefix, index, expand) {
