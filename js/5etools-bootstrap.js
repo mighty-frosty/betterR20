@@ -12,6 +12,7 @@ const betteR205etools = function () {
 			if (window.is_gm) {
 				d20plus.ut.log("Is GM");
 				// d20plus.engine.enhancePageSelector();
+				d20plus.engine.enhanceVuePageThumbnail();
 			} else d20plus.ut.log("Not GM. Some functionality will be unavailable.");
 
 			d20plus.setSheet();

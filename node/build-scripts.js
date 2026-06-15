@@ -1,25 +1,11 @@
 const fs = require("fs");
 
-const SCRIPT_VERSION = "1.36.1.1jf";
+const SCRIPT_VERSION = "1.36.1.1jg";
 const SCRIPT_REPO = "https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/";
 
 const SCRIPT_BETA_DESCRIPTION = `This version contains following changes
-1.35.186.14jq - Map Importer?
-- Fix Map Importer. Thank you @helenclarko
-1.35.186.14jr - Fix data error?
-- Fix Import Error
-1.35.186.14js - Fix data error?
-- Fix Import Error
-1.35.186.14js - HUH?
-- Fix 2024 rolling
-1.36.1.1ja - The Merge Collapse?
-- Too many Changes
-1.36.1.1jc - The Merge Collapse?
-- Fix all Sources
-1.36.1.1jd - Macros?
-- add bulk macro button.
-1.36.1.1je - Commits are real
-- Merge PRs, and imporve Module Importer
+1.36.1.1jg - Page Settings?
+- Added Map Thumbnail tools (Upload / Reload Default) to Page Settings
 `;
 
 const AUTHORS_CORE = `TheGiddyLimit/Redweller`;

@@ -10,7 +10,10 @@ const betteR20Core = function () {
 			d20plus.engine.swapTemplates();
 
 			d20plus.ut.addAllCss();
-			if (window.is_gm) d20plus.engine.enhancePageSelector();
+			if (window.is_gm) {
+				d20plus.engine.enhancePageSelector();
+				d20plus.engine.enhanceVuePageThumbnail();
+			}
 			await d20plus.js.pAddScripts();
 			await d20plus.qpi.pInitMockApi();
 			await d20plus.js.pAddApiScripts();
