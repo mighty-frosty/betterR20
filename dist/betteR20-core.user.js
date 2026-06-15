@@ -2,7 +2,7 @@
 // @name         betteR20-beta-core-death-jumpagate-import
 // @namespace    https://5e.tools/
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      1.36.1.1jh
+// @version      1.36.1.1ji
 // @updateURL    https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/betteR20-core.meta.js
 // @downloadURL  https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/betteR20-core.user.js
 // @description  Enhance your Roll20 experience
@@ -30,7 +30,7 @@ ART_HANDOUT = "betteR20-art";
 CONFIG_HANDOUT = "betteR20-config";
 
 B20_NAME = `core`;
-B20_VERSION = `1.36.1.1jh`;
+B20_VERSION = `1.36.1.1ji`;
 B20_REPO_URL = `https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/`;
 
 // TODO automate to use mirror if main site is unavailable
@@ -287,7 +287,7 @@ function baseUtil () {
 							in<span style="color: orange; font-family: monospace"> 5etools &gt; better20 &gt; #testing </span>thread
 						</p>
 					</h1>
-					<p>This version contains following changes<br>1.36.1.1jh - Page Settings?<br>- Added Map Thumbnail tools (Upload / Reload Default) to Page Settings<br>1.36.1.1jd - Macros?<br>- add bulk macro button.<br>1.36.1.1je - Commits are real<br>- Merge PRs, and imporve Module Importer<br>1.36.1.1jg - Commits are real<br>- Fix drag and Drop.<br>1.36.1.1jga - Macros?<br>- add bulk macro button again.<br></p>
+					<p>This version contains following changes<br>1.36.1.1ji - 2024 Sheet Support (First Release)<br>- Added drag & drop import for Spells, Items, Feats, Species/Races, and Classes directly into the new 2024 (Jumpgate) character sheet<br>- Convert existing OGL 2014 character sheets to the 2024 sheet format<br>- 2024-compatible Monster/NPC import, including monster spellcasting<br>- Monster fluff/bio text is now appended instead of overwritten<br>- Reworked token image and portrait handling for character imports<br>- Numerous spell mapping fixes (scaling, repeating attacks, healing, Toll the Dead, etc.)<br>1.36.1.1jh - Page Settings?<br>- Added Map Thumbnail tools (Upload / Reload Default) to Page Settings<br>1.36.1.1jd - Macros?<br>- add bulk macro button.<br>1.36.1.1je - Commits are real<br>- Merge PRs, and imporve Module Importer<br>1.36.1.1jg - Commits are real<br>- Fix drag and Drop.<br>1.36.1.1jga - Macros?<br>- add bulk macro button again.<br></p>
 				</div>
 			`);
 			}, 6000);
@@ -3578,9 +3578,6 @@ function baseToolModule () {
 				</div>
 				<hr>
 <p>
-    <label style="display: inline-block; padding-top: 4px;">
-        <input type="checkbox" name="force-ogl5e"> Force OGL 5e Sheet for Characters
-    </label>
     <button class="btn" style="float: right;" name="import">Import Selected</button>
 </p>				</div>
 
@@ -3692,7 +3689,6 @@ function baseToolModule () {
 
 			const $win = $("#d20plus-module-importer");
 			$win.dialog("open");
-			const $cbForceOgl = $win.find(`[name="force-ogl5e"]`);
 
 			const $winProgress = $(`#d20plus-module-importer-progress`);
 			const $btnCancel = $winProgress.find(".cancel").off("click");
@@ -4026,8 +4022,10 @@ function baseToolModule () {
 										break;
 									}
 									case "characters": {
-										const forceOgl = $cbForceOgl.prop("checked");
-										const charAttrs = forceOgl ? {...entry.attributes, charactersheetname: "ogl5e"} : {...entry.attributes};
+										const charSheetName = (typeof d20plus.importer?.shouldUse2024 === "function" && d20plus.importer.shouldUse2024())
+											? d20plus.cfg.getOrDefault("import", "importSheetFormat")
+											: entry.attributes.charactersheetname;
+										const charAttrs = {...entry.attributes, charactersheetname: charSheetName};
 
 										// 1. Save the old Character ID before we delete it!
 										const oldCharId = charAttrs.id;
@@ -4052,8 +4050,19 @@ function baseToolModule () {
 
 													// Proceed with saving using the rebased data
 													character.attribs.reset();
-													const toSave = rebasedAttribs.map(a => character.attribs.push(a));
-													toSave.forEach(s => s.syncedSave());
+													const isNpc = rebasedAttribs.some(a => a.name === "npc" && String(a.current) === "1");
+													if (typeof d20plus.importer?.shouldUse2024 === "function" && d20plus.importer.shouldUse2024() && isNpc) {
+														// 2024 sheet: convert OGL attribs to 2024 store format
+														const store2024 = d20plus.importer.translateOGLTo2024Store(rebasedAttribs);
+														const toSave = [
+															{ name: "appState", current: "npc" },
+															{ name: "store", current: store2024 },
+														].map(a => character.attribs.push(a));
+														toSave.forEach(s => s.syncedSave());
+													} else {
+														const toSave = rebasedAttribs.map(a => character.attribs.push(a));
+														toSave.forEach(s => s.syncedSave());
+													}
 
 													character.abilities.fetch({
 														success: function () {

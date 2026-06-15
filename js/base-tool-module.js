@@ -35,9 +35,6 @@ function baseToolModule () {
 				</div>
 				<hr>
 <p>
-    <label style="display: inline-block; padding-top: 4px;">
-        <input type="checkbox" name="force-ogl5e"> Force OGL 5e Sheet for Characters
-    </label>
     <button class="btn" style="float: right;" name="import">Import Selected</button>
 </p>				</div>
 
@@ -149,7 +146,6 @@ function baseToolModule () {
 
 			const $win = $("#d20plus-module-importer");
 			$win.dialog("open");
-			const $cbForceOgl = $win.find(`[name="force-ogl5e"]`);
 
 			const $winProgress = $(`#d20plus-module-importer-progress`);
 			const $btnCancel = $winProgress.find(".cancel").off("click");
@@ -483,8 +479,10 @@ function baseToolModule () {
 										break;
 									}
 									case "characters": {
-										const forceOgl = $cbForceOgl.prop("checked");
-										const charAttrs = forceOgl ? {...entry.attributes, charactersheetname: "ogl5e"} : {...entry.attributes};
+										const charSheetName = (typeof d20plus.importer?.shouldUse2024 === "function" && d20plus.importer.shouldUse2024())
+											? d20plus.cfg.getOrDefault("import", "importSheetFormat")
+											: entry.attributes.charactersheetname;
+										const charAttrs = {...entry.attributes, charactersheetname: charSheetName};
 
 										// 1. Save the old Character ID before we delete it!
 										const oldCharId = charAttrs.id;
@@ -509,8 +507,19 @@ function baseToolModule () {
 
 													// Proceed with saving using the rebased data
 													character.attribs.reset();
-													const toSave = rebasedAttribs.map(a => character.attribs.push(a));
-													toSave.forEach(s => s.syncedSave());
+													const isNpc = rebasedAttribs.some(a => a.name === "npc" && String(a.current) === "1");
+													if (typeof d20plus.importer?.shouldUse2024 === "function" && d20plus.importer.shouldUse2024() && isNpc) {
+														// 2024 sheet: convert OGL attribs to 2024 store format
+														const store2024 = d20plus.importer.translateOGLTo2024Store(rebasedAttribs);
+														const toSave = [
+															{ name: "appState", current: "npc" },
+															{ name: "store", current: store2024 },
+														].map(a => character.attribs.push(a));
+														toSave.forEach(s => s.syncedSave());
+													} else {
+														const toSave = rebasedAttribs.map(a => character.attribs.push(a));
+														toSave.forEach(s => s.syncedSave());
+													}
 
 													character.abilities.fetch({
 														success: function () {

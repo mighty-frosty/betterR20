@@ -1,9 +1,16 @@
 const fs = require("fs");
 
-const SCRIPT_VERSION = "1.36.1.1jh";
+const SCRIPT_VERSION = "1.36.1.1ji";
 const SCRIPT_REPO = "https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/";
 
 const SCRIPT_BETA_DESCRIPTION = `This version contains following changes
+1.36.1.1ji - 2024 Sheet Support (First Release)
+- Added drag & drop import for Spells, Items, Feats, Species/Races, and Classes directly into the new 2024 (Jumpgate) character sheet
+- Convert existing OGL 2014 character sheets to the 2024 sheet format
+- 2024-compatible Monster/NPC import, including monster spellcasting
+- Monster fluff/bio text is now appended instead of overwritten
+- Reworked token image and portrait handling for character imports
+- Numerous spell mapping fixes (scaling, repeating attacks, healing, Toll the Dead, etc.)
 1.36.1.1jh - Page Settings?
 - Added Map Thumbnail tools (Upload / Reload Default) to Page Settings
 1.36.1.1jd - Macros?
@@ -238,6 +245,73 @@ const SCRIPTS = {
 		"5etools-main",
 		"5etools-importer",
 		"5etools-monsters",
+		"5etools-2024-import",
+		"5etools-spells",
+		"5etools-backgrounds",
+		"5etools-classes",
+		"5etools-items",
+		"5etools-feats",
+		"5etools-objects",
+		"5etools-tool",
+		"5etools-races",
+		"5etools-psionics",
+		"5etools-optional-features",
+		"5etools-adventures",
+		"5etools-deities",
+		"5etools-vehicles",
+		"5etools-template",
+		"5etools-css",
+
+		"base",
+	],
+	"5et2014": [
+		"base-util",
+		"base-jsload",
+		"base-qpi",
+		"base-jukebox",
+		"base-math",
+		"base-config",
+		"base-tool",
+		"base-tool-module",
+		"base-tool-unlock",
+		"base-tool-animator",
+		"base-tool-table",
+		"base-tool-dlimport",
+		"base-tool-urlfix",
+		"base-art",
+		"base-art-browse",
+		"overwrites/base",
+		"overwrites/canvas-handler",
+		"templates/template-roll20-token-editor",
+		"templates/template-roll20-page-settings",
+		"templates/template-roll20-actions-menu",
+		"templates/template-roll20-editors-misc",
+		"templates/template-base-misc",
+		"templates/template-page-weather",
+		"templates/template-roll20-page-lighting",
+		"base-engine",
+		"base-menu",
+		"base-weather",
+		"base-journal",
+		"base-css",
+		"base-ui",
+		"base-mod",
+		"base-macro",
+		"base-chat-languages",
+		"base-chat-emoji",
+		"base-chat",
+		"base-ba-character",
+		"base-ba-rolltemplates",
+		"base-ba",
+		"base-remote-libre",
+		"base-jukebox-widget",
+
+		"5etools-bootstrap",
+		"5etools-config",
+		"5etools-main",
+		"5etools-importer",
+		"5etools-monsters",
+		"5etools-2024-import",
 		"5etools-spells",
 		"5etools-backgrounds",
 		"5etools-classes",
@@ -283,7 +357,7 @@ const BUILDS = {
 		imgURL: "https://cdn.5e.tools/2014/img/",
 		libs: LIB_SCRIPTS["5etools"],
 		libsAPI: LIB_SCRIPTS_API["5etools"],
-		scripts: SCRIPTS["5etools"],
+		scripts: SCRIPTS["5et2014"],
 		dataJSON: getDataDirPaths("data2014"),
 	},
 }
