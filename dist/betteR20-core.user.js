@@ -2,7 +2,7 @@
 // @name         betteR20-beta-core-death-jumpagate-import
 // @namespace    https://5e.tools/
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      1.36.1.1jga
+// @version      1.36.1.1jh
 // @updateURL    https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/betteR20-core.meta.js
 // @downloadURL  https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/betteR20-core.user.js
 // @description  Enhance your Roll20 experience
@@ -30,7 +30,7 @@ ART_HANDOUT = "betteR20-art";
 CONFIG_HANDOUT = "betteR20-config";
 
 B20_NAME = `core`;
-B20_VERSION = `1.36.1.1jga`;
+B20_VERSION = `1.36.1.1jh`;
 B20_REPO_URL = `https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/`;
 
 // TODO automate to use mirror if main site is unavailable
@@ -287,7 +287,7 @@ function baseUtil () {
 							in<span style="color: orange; font-family: monospace"> 5etools &gt; better20 &gt; #testing </span>thread
 						</p>
 					</h1>
-					<p>This version contains following changes<br>1.36.1.1jd - Macros?<br>- add bulk macro button.<br>1.36.1.1je - Commits are real<br>- Merge PRs, and imporve Module Importer<br>1.36.1.1jg - Commits are real<br>- Fix drag and Drop.<br>1.36.1.1jga - Macros?<br>- add bulk macro button again.<br><br></p>
+					<p>This version contains following changes<br>1.36.1.1jh - Page Settings?<br>- Added Map Thumbnail tools (Upload / Reload Default) to Page Settings<br>1.36.1.1jd - Macros?<br>- add bulk macro button.<br>1.36.1.1je - Commits are real<br>- Merge PRs, and imporve Module Importer<br>1.36.1.1jg - Commits are real<br>- Fix drag and Drop.<br>1.36.1.1jga - Macros?<br>- add bulk macro button again.<br></p>
 				</div>
 			`);
 			}, 6000);
@@ -4198,7 +4198,7 @@ function baseToolModule () {
 						$win.dialog("open");
 						$wrpDataLoadingMessage.html("<i>Loading...</i>");
 						// Load the chosen module
-						DataUtil.loadJSON(`${urlbase}${sel.filename}`)
+						DataUtil.loadJSON(`${urlbase}${encodeURIComponent(sel.filename)}`)
 							.then(moduleFile => {
 								$wrpDataLoadingMessage.html("");
 								preprocessModuleData(moduleFile);
@@ -15446,6 +15446,95 @@ function d20plusEngine () {
 				.find(".ui-dialog-buttonset .btn-primary")
 				.on("mousedown", $tokenEdit.dialog("option", "buttons").save.click);
 		});
+	};
+
+	// Roll20's Page Settings dialog is now a Vue component with no open/close event we can
+	// hook into, so watch for its "Backdrop Color" block and inject our Thumbnail section next to it.
+	d20plus.engine.enhanceVuePageThumbnail = () => {
+		const SECTION_CLASS = "b20-thumbnail-section";
+
+		if (!document.getElementById("b20-thumbnail-style")) {
+			document.head.insertAdjacentHTML("beforeend", `<style id="b20-thumbnail-style">
+				.${SECTION_CLASS} { display: flex; flex-direction: column; gap: 8px; }
+				.${SECTION_CLASS} .b20-thumbnail-row { display: flex; align-items: center; gap: 8px; }
+				.${SECTION_CLASS} .b20-thumbnail-preview { width: 48px; height: 48px; object-fit: cover; border-radius: 4px; background: rgba(128,128,128,.2); flex-shrink: 0; }
+				.${SECTION_CLASS} .b20-thumbnail-url { flex: 1; min-width: 0; padding: 6px 8px; border-radius: 4px; border: 1px solid rgba(128,128,128,.4); box-sizing: border-box; font: inherit; }
+				.${SECTION_CLASS} .b20-thumbnail-btn { padding: 6px 14px; border-radius: 4px; border: 1px solid rgba(128,128,128,.4); background: rgba(128,128,128,.12); color: inherit; cursor: pointer; font: inherit; font-size: 13px; }
+				.${SECTION_CLASS} .b20-thumbnail-btn:hover { background: rgba(128,128,128,.25); }
+			</style>`);
+		}
+
+		const inject = () => {
+			if (document.querySelector(`.${SECTION_CLASS}`)) return;
+			const backdrop = document.querySelector(`[data-testid="pageSettings-pd-tab-backdropColor"]`);
+			if (!backdrop) return;
+			const $section = $(backdrop).closest(".section");
+			if (!$section.length) return;
+
+			const $newSection = $(`
+				<div class="section ${SECTION_CLASS}">
+					<h4 class="title large-title">Thumbnail</h4>
+					<div class="b20-thumbnail-row">
+						<img class="b20-thumbnail-preview" style="display:none;">
+						<input class="b20-thumbnail-url" type="text" placeholder="Image URL">
+					</div>
+					<div class="b20-thumbnail-row">
+						<button type="button" class="b20-thumbnail-btn b20-thumbnail-upload">Upload</button>
+						<button type="button" class="b20-thumbnail-btn b20-thumbnail-reload">Reload Default</button>
+					</div>
+				</div>
+			`);
+			const $divider = $(`<div class="divider-svg" style="border-color: var(--vtt-submenu-divider-color); border-bottom-style: solid; border-bottom-width: 1px; width: 100%;"></div>`);
+			$section.after($divider, $newSection);
+
+			const $preview = $newSection.find(".b20-thumbnail-preview");
+			const $url = $newSection.find(".b20-thumbnail-url");
+
+			const page = d20.Campaign.activePage();
+			const thumb = page?.get("thumbnail") || "";
+			$url.val(thumb);
+			if (thumb) $preview.attr("src", thumb).show();
+
+			const setThumbnail = (val) => d20.Campaign.activePage()?.save({thumbnail: val});
+
+			$url.on("input", () => {
+				const val = $url.val();
+				$preview.attr("src", val).toggle(!!val);
+			}).on("change", () => setThumbnail($url.val()));
+
+			$newSection.find(".b20-thumbnail-upload").on("click", () => {
+				const $input = $(`<input type="file" accept="image/*">`).appendTo("body").hide();
+				$input.on("change", () => {
+					const file = $input[0].files?.[0];
+					if (file) {
+						const reader = new FileReader();
+						reader.onload = () => {
+							$url.val(reader.result);
+							$preview.attr("src", reader.result).show();
+							setThumbnail(reader.result);
+						};
+						reader.readAsDataURL(file);
+					}
+					$input.remove();
+				});
+				$input.trigger("click");
+			});
+
+			$newSection.find(".b20-thumbnail-reload").on("click", () => {
+				const activePage = d20.Campaign.activePage();
+				const mapGraphics = activePage?.thegraphics?.filter(g => g.get("layer") === "map") || [];
+				if (!mapGraphics.length) return alert("No background image found on the Map layer.");
+				const main = mapGraphics.reduce((a, b) => (a.get("width") * a.get("height") >= b.get("width") * b.get("height")) ? a : b);
+				const imgsrc = main.get("imgsrc");
+				if (!imgsrc) return;
+				$url.val(imgsrc);
+				$preview.attr("src", imgsrc).show();
+				setThumbnail(imgsrc);
+			});
+		};
+
+		new MutationObserver(inject).observe(document.body, {childList: true, subtree: true});
+		inject();
 	};
 
 	d20plus.engine.enhanceMacros = (openedMacroId) => {
@@ -29309,7 +29398,10 @@ const betteR20Core = function () {
 			d20plus.engine.swapTemplates();
 
 			d20plus.ut.addAllCss();
-			if (window.is_gm) d20plus.engine.enhancePageSelector();
+			if (window.is_gm) {
+				d20plus.engine.enhancePageSelector();
+				d20plus.engine.enhanceVuePageThumbnail();
+			}
 			await d20plus.js.pAddScripts();
 			await d20plus.qpi.pInitMockApi();
 			await d20plus.js.pAddApiScripts();
