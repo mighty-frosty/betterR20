@@ -35,9 +35,6 @@ function baseToolModule () {
 				</div>
 				<hr>
 <p>
-    <label style="display: inline-block; padding-top: 4px;">
-        <input type="checkbox" name="force-ogl5e"> Force OGL 5e Sheet for Characters
-    </label>
     <button class="btn" style="float: right;" name="import">Import Selected</button>
 </p>				</div>
 
@@ -149,7 +146,6 @@ function baseToolModule () {
 
 			const $win = $("#d20plus-module-importer");
 			$win.dialog("open");
-			const $cbForceOgl = $win.find(`[name="force-ogl5e"]`);
 
 			const $winProgress = $(`#d20plus-module-importer-progress`);
 			const $btnCancel = $winProgress.find(".cancel").off("click");
@@ -386,6 +382,8 @@ function baseToolModule () {
 						if (!handled) d20.journal.addItemToFolderStructure(itId, genericFolder.id);
 					};
 
+					const charIdMap = {};
+					const importedPageIds = [];
 					const doImport = () => {
 						if (isCancelled) {
 							$name.text("Import cancelled.");
@@ -402,6 +400,7 @@ function baseToolModule () {
 									case "maps": {
 										const map = d20.Campaign.pages.create(entry.attributes);
 										map.save();
+										importedPageIds.push(map.id);
 
 										// Wait for Roll20 to initialize, then add graphics
 										setTimeout(async () => {
@@ -480,8 +479,10 @@ function baseToolModule () {
 										break;
 									}
 									case "characters": {
-										const forceOgl = $cbForceOgl.prop("checked");
-										const charAttrs = forceOgl ? {...entry.attributes, charactersheetname: "ogl5e"} : {...entry.attributes};
+										const charSheetName = (typeof d20plus.importer?.shouldUse2024 === "function" && d20plus.importer.shouldUse2024())
+											? d20plus.cfg.getOrDefault("import", "importSheetFormat")
+											: entry.attributes.charactersheetname;
+										const charAttrs = {...entry.attributes, charactersheetname: charSheetName};
 
 										// 1. Save the old Character ID before we delete it!
 										const oldCharId = charAttrs.id;
@@ -491,6 +492,7 @@ function baseToolModule () {
 											{
 												success: function (character) {
 													const newCharId = character.id;
+													charIdMap[oldCharId] = newCharId;
 
 													// 2. THE VTTES TRICK: Global String Replace for Attributes
 													let attribsStr = JSON.stringify(entry.attribs);
@@ -505,8 +507,19 @@ function baseToolModule () {
 
 													// Proceed with saving using the rebased data
 													character.attribs.reset();
-													const toSave = rebasedAttribs.map(a => character.attribs.push(a));
-													toSave.forEach(s => s.syncedSave());
+													const isNpc = rebasedAttribs.some(a => a.name === "npc" && String(a.current) === "1");
+													if (typeof d20plus.importer?.shouldUse2024 === "function" && d20plus.importer.shouldUse2024() && isNpc) {
+														// 2024 sheet: convert OGL attribs to 2024 store format
+														const store2024 = d20plus.importer.translateOGLTo2024Store(rebasedAttribs);
+														const toSave = [
+															{ name: "appState", current: "npc" },
+															{ name: "store", current: store2024 },
+														].map(a => character.attribs.push(a));
+														toSave.forEach(s => s.syncedSave());
+													} else {
+														const toSave = rebasedAttribs.map(a => character.attribs.push(a));
+														toSave.forEach(s => s.syncedSave());
+													}
 
 													character.abilities.fetch({
 														success: function () {
@@ -546,6 +559,40 @@ function baseToolModule () {
 						} else {
 							$name.text("Import complete!");
 							$remain.text(`${queue.length} remaining.`);
+							if (importedPageIds.length) {
+								setTimeout(async () => {
+									// Build name->newCharId lookup for tokens where represents was never set
+									const charNameMap = {};
+									Object.values(charIdMap).forEach(newId => {
+										const char = d20.Campaign.characters.get(newId);
+										if (char) charNameMap[char.get("name").toLowerCase()] = newId;
+									});
+									// Also scan all characters in case module had no represents IDs at all
+									d20.Campaign.characters.models.forEach(char => {
+										const key = char.get("name").toLowerCase();
+										if (!charNameMap[key]) charNameMap[key] = char.id;
+									});
+									for (const pageId of importedPageIds) {
+										const page = d20.Campaign.pages.get(pageId);
+										if (!page) continue;
+										if (!page.thegraphics) await page.fullyLoadPage();
+										page.thegraphics.models.forEach(g => {
+											const oldRepresents = g.get("represents");
+											if (oldRepresents && charIdMap[oldRepresents]) {
+												// Token had an old char ID -- remap to new ID
+												g.save({represents: charIdMap[oldRepresents]});
+											} else if (!oldRepresents) {
+												// Token has no represents -- try matching by name
+												const tokenName = (g.get("name") || "").toLowerCase();
+												if (tokenName && charNameMap[tokenName]) {
+													g.save({represents: charNameMap[tokenName]});
+												}
+											}
+										});
+									}
+									d20plus.ut.log("[B20 Module] Token-character links updated.");
+								}, 2000);
+							}
 						}
 					};
 

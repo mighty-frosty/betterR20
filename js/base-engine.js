@@ -192,6 +192,95 @@ function d20plusEngine () {
 		});
 	};
 
+	// Roll20's Page Settings dialog is now a Vue component with no open/close event we can
+	// hook into, so watch for its "Backdrop Color" block and inject our Thumbnail section next to it.
+	d20plus.engine.enhanceVuePageThumbnail = () => {
+		const SECTION_CLASS = "b20-thumbnail-section";
+
+		if (!document.getElementById("b20-thumbnail-style")) {
+			document.head.insertAdjacentHTML("beforeend", `<style id="b20-thumbnail-style">
+				.${SECTION_CLASS} { display: flex; flex-direction: column; gap: 8px; }
+				.${SECTION_CLASS} .b20-thumbnail-row { display: flex; align-items: center; gap: 8px; }
+				.${SECTION_CLASS} .b20-thumbnail-preview { width: 48px; height: 48px; object-fit: cover; border-radius: 4px; background: rgba(128,128,128,.2); flex-shrink: 0; }
+				.${SECTION_CLASS} .b20-thumbnail-url { flex: 1; min-width: 0; padding: 6px 8px; border-radius: 4px; border: 1px solid rgba(128,128,128,.4); box-sizing: border-box; font: inherit; }
+				.${SECTION_CLASS} .b20-thumbnail-btn { padding: 6px 14px; border-radius: 4px; border: 1px solid rgba(128,128,128,.4); background: rgba(128,128,128,.12); color: inherit; cursor: pointer; font: inherit; font-size: 13px; }
+				.${SECTION_CLASS} .b20-thumbnail-btn:hover { background: rgba(128,128,128,.25); }
+			</style>`);
+		}
+
+		const inject = () => {
+			if (document.querySelector(`.${SECTION_CLASS}`)) return;
+			const backdrop = document.querySelector(`[data-testid="pageSettings-pd-tab-backdropColor"]`);
+			if (!backdrop) return;
+			const $section = $(backdrop).closest(".section");
+			if (!$section.length) return;
+
+			const $newSection = $(`
+				<div class="section ${SECTION_CLASS}">
+					<h4 class="title large-title">Thumbnail</h4>
+					<div class="b20-thumbnail-row">
+						<img class="b20-thumbnail-preview" style="display:none;">
+						<input class="b20-thumbnail-url" type="text" placeholder="Image URL">
+					</div>
+					<div class="b20-thumbnail-row">
+						<button type="button" class="b20-thumbnail-btn b20-thumbnail-upload">Upload</button>
+						<button type="button" class="b20-thumbnail-btn b20-thumbnail-reload">Reload Default</button>
+					</div>
+				</div>
+			`);
+			const $divider = $(`<div class="divider-svg" style="border-color: var(--vtt-submenu-divider-color); border-bottom-style: solid; border-bottom-width: 1px; width: 100%;"></div>`);
+			$section.after($divider, $newSection);
+
+			const $preview = $newSection.find(".b20-thumbnail-preview");
+			const $url = $newSection.find(".b20-thumbnail-url");
+
+			const page = d20.Campaign.activePage();
+			const thumb = page?.get("thumbnail") || "";
+			$url.val(thumb);
+			if (thumb) $preview.attr("src", thumb).show();
+
+			const setThumbnail = (val) => d20.Campaign.activePage()?.save({thumbnail: val});
+
+			$url.on("input", () => {
+				const val = $url.val();
+				$preview.attr("src", val).toggle(!!val);
+			}).on("change", () => setThumbnail($url.val()));
+
+			$newSection.find(".b20-thumbnail-upload").on("click", () => {
+				const $input = $(`<input type="file" accept="image/*">`).appendTo("body").hide();
+				$input.on("change", () => {
+					const file = $input[0].files?.[0];
+					if (file) {
+						const reader = new FileReader();
+						reader.onload = () => {
+							$url.val(reader.result);
+							$preview.attr("src", reader.result).show();
+							setThumbnail(reader.result);
+						};
+						reader.readAsDataURL(file);
+					}
+					$input.remove();
+				});
+				$input.trigger("click");
+			});
+
+			$newSection.find(".b20-thumbnail-reload").on("click", () => {
+				const activePage = d20.Campaign.activePage();
+				const mapGraphics = activePage?.thegraphics?.filter(g => g.get("layer") === "map") || [];
+				if (!mapGraphics.length) return alert("No background image found on the Map layer.");
+				const main = mapGraphics.reduce((a, b) => (a.get("width") * a.get("height") >= b.get("width") * b.get("height")) ? a : b);
+				const imgsrc = main.get("imgsrc");
+				if (!imgsrc) return;
+				$url.val(imgsrc);
+				$preview.attr("src", imgsrc).show();
+				setThumbnail(imgsrc);
+			});
+		};
+
+		new MutationObserver(inject).observe(document.body, {childList: true, subtree: true});
+		inject();
+	};
+
 	d20plus.engine.enhanceMacros = (openedMacroId) => {
 		const $dialog = $(`.dialog[data-macroid=${openedMacroId}]`);
 		if (!openedMacroId || !$dialog[0]) return;

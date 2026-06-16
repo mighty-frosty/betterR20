@@ -175,6 +175,7 @@ function d20plusItems () {
 		let notecontents = "";
 		const roll20Data = {
 			name: data.name,
+			Vetoolscontent: data,
 			data: {
 				Category: "Items",
 			},

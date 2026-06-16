@@ -134,6 +134,7 @@ function d20plusSpells () {
 
 		let r20json = {
 			name: data.name,
+			Vetoolscontent: data,
 			content: "",
 			htmlcontent: "",
 			data: r20Data,

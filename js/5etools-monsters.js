@@ -445,6 +445,36 @@ function d20plusMonsters () {
 					let cr = data.cr ? (data.cr.cr || data.cr) : "";
 					let xp = Parser.crToXpNumber(cr) || 0;
 
+					// Check if 2024 import is available (only in 5etools build)
+					if (typeof d20plus.monsters?.shouldUse2024 === "function" && d20plus.monsters.shouldUse2024()) {
+						const store = d20plus.monsters.build2024Store(data, renderer);
+						const toSave = [
+							{ name: "appState", current: "npc" },
+							{ name: "store", current: store },  // Store as object, NOT stringified
+						].map(a => character.attribs.push(a));
+						toSave.forEach(s => s.syncedSave());
+
+						if (typeof d20plus.monsters.import2024Spells === "function") {
+							d20plus.monsters.import2024Spells(character, data);
+						}
+
+						if (renderFluff) {
+							setTimeout(() => {
+								const fluffAs = d20plus.cfg.get("import", "importFluffAs") || d20plus.cfg.getDefault("import", "importFluffAs");
+								let k = fluffAs === "Bio" ? "bio" : "gmnotes";
+								character._getLatestBlob(k, (existing) => {
+									const content = Markdown.parse(renderFluff);
+									character.updateBlobs({[k]: (existing || "") + content});
+									character.save({[k]: (new Date()).getTime()});
+								});
+							}, 500);
+						}
+
+						d20.journal.addItemToFolderStructure(character.id, folder.id);
+						if (options.charFunction) options.charFunction(character);
+						return;
+					}
+
 					character.attribs.create({name: "npc", current: 1});
 					character.attribs.create({name: "npc_toggle", current: 1});
 					character.attribs.create({name: "npc_options-flag", current: 0});
@@ -1463,11 +1493,10 @@ function d20plusMonsters () {
 						setTimeout(() => {
 							const fluffAs = d20plus.cfg.get("import", "importFluffAs") || d20plus.cfg.getDefault("import", "importFluffAs");
 							let k = fluffAs === "Bio" ? "bio" : "gmnotes";
-							character.updateBlobs({
-								[k]: Markdown.parse(renderFluff),
-							});
-							character.save({
-								[k]: (new Date()).getTime(),
+							character._getLatestBlob(k, (existing) => {
+								const content = Markdown.parse(renderFluff);
+								character.updateBlobs({[k]: (existing || "") + content});
+								character.save({[k]: (new Date()).getTime()});
 							});
 						}, 500);
 					}
@@ -1497,8 +1526,9 @@ function d20plusMonsters () {
 						...(data.environment || []),
 						data.isNPC ? "npc" : undefined,
 					], "creature"),
-					// Force use of OGL 5e sheet (works in both 2014 and 2024 games)
-					charactersheetname: "ogl5e",
+					charactersheetname: (typeof d20plus.monsters?.shouldUse2024 === "function" && d20plus.monsters.shouldUse2024())
+						? d20plus.cfg.getOrDefault("import", "importSheetFormat")
+						: "ogl5e",
 					...options.charOptions,
 				},
 				{
