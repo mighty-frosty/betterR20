@@ -2,7 +2,7 @@
 // @name         betteR20-beta-core-death-jumpagate-import
 // @namespace    https://5e.tools/
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      1.36.1.1ji
+// @version      1.36.1.1ji-testing
 // @updateURL    https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/betteR20-core.meta.js
 // @downloadURL  https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/betteR20-core.user.js
 // @description  Enhance your Roll20 experience
@@ -30,7 +30,7 @@ ART_HANDOUT = "betteR20-art";
 CONFIG_HANDOUT = "betteR20-config";
 
 B20_NAME = `core`;
-B20_VERSION = `1.36.1.1ji`;
+B20_VERSION = `1.36.1.1ji-testing`;
 B20_REPO_URL = `https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/`;
 
 // TODO automate to use mirror if main site is unavailable
@@ -13806,6 +13806,7 @@ function initHTMLroll20EditorsMisc () {
 							</label>
 							<input class='tags'>
 							<div class='clear'></div>
+							<$ } $>
 							<label>
 								<strong>JSON Import/Export</strong>
 							</label>
@@ -13815,6 +13816,7 @@ function initHTMLroll20EditorsMisc () {
 								<a class='showtip pictos' title='Export or overwrite this character as JSON. Overwriting will replace this sheet&#39;s data.'>?</a>
 							</div>
 							<div class='clear'></div>
+							<$ if(window.is_gm) { $>
 							<hr>
 							<$ if(this.get("ownedBy")) { $>
 							<button class='removefromgame btn btn-danger' data-test='character-remove-from-game' style='float: right;'>
@@ -16682,10 +16684,10 @@ function baseMenu () {
 			const contextMenu = document.querySelector('.context-menu');
 			if (!contextMenu) return;
 
-			// Check if already added
-			if (contextMenu.querySelector('.better20-tools-button')) return;
-
 			if (!window.is_gm) return;
+
+			// Remove any existing instance before adding fresh one (prevents duplicates)
+			contextMenu.querySelectorAll('.better20-tools-button').forEach(el => el.remove());
 
 			// Create Better20 Tools button with submenu
 			const toolsBtn = document.createElement('button');
@@ -16827,6 +16829,21 @@ function baseMenu () {
 			});
 			submenu.appendChild(editBtn);
 
+			// Add Toggle Grid
+			const activePage = d20.Campaign && d20.Campaign.activePage ? d20.Campaign.activePage() : null;
+			if (activePage) {
+				const gridEnabled = activePage.get("showgrid");
+				const gridToggleBtn = createSubmenuItem(gridEnabled ? 'Disable Grid' : 'Enable Grid', () => {
+					const page = d20.Campaign && d20.Campaign.activePage ? d20.Campaign.activePage() : null;
+					if (page) {
+						page.set("showgrid", !page.get("showgrid"));
+						page.save();
+					}
+					closeContextMenu();
+				});
+				submenu.appendChild(gridToggleBtn);
+			}
+
 			// Add Animate Token (only if animations exist)
 			const hasAnims = d20plus.anim?.animatorTool?._anims
 				&& typeof d20plus.anim.animatorTool._anims === 'object'
@@ -16876,26 +16893,80 @@ function baseMenu () {
 			contextMenu.insertBefore(toolsBtn, contextMenu.firstChild);
 		}
 
+		// Function to add Grid Toggle to canvas right-click menu
+		function addGridToggleToMenu() {
+			const contextMenu = document.querySelector('.context-menu');
+			if (!contextMenu) return;
+
+			if (!window.is_gm) return;
+
+			const activePage = d20.Campaign && d20.Campaign.activePage ? d20.Campaign.activePage() : null;
+			if (!activePage) return;
+
+			// Remove any existing instance before adding fresh one (prevents duplicates)
+			contextMenu.querySelectorAll('.better20-grid-toggle-button').forEach(el => el.remove());
+
+			const gridEnabled = activePage.get("showgrid");
+			const label = gridEnabled ? 'Disable Grid' : 'Enable Grid';
+
+			const gridBtn = document.createElement('button');
+			gridBtn.className = 'better20-grid-toggle-button';
+			gridBtn.type = 'button';
+			gridBtn.setAttribute('data-v-2aed8a8e', '');
+			gridBtn.setAttribute('data-v-060adf8b', '');
+			gridBtn.innerHTML = `
+				<div data-v-2aed8a8e="" class="submenu-button-outer">
+					<div data-v-2aed8a8e="" class="submenu-button-inner">
+						<div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 4px;">
+							<div data-v-2aed8a8e="" style="display: flex; align-items: center; gap: 8px;">
+								<span data-v-2aed8a8e="" style="flex: 1 1 0%; text-align: start;">${label}</span>
+							</div>
+						</div>
+					</div>
+				</div>
+			`;
+
+			gridBtn.addEventListener('click', () => {
+				const page = d20.Campaign && d20.Campaign.activePage ? d20.Campaign.activePage() : null;
+				if (page) {
+					page.set("showgrid", !page.get("showgrid"));
+					page.save();
+				}
+				closeContextMenu();
+			});
+
+			contextMenu.appendChild(gridBtn);
+		}
+
+		// Track menu visibility so we only run setup on open, not on every style mutation
+		let _contextMenuVisible = false;
+
 		// Watch for context menu appearing
 		const observer = new MutationObserver(() => {
 			const menu = document.querySelector('.context-menu');
-			if (menu && menu.style.display !== 'none') {
-				// Check if this is a token context menu using icon identifiers (language-independent)
+			const isVisible = !!(menu && menu.style.display !== 'none');
+
+			if (isVisible && !_contextMenuVisible) {
+				// Menu just opened — rebuild buttons with fresh state
+				_contextMenuVisible = true;
+
 				const hasTokenOptions = Array.from(menu.querySelectorAll('.grimoire__roll20-icon')).some(
 					icon => icon.textContent === 'characterSheet' || icon.textContent === 'turnOrderAdd'
 				);
 
 				if (hasTokenOptions) {
-					// Add custom menu items for token menus
 					addBetter20ToolsToMenu();
-                } else {
-                    const existingBetter20 = menu.querySelector('.better20-tools-button');
-                    if (existingBetter20) {
-                        existingBetter20.remove();
-                    }
-                }
-            }
-        });
+					const existingGridToggle = menu.querySelector('.better20-grid-toggle-button');
+					if (existingGridToggle) existingGridToggle.remove();
+				} else {
+					const existingBetter20 = menu.querySelector('.better20-tools-button');
+					if (existingBetter20) existingBetter20.remove();
+					addGridToggleToMenu();
+				}
+			} else if (!isVisible) {
+				_contextMenuVisible = false;
+			}
+		});
 
         observer.observe(document.body, {
             childList: true,
@@ -28196,6 +28267,8 @@ function baseCharacterIo () {
 	const applyCharacterImport = (character, entry) => {
 		const safeAttributes = {...(entry.attributes || {})};
 		delete safeAttributes.id;
+		delete safeAttributes.inplayerjournals;
+		delete safeAttributes.controlledby;
 		character.set(safeAttributes);
 		character.save();
 
@@ -28281,7 +28354,7 @@ function baseCharacterIo () {
 
 				const [bio, gmnotes, defaulttoken] = await Promise.all([
 					getBlobData(character, "bio"),
-					getBlobData(character, "gmnotes"),
+					window.is_gm ? getBlobData(character, "gmnotes") : Promise.resolve(null),
 					getBlobData(character, "defaulttoken"),
 				]);
 
