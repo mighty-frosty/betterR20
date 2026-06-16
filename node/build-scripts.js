@@ -1,7 +1,7 @@
 const fs = require("fs");
 
 const SCRIPT_VERSION = process.env.SCRIPT_VERSION || "1.36.1.1ji";
-const SCRIPT_REPO = "https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/";
+const SCRIPT_REPO = process.env.SCRIPT_REPO || "https://github.com/mighty-frosty/betterR20/releases/latest/download/";
 
 const SCRIPT_BETA_DESCRIPTION = `This version contains following changes
 1.36.1.1ji - 2024 Sheet Support (First Release)
