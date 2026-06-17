@@ -382,14 +382,15 @@ function tools5eTool () {
 					const d20Character = d20.Campaign.characters.get(character);
 					if (!d20Character) return alert("Failed to get character data!");
 
-					const getAttrib = (name) => d20Character.attribs.toJSON().find(x => x.name === name);
+					const attribsJSON = d20Character.attribs.toJSON();
+					const getAttrib = (name) => attribsJSON.find(x => x.name === name);
 
 					allSel.filter(it => it).forEach(sel => {
 						sel = $.extend(true, {}, sel);
 
-						sel.wis = (d20Character.attribs.toJSON().find(x => x.name === "wisdom") || {}).current || 10;
-						sel.int = (d20Character.attribs.toJSON().find(x => x.name === "intelligence") || {}).current || 10;
-						sel.cha = (d20Character.attribs.toJSON().find(x => x.name === "charisma") || {}).current || 10;
+						sel.wis = (getAttrib("wisdom") || {}).current || 10;
+						sel.int = (getAttrib("intelligence") || {}).current || 10;
+						sel.cha = (getAttrib("charisma") || {}).current || 10;
 
 						const attribsSkills = {
 							acrobatics_bonus: "acrobatics",

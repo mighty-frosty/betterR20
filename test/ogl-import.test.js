@@ -101,6 +101,37 @@ describe('CharacterAttributesProxy', () => {
 });
 
 // ---------------------------------------------------------------------------
+// CharacterAttributesProxy — cache behaviour
+// ---------------------------------------------------------------------------
+describe('CharacterAttributesProxy — cache', () => {
+	function makeTracked () {
+		const char = makeOGLChar();
+		let calls = 0;
+		const real = char.model.attribs.toJSON;
+		char.model.attribs.toJSON = () => { calls++; return real(); };
+		return { char, toJSONCalls: () => calls };
+	}
+
+	test('findByName() calls toJSON() only once across multiple reads', () => {
+		const { char, toJSONCalls } = makeTracked();
+		const proxy = new ctx.d20plus.importer.CharacterAttributesProxy(char);
+		proxy.findByName('x');
+		proxy.findByName('y');
+		proxy.findByName('z');
+		expect(toJSONCalls()).toBe(1);
+	});
+
+	test('add() invalidates cache so the next read sees the new attribute', () => {
+		const { char, toJSONCalls } = makeTracked();
+		const proxy = new ctx.d20plus.importer.CharacterAttributesProxy(char);
+		expect(proxy.findByName('speed')).toEqual({});        // seeds the cache (empty)
+		proxy.add('speed', '30');                             // must invalidate
+		expect(proxy.findByName('speed')).toMatchObject({ name: 'speed', current: '30' });
+		expect(toJSONCalls()).toBe(2);                        // one before add, one after
+	});
+});
+
+// ---------------------------------------------------------------------------
 // importFeat — OGL sheet
 // ---------------------------------------------------------------------------
 describe('importFeat — OGL sheet', () => {

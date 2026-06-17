@@ -1633,16 +1633,21 @@ function d20plusImporter () {
 		constructor (character) {
 			this.character = character;
 			this._changedAttrs = [];
+			this._attribsCache = null;
+		}
+
+		_getAttribs () {
+			if (!this._attribsCache) this._attribsCache = this.character.model.attribs.toJSON();
+			return this._attribsCache;
 		}
 
 		findByName (attrName) {
-			return this.character.model.attribs.toJSON()
-				.find(a => a.name === attrName) || {};
+			return this._getAttribs().find(a => a.name === attrName) || {};
 		}
 
 		findOrGenerateRepeatingRowId (namePattern, current) {
 			const [namePrefix, nameSuffix] = namePattern.split(/\$\d?/);
-			const attr = this.character.model.attribs.toJSON()
+			const attr = this._getAttribs()
 				.find(a => a.name.startsWith(namePrefix) && a.name.endsWith(nameSuffix) && a.current === current);
 			return attr
 				? attr.name.replace(RegExp(`^${namePrefix}(.*)${nameSuffix}$`), "$1")
@@ -1656,6 +1661,7 @@ function d20plusImporter () {
 				...(max == null ? {} : {max: max}),
 			}).save();
 			this._changedAttrs.push(name);
+			this._attribsCache = null;
 		}
 
 		addOrUpdate (name, current, max) {
