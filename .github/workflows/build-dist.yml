@@ -11,12 +11,7 @@ jobs:
     if: github.ref_name == 'development-jumpgate'
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
+      contents: write
 
     steps:
       - uses: actions/checkout@v4
@@ -41,17 +36,13 @@ jobs:
       - name: Run Tests
         run: npm run test
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist/
-
       - name: Deploy to Pages
-        id: deploy
-        uses: actions/deploy-pages@v4
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          keep_files: true
+          commit_message: "deploy: testing build ${{ env.SCRIPT_VERSION }}"
 
   build-release:
     if: github.ref_name == 'main-jumpgate'
