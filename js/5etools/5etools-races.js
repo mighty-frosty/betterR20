@@ -29,41 +29,17 @@ function d20plusRaces () {
 		}
 	};
 
-	d20plus.races.handoutBuilder = function (data, overwrite, inJournals, folderName, saveIdsTo, options) {
-		// make dir
-		const folder = d20plus.journal.makeDirTree(`Races`, folderName);
-		const path = ["Races", ...folderName, data.name];
+	d20plus.races.handoutBuilder = d20plus.importer.makeHandoutBuilder(
+		d20plus.races,
+		"Races",
+		(data) => UrlUtil.URL_TO_HASH_BUILDER[UrlUtil.PG_RACES](data),
+		(data) => d20plus.importer.getTagString([
+			(data.size || [Parser.SZ_VARIES]).map(sz => Renderer.utils.getRenderedSize(sz)).join("/"),
+			Parser.sourceJsonToFull(data.source),
+		], "race"),
+	);
 
-		// handle duplicates/overwrites
-		if (!d20plus.importer._checkHandleDuplicate(path, overwrite)) return;
-
-		const name = data.name;
-		d20.Campaign.handouts.create({
-			name: name,
-			tags: d20plus.importer.getTagString([
-				(data.size || [Parser.SZ_VARIES]).map(sz => Renderer.utils.getRenderedSize(sz)).join("/"),
-				Parser.sourceJsonToFull(data.source),
-			], "race"),
-		}, {
-			success: function (handout) {
-				if (saveIdsTo) saveIdsTo[UrlUtil.URL_TO_HASH_BUILDER[UrlUtil.PG_RACES](data)] = {name: data.name, source: data.source, type: "handout", roll20Id: handout.id};
-
-				const [noteContents, gmNotes] = d20plus.races._getHandoutData(data);
-
-				handout.updateBlobs({notes: noteContents, gmnotes: gmNotes});
-				handout.save({notes: (new Date()).getTime(), inplayerjournals: inJournals});
-				d20.journal.addItemToFolderStructure(handout.id, folder.id);
-			},
-		});
-	};
-
-	d20plus.races.playerImportBuilder = function (data) {
-		const [notecontents, gmnotes] = d20plus.races._getHandoutData(data);
-
-		const importId = d20plus.ut.generateRowId();
-		d20plus.importer.storePlayerImport(importId, JSON.parse(gmnotes));
-		d20plus.importer.makePlayerDraggable(importId, data.name);
-	};
+	d20plus.races.playerImportBuilder = d20plus.importer.makePlayerImportBuilder(d20plus.races);
 
 	d20plus.races._getHandoutData = function (data) {
 		const renderer = new Renderer();

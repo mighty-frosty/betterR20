@@ -122,50 +122,19 @@ function d20plusItems () {
 		}
 	};
 
-	// Import individual items
-	d20plus.items.handoutBuilder = function (data, overwrite, inJournals, folderName, saveIdsTo, options) {
-		// make dir
-		const folder = d20plus.journal.makeDirTree(`Items`, folderName);
-		const path = ["Items", ...folderName, data.name];
+	d20plus.items.handoutBuilder = d20plus.importer.makeHandoutBuilder(
+		d20plus.items,
+		"Items",
+		(data) => UrlUtil.URL_TO_HASH_BUILDER[UrlUtil.PG_ITEMS](data),
+		(data) => d20plus.importer.getTagString([
+			`rarity ${data.rarity}`,
+			...(data._textTypes || []),
+			Parser.sourceJsonToFull(data.source),
+		], "item"),
+		(data) => { if (!data._isEnhanced) Renderer.item.enhanceItem(data); },
+	);
 
-		// handle duplicates/overwrites
-		if (!d20plus.importer._checkHandleDuplicate(path, overwrite)) return;
-
-		const name = data.name;
-
-		if (!data._isEnhanced) Renderer.item.enhanceItem(data); // for homebrew items
-
-		// build item handout
-		d20.Campaign.handouts.create({
-			name: name,
-			tags: d20plus.importer.getTagString([
-				`rarity ${data.rarity}`,
-				...(data._textTypes || []), // <--- If undefined, it spreads an empty array instead of crashing
-				Parser.sourceJsonToFull(data.source),
-			], "item"),
-		}, {
-			success: function (handout) {
-				if (saveIdsTo) saveIdsTo[UrlUtil.URL_TO_HASH_BUILDER[UrlUtil.PG_ITEMS](data)] = {name: data.name, source: data.source, type: "handout", roll20Id: handout.id};
-
-				const [notecontents, gmnotes] = d20plus.items._getHandoutData(data);
-
-				handout.updateBlobs({notes: notecontents, gmnotes: gmnotes});
-				handout.save({
-					notes: (new Date()).getTime(),
-					inplayerjournals: inJournals,
-				});
-				d20.journal.addItemToFolderStructure(handout.id, folder.id);
-			},
-		});
-	};
-
-	d20plus.items.playerImportBuilder = function (data) {
-		const [notecontents, gmnotes] = d20plus.items._getHandoutData(data);
-
-		const importId = d20plus.ut.generateRowId();
-		d20plus.importer.storePlayerImport(importId, JSON.parse(gmnotes));
-		d20plus.importer.makePlayerDraggable(importId, data.name);
-	};
+	d20plus.items.playerImportBuilder = d20plus.importer.makePlayerImportBuilder(d20plus.items);
 
 	d20plus.items._getHandoutData = function (data) {
 		function removeDiceTags (str) {

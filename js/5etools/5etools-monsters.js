@@ -1059,11 +1059,6 @@ function d20plusMonsters () {
 								} else {
 									update[`repeating_attack_${attackid}_atkrange`] = "";
 								}
-								if (v[`repeating_spell-${lvl}_${spellid}_spellrange`]) {
-									update[`repeating_attack_${attackid}_atkrange`] = v[`repeating_spell-${lvl}_${spellid}_spellrange`];
-								} else {
-									update[`repeating_attack_${attackid}_atkrange`] = "";
-								}
 								if (v[`repeating_spell-${lvl}_${spellid}_spellsave`]) {
 									update[`repeating_attack_${attackid}_saveflag`] = "{{save=1}} {{saveattr=@{saveattr}}} {{savedesc=@{saveeffect}}} {{savedc=[[[[@{savedc}]][SAVE]]]}}";
 									update[`repeating_attack_${attackid}_saveattr`] = v[`repeating_spell-${lvl}_${spellid}_spellsave`];

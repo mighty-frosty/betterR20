@@ -2683,6 +2683,36 @@ function d20plusImporter () {
 			console.error("Error importing D&D Beyond spells:", error);
 		}
 	};
+
+	d20plus.importer.makePlayerImportBuilder = function (namespace) {
+		return function (data) {
+			const [notecontents, gmnotes] = namespace._getHandoutData(data);
+			const importId = d20plus.ut.generateRowId();
+			d20plus.importer.storePlayerImport(importId, JSON.parse(gmnotes));
+			d20plus.importer.makePlayerDraggable(importId, data.name);
+		};
+	};
+
+	d20plus.importer.makeHandoutBuilder = function (namespace, rootFolder, hashBuilder, getTagsFn, beforeCreate) {
+		return function (data, overwrite, inJournals, folderName, saveIdsTo, options) {
+			const folder = d20plus.journal.makeDirTree(rootFolder, folderName);
+			const path = [rootFolder, ...folderName, data.name];
+			if (!d20plus.importer._checkHandleDuplicate(path, overwrite)) return;
+			if (beforeCreate) beforeCreate(data);
+			d20.Campaign.handouts.create({
+				name: data.name,
+				tags: getTagsFn(data),
+			}, {
+				success: function (handout) {
+					if (saveIdsTo) saveIdsTo[hashBuilder(data)] = {name: data.name, source: data.source, type: "handout", roll20Id: handout.id};
+					const [noteContents, gmNotes] = namespace._getHandoutData(data, options);
+					handout.updateBlobs({notes: noteContents, gmnotes: gmNotes});
+					handout.save({notes: (new Date()).getTime(), inplayerjournals: inJournals});
+					d20.journal.addItemToFolderStructure(handout.id, folder.id);
+				},
+			});
+		};
+	};
 }
 
 SCRIPT_EXTENSIONS.push(d20plusImporter);
