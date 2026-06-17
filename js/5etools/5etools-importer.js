@@ -45,24 +45,6 @@ function d20plusImporter () {
 			.replace(/<<N>>/g, "\n")
 			.replace(/\n +/g, "\n");
 
-		/* version which preserves images, and converts dice
-	const IMG_TAG = "R20IMGTAG";
-	let imgIndex = 0;
-	const imgStack = [];
-	str.replace(/(<img.*>)/, (match) => {
-		imgStack.push(match);
-		return ` ${IMG_TAG}_${imgIndex++} `;
-	});
-	const $ele = $(str);
-	$ele.find("p, li, br").append("\n\n");
-	let out = $ele.text();
-	out = out.replace(DICE_REGEX, (match) => {
-		return `[[${match}]]`;
-	});
-	return out.replace(/R20IMGTAG_(\d+)/, (match, g1) => {
-		return imgStack[Number(g1)];
-	});
-	*/
 	};
 
 	// TODO do a pre-pass _before_ this, attempting to link content tags to already-imported 5etools content (by scanning thru GM notes and attempting to parse as JSON -- cache the results of this scan, as it will presumably be super-expensive (need to then invalidate or add to this cache when importing new stuff))
