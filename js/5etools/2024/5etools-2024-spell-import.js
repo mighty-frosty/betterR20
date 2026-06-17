@@ -5,7 +5,7 @@ function d20plus2024SpellImport() {
 	function parseSpell2024Damage (entries) {
 		for (const entry of (entries || [])) {
 			if (typeof entry !== "string") continue;
-			const m = entry.match(/\{@damage (\d+)d(\d+)(?:\s*([+-])\s*(\d+))?\}/i);
+			const m = entry.match(/\{@damage (\d+)d(\d+)(?:\s*([+-])\s*(\d+))?}/i);
 			if (m) return {
 				diceCount: parseInt(m[1], 10),
 				diceSize: "d" + m[2],
@@ -20,7 +20,7 @@ function d20plus2024SpellImport() {
 	function parseAllSpell2024DamagesTyped (entries, damageInflict) {
 		const capWord = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : "";
 		const knownTypes = (damageInflict || []).map(t => t.toLowerCase());
-		const tagRe = /\{@damage (\d+)d(\d+)(?:\s*([+-])\s*(\d+))?\}/gi;
+		const tagRe = /\{@damage (\d+)d(\d+)(?:\s*([+-])\s*(\d+))?}/gi;
 
 		for (const entry of (entries || [])) {
 			if (typeof entry !== "string") continue;
@@ -42,20 +42,19 @@ function d20plus2024SpellImport() {
 				? new RegExp(`(${knownTypes.join("|")}) or (${knownTypes.join("|")})`)
 				: null;
 
-			const results = tags.map((tag, i) => {
-				const contextEnd = i + 1 < tags.length ? tags[i + 1].tagStart : entry.length;
-				const context = entry.slice(tag.tagEnd, contextEnd).toLowerCase();
-				let damageType;
-				const orMatch = orTypeRe && context.match(orTypeRe);
-				if (orMatch) {
-					damageType = `${capWord(orMatch[1])} or ${capWord(orMatch[2])}`;
-				} else {
-					const single = knownTypes.find(t => context.includes(t));
-					damageType = capWord(single || knownTypes[i] || "");
-				}
-				return {diceCount: tag.diceCount, diceSize: tag.diceSize, flatBonus: tag.flatBonus, damageType};
-			});
-			return results;
+            return tags.map((tag, i) => {
+                const contextEnd = i + 1 < tags.length ? tags[i + 1].tagStart : entry.length;
+                const context = entry.slice(tag.tagEnd, contextEnd).toLowerCase();
+                let damageType;
+                const orMatch = orTypeRe && context.match(orTypeRe);
+                if (orMatch) {
+                    damageType = `${capWord(orMatch[1])} or ${capWord(orMatch[2])}`;
+                } else {
+                    const single = knownTypes.find(t => context.includes(t));
+                    damageType = capWord(single || knownTypes[i] || "");
+                }
+                return {diceCount: tag.diceCount, diceSize: tag.diceSize, flatBonus: tag.flatBonus, damageType};
+            });
 		}
 		return [];
 	}
@@ -65,14 +64,14 @@ function d20plus2024SpellImport() {
 		for (const block of (entriesHigherLevel || [])) {
 			for (const entry of (block.entries || [])) {
 				if (typeof entry !== "string") continue;
-				const mc = entry.match(/\{@scaledamage [^|]+\|(\d+(?:,\d+)+)\|(\d+)d\d+\}/i);
+				const mc = entry.match(/\{@scaledamage [^|]+\|(\d+(?:,\d+)+)\|(\d+)d\d+}/i);
 				if (mc) {
 					const levels = mc[1].split(",").map(Number);
 					const startingLevel = levels[1];
 					const stepLevels = levels.length > 1 ? levels[1] - levels[0] : 2;
 					return {startingLevel, value: parseInt(mc[2], 10), stepLevels};
 				}
-				const mr = entry.match(/\{@scaledamage [^|]+\|(\d+)-\d+\|(\d+)d\d+\}/i);
+				const mr = entry.match(/\{@scaledamage [^|]+\|(\d+)-\d+\|(\d+)d\d+}/i);
 				if (mr) {
 					const startingLevel = parseInt(mr[1], 10) + 1;
 					const wordNums = {one:1, two:2, three:3, four:4, five:5, six:6};
@@ -89,9 +88,9 @@ function d20plus2024SpellImport() {
 	function parseSpell2024HealDice (entries) {
 		for (const entry of (entries || [])) {
 			if (typeof entry !== "string") continue;
-			const mh = entry.match(/\{@heal (\d+)d(\d+)\}/i);
+			const mh = entry.match(/\{@heal (\d+)d(\d+)}/i);
 			if (mh) return {diceCount: parseInt(mh[1], 10), diceSize: "d" + mh[2], bonus: 0};
-			const md = entry.match(/\{@dice (\d+)d(\d+)(?:\s*([+-])\s*(\d+))?\}/i);
+			const md = entry.match(/\{@dice (\d+)d(\d+)(?:\s*([+-])\s*(\d+))?}/i);
 			if (md) return {
 				diceCount: parseInt(md[1], 10),
 				diceSize: "d" + md[2],
@@ -596,7 +595,7 @@ function d20plus2024SpellImport() {
 		const schoolMap = {A:"Abjuration",C:"Conjuration",D:"Divination",E:"Enchantment",I:"Illusion",N:"Necromancy",T:"Transmutation",V:"Evocation"};
 		const spellIntegrant = {
 			...spellBase,
-			_prepared: !!_batchStore ? false : true,
+			_prepared: !_batchStore,
 			alwaysPrepared: false,
 			...(aoe.shape ? {aoe} : {}),
 			concentration: vc ? !!(vc.duration && vc.duration[0] && vc.duration[0].concentration) : (d["Concentration"] || "") === "Yes",
