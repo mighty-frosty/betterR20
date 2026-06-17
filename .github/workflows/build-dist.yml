@@ -38,6 +38,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Run Tests
+        run: npm run tests
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
