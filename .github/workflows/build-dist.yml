@@ -4,12 +4,11 @@ on:
   push:
     branches:
       - development-jumpgate
-    tags:
-      - 'v*'
+      - main-jumpgate
 
 jobs:
   build-testing:
-    if: github.ref_type == 'branch'
+    if: github.ref_name == 'development-jumpgate'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -52,13 +51,15 @@ jobs:
         uses: actions/deploy-pages@v4
 
   build-release:
-    if: github.ref_type == 'tag'
+    if: github.ref_name == 'main-jumpgate'
     runs-on: ubuntu-latest
     permissions:
       contents: write
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Use Node.js
         uses: actions/setup-node@v4
@@ -70,17 +71,33 @@ jobs:
 
       - name: Resolve version
         run: |
-          VERSION="${{ github.ref_name }}"
-          echo "SCRIPT_VERSION=${VERSION#v}" >> "$GITHUB_ENV"
+          BASE=$(grep -oP '(?<=process\.env\.SCRIPT_VERSION \|\| ")[^"]+' node/build-scripts.js)
+          RELEASE="${BASE%-beta}"
+          NEXT=$(echo "$RELEASE" | awk -F. '{$NF=$NF+1; print}' OFS=.)
+          echo "RELEASE_VERSION=${RELEASE}" >> "$GITHUB_ENV"
+          echo "NEXT_BETA_VERSION=${NEXT}-beta" >> "$GITHUB_ENV"
+          echo "SCRIPT_VERSION=${RELEASE}" >> "$GITHUB_ENV"
           echo "SCRIPT_REPO=https://github.com/mighty-frosty/betterR20/releases/latest/download/" >> "$GITHUB_ENV"
 
       - name: Build
         run: npm run build
 
-      - name: Create release
+      - name: Create or update release
         run: |
-          gh release create "${{ github.ref_name }}" dist/* \
-            --title "Release ${{ github.ref_name }}" \
+          gh release upload "v${{ env.RELEASE_VERSION }}" dist/* --clobber \
+          || gh release create "v${{ env.RELEASE_VERSION }}" dist/* \
+            --title "Release v${{ env.RELEASE_VERSION }}" \
             --generate-notes
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Bump version on development-jumpgate
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin development-jumpgate
+          git checkout development-jumpgate
+          sed -i 's/process\.env\.SCRIPT_VERSION || "[^"]*"/process.env.SCRIPT_VERSION || "${{ env.NEXT_BETA_VERSION }}"/' node/build-scripts.js
+          git add node/build-scripts.js
+          git commit -m "chore: bump version to ${{ env.NEXT_BETA_VERSION }}"
+          git push origin development-jumpgate
