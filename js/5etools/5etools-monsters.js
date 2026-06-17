@@ -164,7 +164,6 @@ function d20plusMonsters () {
 			}
 
 			if (!failed) {
-				const pVals = Object.values(promises);
 				Promise.all(promises).then(results => {
 					doImport(queueCopy);
 				});
@@ -187,7 +186,7 @@ function d20plusMonsters () {
 			DataUtil.loadJSON(url).then(async data => {
 				const doShowList = async () => {
 					await d20plus.importer.pAddBrew(url);
-					d20plus.importer.showImportList(
+					await d20plus.importer.showImportList(
 						"monster",
 						data.monster,
 						d20plus.monsters.handoutBuilder,
@@ -238,7 +237,7 @@ function d20plusMonsters () {
 				toShow = toShow.concat(toAdd);
 			}));
 
-			d20plus.importer.showImportList(
+			await d20plus.importer.showImportList(
 				"monster",
 				toShow,
 				d20plus.monsters.handoutBuilder,
@@ -263,7 +262,7 @@ function d20plusMonsters () {
 		if (monsterdata) {
 			// Create an import list from the JSON
 			// The only relevant part here is the second argument, the rest is stolen from other showImportList calls
-			d20plus.importer.showImportList(
+			await d20plus.importer.showImportList(
 				"monster",
 				monsterdata,
 				d20plus.monsters.handoutBuilder,
@@ -918,9 +917,7 @@ function d20plusMonsters () {
 								// the JSON gets cached by the script, so this is fine
 								DataUtil.loadJSON(url).then((data) => {
 									const spell = data.spell.find(spell => spell.name.toLowerCase() === name.toLowerCase());
-
-									const [notecontents, gmnotes] = d20plus.spells._getHandoutData(spell);
-
+									const [, gmnotes] = d20plus.spells._getHandoutData(spell);
 									addSpell3(JSON.parse(gmnotes), spell, i, addMacroIndex);
 								});
 							});
@@ -1148,20 +1145,20 @@ function d20plusMonsters () {
 								} else {
 									update[`repeating_spell-${lvl}_${id}_spell_ability`] = "spell";
 								}
-								if (page.name) {update[`repeating_spell-${lvl}_${id}_spellname`] = page.name};
-								if (page.data["Ritual"]) {update[`repeating_spell-${lvl}_${id}_spellritual`] = "{{ritual=1}}"};
-								if (page.data["School"]) {update[`repeating_spell-${lvl}_${id}_spellschool`] = page.data["School"].toLowerCase()};
-								if (page.data["Casting Time"]) {update[`repeating_spell-${lvl}_${id}_spellcastingtime`] = page.data["Casting Time"]};
-								if (page.data["Range"]) {update[`repeating_spell-${lvl}_${id}_spellrange`] = page.data["Range"]};
-								if (page.data["Target"]) {update[`repeating_spell-${lvl}_${id}_spelltarget`] = page.data["Target"]};
+								if (page.name) {update[`repeating_spell-${lvl}_${id}_spellname`] = page.name}
+								if (page.data["Ritual"]) {update[`repeating_spell-${lvl}_${id}_spellritual`] = "{{ritual=1}}"}
+								if (page.data["School"]) {update[`repeating_spell-${lvl}_${id}_spellschool`] = page.data["School"].toLowerCase()}
+								if (page.data["Casting Time"]) {update[`repeating_spell-${lvl}_${id}_spellcastingtime`] = page.data["Casting Time"]}
+								if (page.data["Range"]) {update[`repeating_spell-${lvl}_${id}_spellrange`] = page.data["Range"]}
+								if (page.data["Target"]) {update[`repeating_spell-${lvl}_${id}_spelltarget`] = page.data["Target"]}
 								if (page.data["Components"]) {
-									if (page.data["Components"].toLowerCase().indexOf("v") === -1) {update[`repeating_spell-${lvl}_${id}_spellcomp_v`] = "0"};
-									if (page.data["Components"].toLowerCase().indexOf("s") === -1) {update[`repeating_spell-${lvl}_${id}_spellcomp_s`] = "0"};
-									if (page.data["Components"].toLowerCase().indexOf("m") === -1) {update[`repeating_spell-${lvl}_${id}_spellcomp_m`] = "0"};
-								};
-								if (page.data["Material"]) {update[`repeating_spell-${lvl}_${id}_spellcomp_materials`] = page.data["Material"]};
-								if (page.data["Concentration"]) {update[`repeating_spell-${lvl}_${id}_spellconcentration`] = "{{concentration=1}}"};
-								if (page.data["Duration"]) {update[`repeating_spell-${lvl}_${id}_spellduration`] = page.data["Duration"]};
+									if (page.data["Components"].toLowerCase().indexOf("v") === -1) {update[`repeating_spell-${lvl}_${id}_spellcomp_v`] = "0"}
+									if (page.data["Components"].toLowerCase().indexOf("s") === -1) {update[`repeating_spell-${lvl}_${id}_spellcomp_s`] = "0"}
+									if (page.data["Components"].toLowerCase().indexOf("m") === -1) {update[`repeating_spell-${lvl}_${id}_spellcomp_m`] = "0"}
+								}
+								if (page.data["Material"]) {update[`repeating_spell-${lvl}_${id}_spellcomp_materials`] = page.data["Material"]}
+								if (page.data["Concentration"]) {update[`repeating_spell-${lvl}_${id}_spellconcentration`] = "{{concentration=1}}"}
+								if (page.data["Duration"]) {update[`repeating_spell-${lvl}_${id}_spellduration`] = page.data["Duration"]}
 								if (page.data["Damage"] || page.data["Healing"]) {
 									update[`repeating_spell-${lvl}_${id}_spelloutput`] = "ATTACK";
 									callbacks.push(function () {create_attack_from_spell(lvl, id, character.id);});
@@ -1172,25 +1169,25 @@ function d20plusMonsters () {
 									}
 									spelllevel = `${spelllevel}}`;
 									update[`repeating_spell-${lvl}_${id}_rollcontent`] = `@{wtype}&{template:spell} {{level=@{spellschool} ${spelllevel}}} {{name=@{spellname}}} {{castingtime=@{spellcastingtime}}} {{range=@{spellrange}}} {{target=@{spelltarget}}} @{spellcomp_v} @{spellcomp_s} @{spellcomp_m} {{material=@{spellcomp_materials}}} {{duration=@{spellduration}}} {{description=@{spelldescription}}} {{athigherlevels=@{spellathigherlevels}}} @{spellritual} {{innate=@{innate}}} @{spellconcentration} @{charname_output}`;
-								};
-								if (page.data["Spell Attack"]) {update[`repeating_spell-${lvl}_${id}_spellattack`] = page.data["Spell Attack"]};
-								if (page.data["Crit Range"]) {update[`repeating_spell-${lvl}_${id}_spellcritrange`] = page.data["Crit Range"]};
-								if (page.data["Damage"]) {update[`repeating_spell-${lvl}_${id}_spelldamage`] = page.data["Damage"]};
-								if (page.data["Crit"]) {update[`repeating_spell-${lvl}_${id}_spellcustcrit`] = page.data["Crit"]};
-								if (page.data["Damage Type"]) {update[`repeating_spell-${lvl}_${id}_spelldamagetype`] = page.data["Damage Type"]};
-								if (page.data["Secondary Damage"]) {update[`repeating_spell-${lvl}_${id}_spelldamage2`] = page.data["Secondary Damage"]};
-								if (page.data["Secondary Crit"]) {update[`repeating_spell-${lvl}_${id}_spellcustcrit2`] = page.data["Secondary Crit"]};
-								if (page.data["Secondary Damage Type"]) {update[`repeating_spell-${lvl}_${id}_spelldamagetype2`] = page.data["Secondary Damage Type"]};
-								if (page.data["Healing"]) {update[`repeating_spell-${lvl}_${id}_spellhealing`] = page.data["Healing"];};
-								if (page.data["Add Casting Modifier"]) {update[`repeating_spell-${lvl}_${id}_spelldmgmod`] = page.data["Add Casting Modifier"]};
-								if (page.data["Save"]) {update[`repeating_spell-${lvl}_${id}_spellsave`] = page.data["Save"]};
-								if (page.data["Save Success"]) {update[`repeating_spell-${lvl}_${id}_spellsavesuccess`] = page.data["Save Success"]};
-								if (page.data["Higher Spell Slot Dice"]) {update[`repeating_spell-${lvl}_${id}_spellhldie`] = page.data["Higher Spell Slot Dice"]};
-								if (page.data["Higher Spell Slot Die"]) {update[`repeating_spell-${lvl}_${id}_spellhldietype`] = page.data["Higher Spell Slot Die"]};
-								if (page.data["Higher Spell Slot Bonus"]) {update[`repeating_spell-${lvl}_${id}_spellhlbonus`] = page.data["Higher Spell Slot Bonus"]};
-								if (page.data["Higher Spell Slot Desc"]) {update[`repeating_spell-${lvl}_${id}_spellathigherlevels`] = page.data["Higher Spell Slot Desc"]};
-								if (page.data["data-Cantrip Scaling"] && lvl === "cantrip") {update[`repeating_spell-${lvl}_${id}_spell_damage_progression`] = `Cantrip ${page.data["data-Cantrip Scaling"].charAt(0).toUpperCase()}${page.data["data-Cantrip Scaling"].slice(1)}`;};
-								if (page.data["data-description"]) { update[`repeating_spell-${lvl}_${id}_spelldescription`] = page.data["data-description"]};
+								}
+								if (page.data["Spell Attack"]) {update[`repeating_spell-${lvl}_${id}_spellattack`] = page.data["Spell Attack"]}
+								if (page.data["Crit Range"]) {update[`repeating_spell-${lvl}_${id}_spellcritrange`] = page.data["Crit Range"]}
+								if (page.data["Damage"]) {update[`repeating_spell-${lvl}_${id}_spelldamage`] = page.data["Damage"]}
+								if (page.data["Crit"]) {update[`repeating_spell-${lvl}_${id}_spellcustcrit`] = page.data["Crit"]}
+								if (page.data["Damage Type"]) {update[`repeating_spell-${lvl}_${id}_spelldamagetype`] = page.data["Damage Type"]}
+								if (page.data["Secondary Damage"]) {update[`repeating_spell-${lvl}_${id}_spelldamage2`] = page.data["Secondary Damage"]}
+								if (page.data["Secondary Crit"]) {update[`repeating_spell-${lvl}_${id}_spellcustcrit2`] = page.data["Secondary Crit"]}
+								if (page.data["Secondary Damage Type"]) {update[`repeating_spell-${lvl}_${id}_spelldamagetype2`] = page.data["Secondary Damage Type"]}
+								if (page.data["Healing"]) {update[`repeating_spell-${lvl}_${id}_spellhealing`] = page.data["Healing"];}
+								if (page.data["Add Casting Modifier"]) {update[`repeating_spell-${lvl}_${id}_spelldmgmod`] = page.data["Add Casting Modifier"]}
+								if (page.data["Save"]) {update[`repeating_spell-${lvl}_${id}_spellsave`] = page.data["Save"]}
+								if (page.data["Save Success"]) {update[`repeating_spell-${lvl}_${id}_spellsavesuccess`] = page.data["Save Success"]}
+								if (page.data["Higher Spell Slot Dice"]) {update[`repeating_spell-${lvl}_${id}_spellhldie`] = page.data["Higher Spell Slot Dice"]}
+								if (page.data["Higher Spell Slot Die"]) {update[`repeating_spell-${lvl}_${id}_spellhldietype`] = page.data["Higher Spell Slot Die"]}
+								if (page.data["Higher Spell Slot Bonus"]) {update[`repeating_spell-${lvl}_${id}_spellhlbonus`] = page.data["Higher Spell Slot Bonus"]}
+								if (page.data["Higher Spell Slot Desc"]) {update[`repeating_spell-${lvl}_${id}_spellathigherlevels`] = page.data["Higher Spell Slot Desc"]}
+								if (page.data["data-Cantrip Scaling"] && lvl === "cantrip") {update[`repeating_spell-${lvl}_${id}_spell_damage_progression`] = `Cantrip ${page.data["data-Cantrip Scaling"].charAt(0).toUpperCase()}${page.data["data-Cantrip Scaling"].slice(1)}`;}
+								if (page.data["data-description"]) { update[`repeating_spell-${lvl}_${id}_spelldescription`] = page.data["data-description"]}
 								update[`repeating_spell-${lvl}_${id}_options-flag`] = "0";
 
 								// custom writing:
@@ -1378,7 +1375,7 @@ function d20plusMonsters () {
 
 						$.each(data.reaction, function (i, v) {
 							let newRowId = d20plus.ut.generateRowId();
-							let text = "";
+							let text;
 							character.attribs.create({
 								name: `repeating_npcreaction_${newRowId}_name`,
 								current: d20plus.importer.getCleanText(renderer.render(v.name)),

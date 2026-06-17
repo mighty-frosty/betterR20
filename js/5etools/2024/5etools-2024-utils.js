@@ -1,10 +1,10 @@
 function d20plus2024Utils() {
 	d20plus.import2024 = d20plus.import2024 || {};
-	const u = d20plus.import2024;
+	const ctx2024 = d20plus.import2024;
 
-	u.IS_2024_SHEET = new Set(["dnd_2024", "DnD2024_Character_Sheet", "dnd2024", "dnd2024byroll20"]);
+	ctx2024.IS_2024_SHEET = new Set(["dnd_2024", "DnD2024_Character_Sheet", "dnd2024", "dnd2024byroll20"]);
 
-	u.makeId = function () {
+	ctx2024.makeId = function () {
 		// Keep IDs short (8 chars) so shortID === full ID — the 2024 sheet indexes by shortID
 		const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 		let id = "";
@@ -12,8 +12,8 @@ function d20plus2024Utils() {
 		return id;
 	};
 
-	u.makeIntegrantBase = function (type, arrayPosition) {
-		const id = u.makeId();
+	ctx2024.makeIntegrantBase = function (type, arrayPosition) {
+		const id = ctx2024.makeId();
 		return {
 			id,
 			base: {
@@ -36,7 +36,7 @@ function d20plus2024Utils() {
 	// Returns next safe arrayPosition — one above the current max in the store.
 	// All new integrants in the same save MUST use distinct positions to avoid
 	// Roll20 deduplicating them when multiple are written at once.
-	u.getNextArrayPos = function (store) {
+	ctx2024.getNextArrayPos = function (store) {
 		const ints = (store.integrants && store.integrants.integrants) || {};
 		let max = 0;
 		Object.values(ints).forEach(function (i) {
@@ -45,7 +45,7 @@ function d20plus2024Utils() {
 		return max + 1;
 	};
 
-	u.getStore = function (charModel) {
+	ctx2024.getStore = function (charModel) {
 		const storeAttr = charModel.attribs.find(a => a.get("name") === "store");
 		if (!storeAttr) return {attr: null, store: null};
 		let store = storeAttr.get("current");
@@ -53,7 +53,7 @@ function d20plus2024Utils() {
 		return {attr: storeAttr, store};
 	};
 
-	u.saveStore = function (charModel, storeAttr, store) {
+	ctx2024.saveStore = function (charModel, storeAttr, store) {
 		const storeClone = JSON.parse(JSON.stringify(store));
 		try {
 			if (storeAttr) storeAttr.destroy();
@@ -66,7 +66,7 @@ function d20plus2024Utils() {
 		}
 	};
 
-	u.pushDisplayOrder = function (store, section, key, ids) {
+	ctx2024.pushDisplayOrder = function (store, section, key, ids) {
 		if (!store[section]) store[section] = {};
 		const current = JSON.parse(store[section][key] || "[]");
 		store[section][key] = JSON.stringify([...current, ...ids]);

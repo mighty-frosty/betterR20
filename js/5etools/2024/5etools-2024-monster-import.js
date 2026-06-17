@@ -1,5 +1,5 @@
 function d20plus2024MonsterImport() {
-	const u = d20plus.import2024;
+	const monsterCtx = d20plus.import2024;
 
 	function parse2024MonsterSpeeds(speedObj) {
 		if (!speedObj) return [{ type: "Walking", value: 30 }];
@@ -76,7 +76,7 @@ function d20plus2024MonsterImport() {
 			if (typeof entry !== "string") continue;
 
 			// Attack tag — handles {@atk mw} (2014) and {@atkr m} (2024)
-			const atkMatch = entry.match(/\{@atkr?\s+([^}]+)\}/i);
+			const atkMatch = entry.match(/\{@atkr?\s+([^}]+)}/i);
 			if (atkMatch) {
 				result.isAttack = true;
 				const tag = atkMatch[1].toLowerCase().replace(/\s/g, "");
@@ -89,7 +89,7 @@ function d20plus2024MonsterImport() {
 			}
 
 			// To-hit: {@hit N} (2024) or literal +N to hit (2014)
-			const hitTagMatch = entry.match(/\{@hit\s+(\d+)\}/i);
+			const hitTagMatch = entry.match(/\{@hit\s+(\d+)}/i);
 			if (hitTagMatch) result.toHit = parseInt(hitTagMatch[1], 10);
 			else {
 				const toHitMatch = entry.match(/\+(\d+)\s+to hit/i);
@@ -112,9 +112,9 @@ function d20plus2024MonsterImport() {
 			}
 
 			// Damages: {@damage XdY+Z} tags in the hit section (after {@h})
-			const hitSection = entry.split(/\{@h\}/i)[1];
+			const hitSection = entry.split(/\{@h}/i)[1];
 			if (hitSection) {
-				const dmgPattern = /\{@damage\s+([^}]+)\}\)\s*(\w+)\s*damage/gi;
+				const dmgPattern = /\{@damage\s+([^}]+)}\)\s*(\w+)\s*damage/gi;
 				let m;
 				while ((m = dmgPattern.exec(hitSection)) !== null) {
 					const parsed = parse2024MonsterDamage(m[1]);
@@ -174,7 +174,7 @@ function d20plus2024MonsterImport() {
 
 		for (const ability of abilities) {
 			const value = data[ability.key] || 10;
-			const { id, base } = u.makeIntegrantBase("Ability Score", arrayPosition++);
+			const { id, base } = monsterCtx.makeIntegrantBase("Ability Score", arrayPosition++);
 			integrants[id] = {
 				...base,
 				ability: ability.name,
@@ -186,7 +186,7 @@ function d20plus2024MonsterImport() {
 
 		// Hit Points
 		const hp = data.hp?.average ?? data.hp?.special ?? 10;
-		const { id: hpId, base: hpBase } = u.makeIntegrantBase("Hit Points", arrayPosition++);
+		const { id: hpId, base: hpBase } = monsterCtx.makeIntegrantBase("Hit Points", arrayPosition++);
 		integrants[hpId] = {
 			...hpBase,
 			hitpointType: "Maximum",
@@ -202,7 +202,7 @@ function d20plus2024MonsterImport() {
 		const parsedAc = typeof data.ac === "string" ? data.ac : Parser.acToFull(data.ac);
 		const acMatch = String(parsedAc).match(/^\d+/);
 		const ac = acMatch ? parseInt(acMatch[0], 10) : 10;
-		const { id: acId, base: acBase } = u.makeIntegrantBase("Armor Class", arrayPosition++);
+		const { id: acId, base: acBase } = monsterCtx.makeIntegrantBase("Armor Class", arrayPosition++);
 		integrants[acId] = {
 			...acBase,
 			defaultAbility: false,
@@ -253,7 +253,7 @@ function d20plus2024MonsterImport() {
 		// Speeds
 		const speeds = parse2024MonsterSpeeds(data.speed);
 		for (const speed of speeds) {
-			const { id, base } = u.makeIntegrantBase("Speed", arrayPosition++);
+			const { id, base } = monsterCtx.makeIntegrantBase("Speed", arrayPosition++);
 			integrants[id] = {
 				...base,
 				name: speed.type,
@@ -268,7 +268,7 @@ function d20plus2024MonsterImport() {
 		const senses = parse2024MonsterSenses(sensesArr);
 		for (const sense of senses) {
 			if (!sense.value) continue;
-			const { id, base } = u.makeIntegrantBase("Sense", arrayPosition++);
+			const { id, base } = monsterCtx.makeIntegrantBase("Sense", arrayPosition++);
 			integrants[id] = {
 				...base,
 				name: sense.type,
@@ -282,7 +282,7 @@ function d20plus2024MonsterImport() {
 			(data.languages ? data.languages.split(",").map(s => s.trim()) : []);
 		for (const lang of languages) {
 			if (!lang) continue;
-			const { id, base } = u.makeIntegrantBase("Language", arrayPosition++);
+			const { id, base } = monsterCtx.makeIntegrantBase("Language", arrayPosition++);
 			integrants[id] = {
 				...base,
 				name: lang,
@@ -294,7 +294,7 @@ function d20plus2024MonsterImport() {
 		for (const [key] of Object.entries(data.save || {})) {
 			const abilityName = saveAbilityMap[key.toLowerCase()];
 			if (!abilityName) continue;
-			const { id, base } = u.makeIntegrantBase("Proficiency", arrayPosition++);
+			const { id, base } = monsterCtx.makeIntegrantBase("Proficiency", arrayPosition++);
 			integrants[id] = {
 				...base,
 				name: "Saving Throw Proficiency",
@@ -327,7 +327,7 @@ function d20plus2024MonsterImport() {
 			const abilityMod = Math.floor((abilityScore - 10) / 2);
 			const bonusNum = parseInt(bonusStr, 10) || 0;
 			const proficiencyLevel = bonusNum >= abilityMod + profBonus * 2 ? "Expertise" : "Proficient";
-			const { id, base } = u.makeIntegrantBase("Proficiency", arrayPosition++);
+			const { id, base } = monsterCtx.makeIntegrantBase("Proficiency", arrayPosition++);
 			integrants[id] = {
 				...base,
 				name: "Skill Proficiency",
@@ -345,7 +345,7 @@ function d20plus2024MonsterImport() {
 		// Defenses
 		const makeDefense = (defense, value) => {
 			const cap = v => v.charAt(0).toUpperCase() + v.slice(1).toLowerCase();
-			const { id, base } = u.makeIntegrantBase("Defense", arrayPosition++);
+			const { id, base } = monsterCtx.makeIntegrantBase("Defense", arrayPosition++);
 			integrants[id] = { ...base, name: `${defense}: ${cap(value)}`, defense, damage: cap(value), cascades: {}, relations: {} };
 		};
 
@@ -366,7 +366,7 @@ function d20plus2024MonsterImport() {
 			if (conditions) {
 				for (const cond of conditions.split(",").map(s => s.trim()).filter(s => s)) {
 					const cap = v => v.charAt(0).toUpperCase() + v.slice(1).toLowerCase();
-					const { id, base } = u.makeIntegrantBase("Defense", arrayPosition++);
+					const { id, base } = monsterCtx.makeIntegrantBase("Defense", arrayPosition++);
 					integrants[id] = { ...base, name: `Condition Immunity: ${cap(cond)}`, defense: "Condition Immunity", condition: cap(cond), cascades: {}, relations: {} };
 				}
 			}
@@ -378,7 +378,7 @@ function d20plus2024MonsterImport() {
 			for (const trait of data.trait) {
 				const name = d20plus.importer.getCleanText(renderer.render(trait.name));
 				const text = d20plus.importer.getCleanText(renderer.render({ entries: trait.entries }, 1));
-				const { id, base } = u.makeIntegrantBase("Features", arrayPosition++);
+				const { id, base } = monsterCtx.makeIntegrantBase("Features", arrayPosition++);
 				integrants[id] = {
 					...base,
 					name: name,
@@ -401,7 +401,7 @@ function d20plus2024MonsterImport() {
 			for (const sc of data.spellcasting) {
 				const scName = d20plus.importer.getCleanText(renderer.render(sc.name || "Spellcasting"));
 				const scText = d20plus.importer.getCleanText(renderer.render({ type: "spellcasting", ...sc }, 1));
-				const { id, base } = u.makeIntegrantBase("Action", arrayPosition++);
+				const { id, base } = monsterCtx.makeIntegrantBase("Action", arrayPosition++);
 				integrants[id] = {
 					...base,
 					name: scName,
@@ -421,12 +421,12 @@ function d20plus2024MonsterImport() {
 			const attackInfo = extractMonsterAttackInfo(actionData.entries);
 
 			if (attackInfo.isAttack && attackInfo.damages.length > 0) {
-				const { id: attackIntId, base: attackBase } = u.makeIntegrantBase("Attack", arrayPosition++);
+				const { id: attackIntId, base: attackBase } = monsterCtx.makeIntegrantBase("Attack", arrayPosition++);
 				const damageIds = [];
 
 				for (let i = 0; i < attackInfo.damages.length; i++) {
 					const dmg = attackInfo.damages[i];
-					const { id: dmgId, base: dmgBase } = u.makeIntegrantBase("Damage", arrayPosition++);
+					const { id: dmgId, base: dmgBase } = monsterCtx.makeIntegrantBase("Damage", arrayPosition++);
 					integrants[dmgId] = {
 						...dmgBase,
 						name: i === 0 ? `${name} Damage` : `${name} Damage ${i + 1}`,
@@ -464,7 +464,7 @@ function d20plus2024MonsterImport() {
 				};
 				attackDisplayOrder.push(attackIntId);
 			} else {
-				const { id, base } = u.makeIntegrantBase("Action", arrayPosition++);
+				const { id, base } = monsterCtx.makeIntegrantBase("Action", arrayPosition++);
 				integrants[id] = {
 					...base,
 					name: name,
@@ -494,8 +494,7 @@ function d20plus2024MonsterImport() {
 
 		const legendaryActionDisplayOrder = [];
 		if (data.legendary) {
-			const legendaryCount = data.legendaryActions || 3;
-			store.npc.legendaryActionCount = legendaryCount;
+            store.npc.legendaryActionCount = data.legendaryActions || 3;
 			for (const legendary of data.legendary) buildAttackIntegrants(legendary, "Legendary", legendaryActionDisplayOrder);
 		}
 
@@ -513,7 +512,7 @@ function d20plus2024MonsterImport() {
 	};
 
 	d20plus.monsters.shouldUse2024 = function() {
-		return u.IS_2024_SHEET.has(d20plus.cfg.getOrDefault("import", "importSheetFormat"));
+		return monsterCtx.IS_2024_SHEET.has(d20plus.cfg.getOrDefault("import", "importSheetFormat"));
 	};
 
 	d20plus.monsters.import2024Spells = function (charModel, monsterData) {
@@ -539,7 +538,7 @@ function d20plus2024MonsterImport() {
 
 		function parseSpellTag (sp) {
 			if (typeof sp !== "string") return null;
-			const m = sp.match(/\{@spell ([^|}]+?)(?:\|([^}]+?))?\}/i);
+			const m = sp.match(/\{@spell ([^|}]+?)(?:\|([^}]+?))?}/i);
 			if (!m) return null;
 			return {name: m[1].trim(), source: (m[2] || "PHB").trim()};
 		}
@@ -580,7 +579,7 @@ function d20plus2024MonsterImport() {
 					return null;
 				});
 			})).then(spellDataList => {
-				const {attr: storeAttr, store: rawStore} = u.getStore(charModel);
+				const {attr: storeAttr, store: rawStore} = monsterCtx.getStore(charModel);
 				const store = rawStore ? JSON.parse(JSON.stringify(rawStore)) : {
 					integrants: {integrants: {}},
 					spells: {displayOrder: ["[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]"]},
@@ -596,9 +595,9 @@ function d20plus2024MonsterImport() {
 					const scName = sc.name || "Spellcasting";
 					const ability = abilityMap[(sc.ability || "").toLowerCase()] || "Intelligence";
 
-					let scPos = u.getNextArrayPos(store);
-					const {id: classId, base: classBase} = u.makeIntegrantBase("Class", scPos++);
-					const {id: configId, base: configBase} = u.makeIntegrantBase("Spellcasting", scPos++);
+					let scPos = monsterCtx.getNextArrayPos(store);
+					const {id: classId, base: classBase} = monsterCtx.makeIntegrantBase("Class", scPos++);
+					const {id: configId, base: configBase} = monsterCtx.makeIntegrantBase("Spellcasting", scPos++);
 
 					store.integrants.integrants[classId] = {
 						...classBase,
@@ -655,7 +654,7 @@ function d20plus2024MonsterImport() {
 					}
 				});
 
-				u.saveStore(charModel, storeAttr, store);
+				monsterCtx.saveStore(charModel, storeAttr, store);
 			});
 		}, 500);
 	};

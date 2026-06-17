@@ -10,14 +10,14 @@ function d20plusFeats () {
 
 			DataUtil.loadJSON(url).then(async (data) => {
 				await d20plus.importer.pAddBrew(url);
-				d20plus.importer.showImportList(
-					"feat",
-					data.feat,
-					handoutBuilder,
-					{
-						forcePlayer,
-					},
-				);
+				await d20plus.importer.showImportList(
+                    "feat",
+                    data.feat,
+                    handoutBuilder,
+                    {
+                        forcePlayer,
+                    },
+                );
 			});
 		}
 	};
@@ -50,7 +50,7 @@ function d20plusFeats () {
 	};
 
 	d20plus.feats.playerImportBuilder = function (data) {
-		const [notecontents, gmnotes] = d20plus.feats._getHandoutData(data);
+		const [, gmnotes] = d20plus.feats._getHandoutData(data);
 
 		const importId = d20plus.ut.generateRowId();
 		d20plus.importer.storePlayerImport(importId, JSON.parse(gmnotes));

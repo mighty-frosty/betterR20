@@ -42,7 +42,7 @@ function d20plusSpells () {
 		const handoutBuilder = playerMode ? d20plus.spells.playerImportBuilder : d20plus.spells.handoutBuilder;
 
 		if (data.roll20Spell) spellMetaData.spell = spellMetaData.spell.concat(data.roll20Spell);
-		d20plus.importer.showImportList(
+		await d20plus.importer.showImportList(
 			"spell",
 			data.spell,
 			handoutBuilder,
@@ -89,7 +89,7 @@ function d20plusSpells () {
 	};
 
 	d20plus.spells.playerImportBuilder = function (data) {
-		const [notecontents, gmnotes] = d20plus.spells._getHandoutData(data);
+		const [, gmnotes] = d20plus.spells._getHandoutData(data);
 
 		const importId = d20plus.ut.generateRowId();
 		d20plus.importer.storePlayerImport(importId, JSON.parse(gmnotes));
@@ -150,7 +150,7 @@ function d20plusSpells () {
 			r20json.data["Concentration"] = "Yes";
 		}
 		let notecontents = "";
-		let gmnotes = "";
+		let gmnotes;
 		notecontents += `<p><h3>${data.name}</h3>
 <em>${Parser.spLevelSchoolMetaToFull(data.level, data.school, data.meta)}${builderOptions.isSpellPoints && data.level ? ` (${d20plus.spells.spLevelToSpellPoints(data.level)} spell points)` : ""}</em></p><p>
 <strong>Casting Time:</strong> ${Parser.spTimeListToFull(data.time, data.meta)}<br>

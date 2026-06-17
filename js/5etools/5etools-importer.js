@@ -47,26 +47,6 @@ function d20plusImporter () {
 
 	};
 
-	// TODO do a pre-pass _before_ this, attempting to link content tags to already-imported 5etools content (by scanning thru GM notes and attempting to parse as JSON -- cache the results of this scan, as it will presumably be super-expensive (need to then invalidate or add to this cache when importing new stuff))
-	// TODO pass rendered text to this, as a post-processing step
-	/**
-	 * Attempt to find + swap links to 5e.tools to links to handouts.
-	 *
-	 * @param str HTML string, usually output by the renderer.
-	 */
-	d20plus.importer.tryReplaceLinks = function (str) {
-		const $temp = $(`<div/>`);
-		$temp.append(str);
-		$temp.find(`a`).filter((i, e) => {
-			const href = $(e).attr("href");
-			if (!href || !href.trim()) return false;
-			return href.toLowerCase().startsWith(BASE_SITE_URL);
-		}).each((i, e) => {
-			const txt = $(e).text();
-			// TODO get text, compare against existing handout/character names, and link them using this:
-			//   `http://journal.roll20.net/${id.type}/${id.roll20Id}`;
-		});
-	};
 
 	d20plus.importer.doFakeDrop = function (event, characterView, fakeRoll20Json) {
 		const e = characterView; // AKA character.view
@@ -74,7 +54,6 @@ function d20plusImporter () {
 
 		// The page/subheading area always undefined, since we're not coming from the compendium. Pass in some junk.
 		const t = d20plus.ut.generateRowId(); // `$(i.helper[0]).attr("data-pagename")` e.g. "Spells%3AFire%20Bolt"
-		const n = undefined; // `$(i.helper[0]).attr("data-subhead")` e.g. undefined
 
 		// Clean out any lingering values
 		if (e.$currentDropTarget) {
@@ -119,7 +98,7 @@ function d20plusImporter () {
 		g.data = JSON.stringify(d.data);
 		g.uniqueName = t;
 		if (d.content) g.Content = d.content;
-		if (n !== undefined) g.dropSubhead = n;
+
 
 		// Set values AND trigger sheet worker for each field (like original Roll20 code)
 		e.$currentDropTarget.find("*[accept]").each(function() {
@@ -305,7 +284,7 @@ function d20plusImporter () {
 
 		// Portrait/fluff image → Bio & Info page (written first; renderFluff will append after)
 		if (outPortraitUrl && outPortraitUrl !== avatar) {
-			character.updateBlobs({bio: `<p><img src="${outPortraitUrl}" style="max-width:100%;"></p>`});
+			character.updateBlobs({bio: `<p><img src="${outPortraitUrl}" style="max-width:100%;" alt=""></p>`});
 			character.save({bio: (new Date()).getTime()});
 		}
 	};
@@ -320,7 +299,6 @@ function d20plusImporter () {
 		}
 
 		const newRowId = d20plus.ut.generateRowId();
-		let actionDesc = actionText; // required for later reduction of information dump.
 
 		function handleAttack() {
             console.log("[IMPORT] Parsing attack action");
@@ -329,7 +307,7 @@ function d20plusImporter () {
             let attackType = "";
             let attackType2 = "";
 
-            const atkMatch = actionText.match(/\{@atk (\w+)\}/i);
+            const atkMatch = actionText.match(/\{@atk (\w+)}/i);
             if (atkMatch) {
                 const atkCode = atkMatch[1].toLowerCase();
                 switch (atkCode) {
@@ -369,7 +347,7 @@ function d20plusImporter () {
             }
 
             // --- Parse toHit
-            const toHitMatch = actionText.match(/\{@hit (\d+)\}/) || actionText.match(/\+(\d+)(?:\s*to hit)?/i);
+            const toHitMatch = actionText.match(/\{@hit (\d+)}/) || actionText.match(/\+(\d+)(?:\s*to hit)?/i);
             const toHit = (toHitMatch || ["", ""])[1];
 
             // Damage parsing
@@ -378,7 +356,7 @@ function d20plusImporter () {
             let damage2 = "";
             let damageType2 = "";
             let onHit = "";
-            const damageRegex = /\d+ \((\d+d\d+\s?(?:\+|-)?\s?\d*)\) (\S+ )?damage/g;
+            const damageRegex = /\d+ \((\d+d\d+\s?[+\-]?\s?\d*)\) (\S+ )?damage/g;
 
             let damageSearches = damageRegex.exec(actionText);
             if (damageSearches) {
@@ -397,7 +375,7 @@ function d20plusImporter () {
             const attackTarget = ((actionText.match(/\.,(?!.*\.,)(.*)\. Hit:/) || ["", ""])[1] || "").trim();
 
             // Action Description
-            const atkDescSimpleRegex = /Hit: \d+ \((\d+d\d+\s?(?:\+|-)?\s?\d*)\) (\S+ )?damage\.([\s\S]*)/gm;
+            const atkDescSimpleRegex = /Hit: \d+ \((\d+d\d+\s?[+\-]?\s?\d*)\) (\S+ )?damage\.([\s\S]*)/gm;
             const atkDescComplexRegex = /(Hit:[\s\S]*)/g;
             let actionDesc = "";
 
@@ -461,7 +439,7 @@ function d20plusImporter () {
         }
 
 		function parseInlineDamage(text) {
-			let result = text.replace(/\{@damage ([^}]+)\}/gi, (_, dice) => `[[${dice.trim()}]]`);
+			let result = text.replace(/\{@damage ([^}]+)}/gi, (_, dice) => `[[${dice.trim()}]]`);
 
 			result = result.replace(/(\d+)?\s*\((\d+d\d+(?:\s?[+-]\s?\d+)?)\)/g, (match, fixed, dice) => {
 				return fixed ? `${fixed} ([[${dice}]])` : `([[${dice}]])`;
@@ -491,7 +469,7 @@ function d20plusImporter () {
 		if (
 			actionText.includes(" Attack:") ||
 			actionText.includes(" Attack Roll:") ||
-			/\{@atk[r]? [msr]+\}/i.test(actionText) ||
+			/\{@atkr? [msr]+}/i.test(actionText) ||
 			actionText.toLowerCase().includes("to hit")
 		) {
 			console.log("[IMPORT] Detected attack format → Calling handleAttack()");
@@ -783,7 +761,7 @@ function d20plusImporter () {
 		<li class="journalitem dd-item handout ui-draggable compendium-item Vetools-draggable player-imported" data-playerimportid="${importId}">
 			<div class="dd-handle dd-sortablehandle">Drag</div>
 			<div class="dd-content">
-				<div class="token"><img src="/images/handout.png" draggable="false"></div>
+				<div class="token"><img src="/images/handout.png" draggable="false" alt=""></div>
 				<div class="name">
 					<div class="namecontainer">${name}</div>
 				</div>
@@ -887,7 +865,6 @@ function d20plusImporter () {
 	d20plus.importer.getDesiredAdvantageToggle = function () {
 		// advantagetoggle
 		const advantage = "{{query=1}} {{advantage=1}} {{r2=[[@{d20}";
-		const disadvantage = "{{query=1}} {{disadvantage=1}} {{r2=[[@{d20}";
 		const desired = d20plus.cfg.get("import", "advantagemode");
 		const neither = "";
 		if (desired) {
@@ -973,7 +950,7 @@ function d20plusImporter () {
 
 	d20plus.importer.importModeSwitch = function () {
 		d20plus.importer.clearPlayerImport();
-		const $winPlayer = $(`#d20plus-playerimport`).find(`.append-list-journal`).empty();
+		$(`#d20plus-playerimport`).find(`.append-list-journal`).empty();
 
 		$(`.importer-section`).hide();
 		const toShow = $(`#import-mode-select`).val();
@@ -1104,7 +1081,7 @@ function d20plusImporter () {
 				const req = REQUIRED_PROPS[dataType] && REQUIRED_PROPS[dataType].includes(p);
 				$props.append(`
 					<label style="display: block; ${req ? "color: red;" : ""}" class="prop-row">
-						<input type="checkbox" checked="true">
+						<input type="checkbox" checked="checked">
 						<span>${p}</span>
 					</label>
 				`)
@@ -1508,26 +1485,10 @@ function d20plusImporter () {
 		}));
 	};
 
-	d20plus.importer._importSelectAll = function (importList) {
-		importList.items.forEach(i => Array.prototype.forEach.call(i.elm.children, (e) => {
-			if (e.tagName === "INPUT") {
-				$(e).prop("checked", true);
-			}
-		}));
-	};
-
 	d20plus.importer._importSelectVisible = function (importList) {
 		importList.visibleItems.forEach(i => Array.prototype.forEach.call(i.elm.children, (e) => {
 			if (e.tagName === "INPUT") {
 				$(e).prop("checked", true);
-			}
-		}));
-	};
-
-	d20plus.importer._importDeselectAll = function (importList) {
-		importList.items.forEach(i => Array.prototype.forEach.call(i.elm.children, (e) => {
-			if (e.tagName === "INPUT") {
-				$(e).prop("checked", false);
 			}
 		}));
 	};
@@ -1568,7 +1529,6 @@ function d20plusImporter () {
 			function filterList () {
 				const toSearch = $winText.val().toLowerCase().replaceAll(`"`, "").split("\n");
 				const firstLine = toSearch[0];
-				const filterUnofficial = !d20plus.cfg.getOrDefault("import", "allSourcesIncludeUnofficial");
 
 				// If no search terms are entered, reset the filter
 				if (toSearch.length === 1 && firstLine === "") {
@@ -1596,8 +1556,8 @@ function d20plusImporter () {
 
 					if (!(name in searchDict)) return false;
 					if (!searchDict[name].source) return true;
-					if (searchDict[name].source === source || searchDict[name].altsource === source) return true;
-					return false;
+					return searchDict[name].source === source || searchDict[name].altsource === source;
+
 				});
 			}
 
@@ -1810,8 +1770,7 @@ function d20plusImporter () {
 		};
 		Object.entries(savingThrowProfMap).forEach(([fieldName, abilityName]) => {
 			const value = (fields[fieldName] || '').trim();
-			const isProficient = value === '•' || value.includes('•') || value === 'P';
-			characterData.savingThrows[abilityName] = isProficient;
+            characterData.savingThrows[abilityName] = value === '•' || value.includes('•') || value === 'P';
 		});
 
 		// Extract skill bonuses directly from the calculated values
@@ -2029,12 +1988,11 @@ function d20plusImporter () {
 		characterData.alignment = fields['ALIGNMENT'] || '';
 
 		// Extract class features
-		const featuresTraits = [
-			fields['FeaturesTraits1'] || '',
-			fields['FeaturesTraits2'] || '',
-			fields['FeaturesTraits3'] || ''
-		].filter(f => f).join('\n\n');
-		characterData.featuresTraits = featuresTraits;
+        characterData.featuresTraits = [
+            fields['FeaturesTraits1'] || '',
+            fields['FeaturesTraits2'] || '',
+            fields['FeaturesTraits3'] || ''
+        ].filter(f => f).join('\n\n');
 
 		return characterData;
 	};
@@ -2445,7 +2403,7 @@ function d20plusImporter () {
 
 					// If found in database, get damage type and other properties
 					if (item5e) {
-						const [notecontents, gmnotes] = d20plus.items._getHandoutData(item5e);
+						const [, gmnotes] = d20plus.items._getHandoutData(item5e);
 						const r20json = JSON.parse(gmnotes);
 
 						// Set damage type from 5etools
@@ -2524,7 +2482,7 @@ function d20plusImporter () {
 						}
 					} else {
 						// Use 5etools data
-						const [notecontents, gmnotes] = d20plus.items._getHandoutData(item5e);
+						const [, gmnotes] = d20plus.items._getHandoutData(item5e);
 						const r20json = JSON.parse(gmnotes);
 
 						character.attribs.create({name: `repeating_inventory_${rowId}_itemname`, current: item5e.name});
@@ -2591,7 +2549,7 @@ function d20plusImporter () {
 
 				// If not found, try stripping ritual/concentration markers
 				if (!spell5e) {
-					const cleanedName = spellName.replace(/\s*\[R\]\s*$/i, '').replace(/\s*\[C\]\s*$/i, '').trim();
+					const cleanedName = spellName.replace(/\s*\[R]\s*$/i, '').replace(/\s*\[C]\s*$/i, '').trim();
 					spellKey = cleanedName.toLowerCase();
 					spell5e = spellMap.get(spellKey);
 				}
@@ -2625,7 +2583,7 @@ function d20plusImporter () {
 					}
 				} else {
 					// Use 5etools data
-					const [notecontents, gmnotes] = d20plus.spells._getHandoutData(spell5e);
+					const [, gmnotes] = d20plus.spells._getHandoutData(spell5e);
 					const r20json = JSON.parse(gmnotes);
 
 					character.attribs.create({name: `repeating_spell-${level}_${rowId}_spellname`, current: spell5e.name});

@@ -1,19 +1,19 @@
 function d20plus2024RaceImport() {
-	const u = d20plus.import2024;
+	const raceCtx = d20plus.import2024;
 
 	d20plus.importer.import2024Race = function (charModel, data) {
 		const race = data.Vetoolscontent;
 		if (!race) return;
 
-		const {attr: storeAttr, store} = u.getStore(charModel);
+		const {attr: storeAttr, store} = raceCtx.getStore(charModel);
 		if (!store) return;
 
-		let pos = u.getNextArrayPos(store);
+		let pos = raceCtx.getNextArrayPos(store);
 		const ints = store.integrants.integrants;
 		const renderer = Renderer.get().setBaseUrl(LINK_BASE_URL);
 
 		const makeBase = (type) => {
-			const {id, base} = u.makeIntegrantBase(type, pos++);
+			const {id, base} = raceCtx.makeIntegrantBase(type, pos++);
 			base.source = "Species";
 			return {id, base};
 		};
@@ -153,9 +153,9 @@ function d20plus2024RaceImport() {
 		ints[speciesId].childIDs = JSON.stringify(speciesChildren);
 
 		const speciesFeatureIds = speciesChildren.filter(id => ints[id] && ints[id].type === "Features");
-		u.pushDisplayOrder(store, "features", "speciesTraitsDisplayOrder", speciesFeatureIds);
+		raceCtx.pushDisplayOrder(store, "features", "speciesTraitsDisplayOrder", speciesFeatureIds);
 
-		u.saveStore(charModel, storeAttr, store);
+		raceCtx.saveStore(charModel, storeAttr, store);
 	};
 }
 SCRIPT_EXTENSIONS.push(d20plus2024RaceImport);

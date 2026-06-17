@@ -282,8 +282,7 @@ function d20plus2024OGLTranslator() {
 		store.character.creatureType = creatureType;
 
 		// Challenge Rating
-		const cr = attrMap["npc_challenge"] || "0";
-		store.npc.challengeRating = cr;
+        store.npc.challengeRating = attrMap["npc_challenge"] || "0";
 
 		// Speeds
 		const speedStr = attrMap["npc_speed"] || "30 ft.";
@@ -386,7 +385,7 @@ function d20plus2024OGLTranslator() {
 		}
 
 		// Traits (as Features)
-		for (const [traitId, trait] of Object.entries(repeatingTraits)) {
+		for (const [, trait] of Object.entries(repeatingTraits)) {
 			if (!trait.name) continue;
 			const { id, base } = createIntegrantBase("Feature");
 			integrants[id] = {
@@ -400,7 +399,7 @@ function d20plus2024OGLTranslator() {
 		const actionDisplayOrder = [];
 		const attackDisplayOrder = [];
 
-		for (const [actionId, action] of Object.entries(repeatingActions)) {
+		for (const [, action] of Object.entries(repeatingActions)) {
 			if (!action.name) continue;
 
 			const isAttack = action.attack_flag === "on" || action.attack_tohit;
@@ -478,7 +477,7 @@ function d20plus2024OGLTranslator() {
 		const legendaryCount = attrMap["npc_legendary_actions"] || "3";
 		store.npc.legendaryActionCount = parseInt(legendaryCount, 10);
 
-		for (const [legId, legendary] of Object.entries(repeatingLegendary)) {
+		for (const [, legendary] of Object.entries(repeatingLegendary)) {
 			if (!legendary.name) continue;
 			const { id, base } = createIntegrantBase("Action");
 			integrants[id] = {
@@ -492,7 +491,7 @@ function d20plus2024OGLTranslator() {
 
 		// Mythic Actions
 		const mythicActionDisplayOrder = [];
-		for (const [mythId, mythic] of Object.entries(repeatingMythic)) {
+		for (const [, mythic] of Object.entries(repeatingMythic)) {
 			if (!mythic.name) continue;
 			const { id, base } = createIntegrantBase("Action");
 			integrants[id] = {
@@ -506,7 +505,7 @@ function d20plus2024OGLTranslator() {
 
 		// Reactions
 		const reactionDisplayOrder = [];
-		for (const [reactId, reaction] of Object.entries(repeatingReactions)) {
+		for (const [, reaction] of Object.entries(repeatingReactions)) {
 			if (!reaction.name) continue;
 			const { id, base } = createIntegrantBase("Action");
 			integrants[id] = {
@@ -521,7 +520,7 @@ function d20plus2024OGLTranslator() {
 		// Spells
 		const spellDisplayOrder = [[], [], [], [], [], [], [], [], [], []];
 
-		for (const [spellKey, spell] of Object.entries(repeatingSpells)) {
+		for (const [, spell] of Object.entries(repeatingSpells)) {
 			if (!spell.spellname) continue;
 
 			let levelIdx = 0;

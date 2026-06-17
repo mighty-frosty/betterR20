@@ -9,7 +9,7 @@ function d20plusBackgrounds () {
 
 			DataUtil.loadJSON(url).then(async (data) => {
 				await d20plus.importer.pAddBrew(url);
-				d20plus.importer.showImportList(
+				await d20plus.importer.showImportList(
 					"background",
 					data.background,
 					handoutBuilder,
@@ -49,7 +49,7 @@ function d20plusBackgrounds () {
 	};
 
 	d20plus.backgrounds.playerImportBuilder = function (data) {
-		const [notecontents, gmnotes] = d20plus.backgrounds._getHandoutData(data);
+		const [, gmnotes] = d20plus.backgrounds._getHandoutData(data);
 
 		const importId = d20plus.ut.generateRowId();
 		d20plus.importer.storePlayerImport(importId, JSON.parse(gmnotes));

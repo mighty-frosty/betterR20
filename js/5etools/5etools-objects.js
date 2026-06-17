@@ -8,7 +8,7 @@ function d20plusObjects () {
 		if (url && url.trim()) {
 			DataUtil.loadJSON(url).then(async (data) => {
 				await d20plus.importer.pAddBrew(url);
-				d20plus.importer.showImportList(
+				await d20plus.importer.showImportList(
 					"object",
 					data.object,
 					d20plus.objects.handoutBuilder,

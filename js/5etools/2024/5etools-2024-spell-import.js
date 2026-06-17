@@ -1,5 +1,5 @@
 function d20plus2024SpellImport() {
-	const u = d20plus.import2024;
+	const spellCtx = d20plus.import2024;
 
 	// Returns the first {@damage XdY} (with optional flat bonus) found in a 5etools entries array, or null.
 	function parseSpell2024Damage (entries) {
@@ -184,7 +184,7 @@ function d20plus2024SpellImport() {
 			storeAttr = null;
 			store = _batchStore;
 		} else {
-			const s = u.getStore(charModel);
+			const s = spellCtx.getStore(charModel);
 			storeAttr = s.attr;
 			store = s.store ? JSON.parse(JSON.stringify(s.store)) : {
 				integrants: {integrants: {}},
@@ -284,8 +284,8 @@ function d20plus2024SpellImport() {
 		const healUpcastData = healParsed ? parseSpell2024HealUpcast(vc.entriesHigherLevel) : null;
 
 		// Generate all IDs + arrayPositions upfront so parents can reference children
-		let pos = u.getNextArrayPos(store);
-		const {id: spellId, base: spellBase} = u.makeIntegrantBase("Spell", pos++);
+		let pos = spellCtx.getNextArrayPos(store);
+		const {id: spellId, base: spellBase} = spellCtx.makeIntegrantBase("Spell", pos++);
 		let attackId, attackBase, dmgId, dmgBase, upcastId, upcastBase;
 		let cantripUpcastEntries = [];
 		const multiDmgTypes = (!isCantripScaling && !isMultiDamage && hasDamage && vc.damageInflict && vc.damageInflict.length > 1)
@@ -294,29 +294,29 @@ function d20plus2024SpellImport() {
 		const isMultiDmgType = multiDmgTypes.length > 1;
 		let extraDmgEntries = [];
 		if (buildChain && !isMultiDamage) {
-			({id: attackId, base: attackBase} = u.makeIntegrantBase("Attack", pos++));
+			({id: attackId, base: attackBase} = spellCtx.makeIntegrantBase("Attack", pos++));
 			if (hasDamage) {
-				({id: dmgId, base: dmgBase} = u.makeIntegrantBase("Damage", pos++));
+				({id: dmgId, base: dmgBase} = spellCtx.makeIntegrantBase("Damage", pos++));
 				if (isMultiDmgType) {
 					extraDmgEntries = multiDmgTypes.slice(1).map(p => {
-						const {id, base} = u.makeIntegrantBase("Damage", pos++);
+						const {id, base} = spellCtx.makeIntegrantBase("Damage", pos++);
 						return {id, base, parsed: p};
 					});
 				}
 				if (isCantripScaling) {
 					cantripUpcastEntries = cantripLevels.map(lvl => {
-						const {id, base} = u.makeIntegrantBase("Upcasting", pos++);
+						const {id, base} = spellCtx.makeIntegrantBase("Upcasting", pos++);
 						return {id, base, level: lvl};
 					});
 				} else if (upcast || isRepeatUpcast) {
-					({id: upcastId, base: upcastBase} = u.makeIntegrantBase("Upcasting", pos++));
+					({id: upcastId, base: upcastBase} = spellCtx.makeIntegrantBase("Upcasting", pos++));
 				}
 			}
 		}
 		let healId, healBase, healUpcastId, healUpcastBase;
 		if (healParsed) {
-			({id: healId, base: healBase} = u.makeIntegrantBase("Healing", pos++));
-			if (healUpcastData) ({id: healUpcastId, base: healUpcastBase} = u.makeIntegrantBase("Upcasting", pos++));
+			({id: healId, base: healBase} = spellCtx.makeIntegrantBase("Healing", pos++));
+			if (healUpcastData) ({id: healUpcastId, base: healUpcastBase} = spellCtx.makeIntegrantBase("Upcasting", pos++));
 		}
 
 		// Write integrants bottom-up so childIDs can reference already-known IDs
@@ -487,10 +487,10 @@ function d20plus2024SpellImport() {
 				const atkName = `${spellData.name} ${suffix}`;
 				const atkRecordName = `${spellData.name} ${suffix} Attack`;
 
-				const {id: mAtkId, base: mAtkBase} = u.makeIntegrantBase("Attack", pos++);
-				const {id: mDmgId, base: mDmgBase} = u.makeIntegrantBase("Damage", pos++);
+				const {id: mAtkId, base: mAtkBase} = spellCtx.makeIntegrantBase("Attack", pos++);
+				const {id: mDmgId, base: mDmgBase} = spellCtx.makeIntegrantBase("Damage", pos++);
 				const mUpcastEntries = cantripLevels.map(lvl => {
-					const {id, base} = u.makeIntegrantBase("Upcasting", pos++);
+					const {id, base} = spellCtx.makeIntegrantBase("Upcasting", pos++);
 					return {id, base, level: lvl};
 				});
 
@@ -620,7 +620,7 @@ function d20plus2024SpellImport() {
 		order.push(spellId);
 		store.spells.displayOrder[levelIdx] = JSON.stringify(order);
 
-		if (!_batchStore) u.saveStore(charModel, storeAttr, store);
+		if (!_batchStore) spellCtx.saveStore(charModel, storeAttr, store);
 	};
 }
 SCRIPT_EXTENSIONS.push(d20plus2024SpellImport);

@@ -23,7 +23,7 @@ function d20plusPsionics () {
 
 			DataUtil.loadJSON(url).then(async (data) => {
 				await d20plus.importer.pAddBrew(url);
-				d20plus.importer.showImportList(
+				await d20plus.importer.showImportList(
 					"psionic",
 					data.psionic,
 					handoutBuilder,

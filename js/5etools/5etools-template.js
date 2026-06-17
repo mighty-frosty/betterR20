@@ -174,8 +174,7 @@ const d20plusTemplate = function () {
 			$("#bind-drop-locations").on(window.mousedowntype, d20plus.bindDropLocations);
 			//$("#initiativewindow .characterlist").before(d20plus.template5e.initiativeHeaders);
 
-			//d20plus.setTurnOrderTemplate();
-			//d20.Campaign.initiativewindow.rebuildInitiativeList();
+//d20.Campaign.initiativewindow.rebuildInitiativeList();
 		//	d20plus.hpAllowEdit();
 			//d20.Campaign.initiativewindow.model.on("change:turnorder", function () {
 			//	d20plus.updateDifficulty();
@@ -221,7 +220,7 @@ const d20plusTemplate = function () {
 				<h3 style="margin-bottom: 4px">BetteR20</h3>
 				<button id="b20-temp-import-open-button" class="btn" href="#" title="A tool to import temporary copies of various things, which can be drag-and-dropped to character sheets." style="margin-top: 5px">Temp Import Spells, Items, Classes,...</button>
 					<div style="clear: both"></div>
-				<hr></hr>
+				<hr>
 			</div>`);
 
 		$wrpPlayerImport.find("#b20-temp-import-open-button").on("click", () => {
@@ -523,9 +522,9 @@ To restore this functionality, press the "Bind Drag-n-Drop" button.<br>
 	<div class="tracker-extra-columns">
 		<!--5ETOOLS_REPLACE_TARGET-->
 	</div>
-	<$ if (this.avatar) { $><img src='<$!this.avatar$>' /><$ } $>
+	<$ if (this.avatar) { $><img src='<$!this.avatar$>'  alt=""/><$ } $>
 	<span class='name'><$!this.name$></span>
-		<div class='clear' style='height: 0px;'></div>
+		<div class='clear' style='height: 0;'></div>
 		<div class='controls'>
 	<span class='pictos remove'>#</span>
 	</div>
