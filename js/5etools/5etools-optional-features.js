@@ -22,40 +22,14 @@ function d20plusOptionalFeatures () {
 		}
 	};
 
-	d20plus.optionalfeatures.handoutBuilder = function (data, overwrite, inJournals, folderName, saveIdsTo, options) {
-		// make dir
-		const folder = d20plus.journal.makeDirTree(`Optional Features`, folderName);
-		const path = ["Optional Features", ...folderName, data.name];
+	d20plus.optionalfeatures.handoutBuilder = d20plus.importer.makeHandoutBuilder(
+		d20plus.optionalfeatures,
+		"Optional Features",
+		(data) => UrlUtil.URL_TO_HASH_BUILDER[UrlUtil.PG_OPT_FEATURES](data),
+		(data) => d20plus.importer.getTagString([Parser.sourceJsonToFull(data.source)], "optionalfeature"),
+	);
 
-		// handle duplicates/overwrites
-		if (!d20plus.importer._checkHandleDuplicate(path, overwrite)) return;
-
-		const name = data.name;
-		d20.Campaign.handouts.create({
-			name: name,
-			tags: d20plus.importer.getTagString([
-				Parser.sourceJsonToFull(data.source),
-			], "optionalfeature"),
-		}, {
-			success: function (handout) {
-				if (saveIdsTo) saveIdsTo[UrlUtil.URL_TO_HASH_BUILDER[UrlUtil.PG_OPT_FEATURES](data)] = {name: data.name, source: data.source, type: "handout", roll20Id: handout.id};
-
-				const [noteContents, gmNotes] = d20plus.optionalfeatures._getHandoutData(data);
-
-				handout.updateBlobs({notes: noteContents, gmnotes: gmNotes});
-				handout.save({notes: (new Date()).getTime(), inplayerjournals: inJournals});
-				d20.journal.addItemToFolderStructure(handout.id, folder.id);
-			},
-		});
-	};
-
-	d20plus.optionalfeatures.playerImportBuilder = function (data) {
-		const [notecontents, gmnotes] = d20plus.optionalfeatures._getHandoutData(data);
-
-		const importId = d20plus.ut.generateRowId();
-		d20plus.importer.storePlayerImport(importId, JSON.parse(gmnotes));
-		d20plus.importer.makePlayerDraggable(importId, data.name);
-	};
+	d20plus.optionalfeatures.playerImportBuilder = d20plus.importer.makePlayerImportBuilder(d20plus.optionalfeatures);
 
 	d20plus.optionalfeatures._getHandoutData = function (data) {
 		const renderer = new Renderer();

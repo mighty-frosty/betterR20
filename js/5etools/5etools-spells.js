@@ -56,45 +56,19 @@ function d20plusSpells () {
 		);
 	};
 
-	// Create spell handout from js data object
-	d20plus.spells.handoutBuilder = function (data, overwrite, inJournals, folderName, saveIdsTo, options) {
-		// make dir
-		const folder = d20plus.journal.makeDirTree(`Spells`, folderName);
-		const path = ["Spells", ...folderName, data.name];
+	d20plus.spells.handoutBuilder = d20plus.importer.makeHandoutBuilder(
+		d20plus.spells,
+		"Spells",
+		(data) => UrlUtil.URL_TO_HASH_BUILDER[UrlUtil.PG_SPELLS](data),
+		(data) => d20plus.importer.getTagString([
+			Parser.spSchoolAbvToFull(data.school),
+			Parser.spLevelToFull(data.level),
+			...((data.classes || {}).fromClassList || []).map(c => c.name),
+			Parser.sourceJsonToFull(data.source),
+		], "spell"),
+	);
 
-		// handle duplicates/overwrites
-		if (!d20plus.importer._checkHandleDuplicate(path, overwrite)) return;
-
-		const name = data.name;
-		// build spell handout
-		d20.Campaign.handouts.create({
-			name: name,
-			tags: d20plus.importer.getTagString([
-				Parser.spSchoolAbvToFull(data.school),
-				Parser.spLevelToFull(data.level),
-				...(((data.classes || {}).fromClassList || []).map(c => c.name)),
-				Parser.sourceJsonToFull(data.source),
-			], "spell"),
-		}, {
-			success: function (handout) {
-				if (saveIdsTo) saveIdsTo[UrlUtil.URL_TO_HASH_BUILDER[UrlUtil.PG_SPELLS](data)] = {name: data.name, source: data.source, type: "handout", roll20Id: handout.id};
-
-				const [notecontents, gmnotes] = d20plus.spells._getHandoutData(data, options);
-
-				handout.updateBlobs({notes: notecontents, gmnotes: gmnotes});
-				handout.save({notes: (new Date()).getTime(), inplayerjournals: inJournals});
-				d20.journal.addItemToFolderStructure(handout.id, folder.id);
-			},
-		});
-	};
-
-	d20plus.spells.playerImportBuilder = function (data) {
-		const [notecontents, gmnotes] = d20plus.spells._getHandoutData(data);
-
-		const importId = d20plus.ut.generateRowId();
-		d20plus.importer.storePlayerImport(importId, JSON.parse(gmnotes));
-		d20plus.importer.makePlayerDraggable(importId, data.name);
-	};
+	d20plus.spells.playerImportBuilder = d20plus.importer.makePlayerImportBuilder(d20plus.spells);
 
 	d20plus.spells._getHandoutData = function (data, builderOptions) {
 		builderOptions = builderOptions || {};
