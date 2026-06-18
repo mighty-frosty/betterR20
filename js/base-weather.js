@@ -18,6 +18,12 @@ function baseWeather () {
 	};
 
 	d20plus.weather.addWeather = () => {
+		const $readyCheck = $("#editor-wrapper .canvas-container");
+		if (!d20.engine || !$readyCheck.length || !$readyCheck.width() || !$readyCheck.height()) {
+			setTimeout(d20plus.weather.addWeather, 100);
+			return;
+		}
+
 		window.force = false; // missing variable in Roll20's code(?); define it here
 
 		d20plus.ut.log("Adding weather");
@@ -66,19 +72,20 @@ function baseWeather () {
 		d20.engine.weathercanvas = cv;
 
 		// add our canvas to those adjusted when canvas size changes
-		const cachedSetCanvasSize = d20.engine.setCanvasSize;
-		d20.engine.setCanvasSize = function (e, n) {
-			cv.width = e;
-			cv.height = n;
-
-			cvBuf.width = e;
-			cvBuf.height = n;
-
-			cachedSetCanvasSize(e, n);
+		// d20.engine.canvasWidth/canvasHeight don't reliably map to the container's actual
+		// width/height in the current canvas engine, so size off the DOM container directly
+		const resizeOverlay = () => {
+			cv.width = cvBuf.width = $wrpCanvas.width();
+			cv.height = cvBuf.height = $wrpCanvas.height();
 		};
 
-		cv.width = cvBuf.width = d20.engine.canvas.width;
-		cv.height = cvBuf.height = d20.engine.canvas.height;
+		const cachedSetCanvasSize = d20.engine.setCanvasSize;
+		d20.engine.setCanvasSize = function (...args) {
+			cachedSetCanvasSize(...args);
+			resizeOverlay();
+		};
+
+		resizeOverlay();
 
 		const ctx = cv.getContext("2d");
 
@@ -243,9 +250,13 @@ function baseWeather () {
 
 							ctxBuf.fillStyle = "#ffffffff";
 
-							const objectLen = d20.engine.canvas._objects.length;
+							// "weather" layer shape masking relied on Roll20's old Fabric.js object
+							// model (d20.engine.canvas._objects), which no longer exists; skip masking
+							// shapes until this is rebuilt against the current canvas engine.
+							const maskObjects = d20.engine.canvas?._objects || [];
+							const objectLen = maskObjects.length;
 							for (let i = 0; i < objectLen; ++i) {
-								const obj = d20.engine.canvas._objects[i];
+								const obj = maskObjects[i];
 								if (obj.type === "path" && obj.model && obj.model.get("layer") === "weather") {
 									// obj.top is X pos of center of object
 									// obj.left is Y pos of center of object

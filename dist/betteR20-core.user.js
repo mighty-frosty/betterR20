@@ -15406,6 +15406,7 @@ function d20plusEngine () {
 			</ul>
 			<div class='tab-content'>
 				${d20plus.html.pageSettings}
+				${d20plus.html.pageSettingsWeather}
 			</div>
 		</script>`;
 	};
@@ -15578,6 +15579,88 @@ function d20plusEngine () {
 				$preview.attr("src", imgsrc).show();
 				setThumbnail(imgsrc);
 			});
+		};
+
+		new MutationObserver(inject).observe(document.body, {childList: true, subtree: true});
+		inject();
+	};
+
+	// Roll20's Page Settings dialog is a Vue component (see enhanceVuePageThumbnail above) with
+	// its own internal tab state we can't register a tab into. Instead, clone a native tab button
+	// to look the part, and manually show/hide our content vs. whatever Vue is currently rendering.
+	d20plus.engine.enhanceVuePageWeather = () => {
+		const TAB_TESTID = "pageSettings-tab-weather";
+		const CONTENT_CLASS = "b20-weather-tab-content";
+		let isActive = false;
+
+		const getTabsRow = () => $(`.section.tabs`).first();
+		const getWrapper = ($tabsRow) => $tabsRow.next(`.wrapper`);
+
+		const applyVisibility = ($wrapper) => {
+			$wrapper.children().each((i, el) => {
+				el.style.display = el.classList.contains(CONTENT_CLASS) === isActive ? "" : "none";
+			});
+		};
+
+		const deactivate = () => {
+			if (!isActive) return;
+			isActive = false;
+			const $tabsRow = getTabsRow();
+			$tabsRow.find(`[data-testid="${TAB_TESTID}"] .grimoire-tab__button`).removeClass("selected");
+			applyVisibility(getWrapper($tabsRow));
+		};
+
+		const activate = () => {
+			isActive = true;
+			const $tabsRow = getTabsRow();
+			$tabsRow.find(`.grimoire-tab__button`).removeClass("selected");
+			$tabsRow.find(`[data-testid="${TAB_TESTID}"] .grimoire-tab__button`).addClass("selected");
+			applyVisibility(getWrapper($tabsRow));
+		};
+
+		const inject = () => {
+			const $tabsRow = getTabsRow();
+			if (!$tabsRow.length) return;
+
+			if (!$tabsRow.find(`[data-testid="${TAB_TESTID}"]`).length) {
+				const $newTab = $tabsRow.find(`.grimoire-tab`).first().clone();
+				$newTab.attr("data-testid", TAB_TESTID);
+				$newTab.find(`.grimoire-tab__label`).text("Weather");
+				$newTab.find(`.grimoire-tab__button`).removeClass("selected");
+				$newTab.on("click", (evt) => {
+					evt.stopPropagation();
+					activate();
+				});
+				$tabsRow.append($newTab);
+			}
+			// clicking a native tab hands control back to Vue
+			$tabsRow.find(`.grimoire-tab`).not(`[data-testid="${TAB_TESTID}"]`)
+				.off("click.b20weather").on("click.b20weather", deactivate);
+
+			const $wrapper = getWrapper($tabsRow);
+			if ($wrapper.length && !$wrapper.children(`.${CONTENT_CLASS}`).length) {
+				const page = d20.Campaign.activePage();
+				const $content = $(d20plus.html.pageSettingsWeather).addClass(CONTENT_CLASS).appendTo($wrapper);
+				d20plus.engine._preservePageCustomOptions(page);
+				d20plus.engine._populatePageCustomOptions(page, $content);
+				// _populatePageCustomOptions sets a raw onchange on .weather selects for the old
+				// dialog, calling _updatePageCustomOptions() with no args; clear it so it doesn't
+				// crash trying to resolve a page via the (here, unset) legacy _lastSettingsPageId
+				$content.find("select").prop("onchange", null);
+				// live-update the numeric readout next to each slider while dragging, rather than
+				// only on the old delegated "click" handler (which misses drag-without-click)
+				$content.on("input", "input[type=range]", (evt) => {
+					const {currentTarget: target} = evt;
+					if (target.name) $content.find(`.${target.name}`).val(target.value);
+				});
+				$content.on("change keyup", "input, select", () => {
+					d20plus.engine._updatePageCustomOptions(page, $content);
+					d20plus.engine._savePageCustomOptions(page);
+					page.save();
+				});
+			}
+
+			if ($wrapper.length) applyVisibility($wrapper);
 		};
 
 		new MutationObserver(inject).observe(document.body, {childList: true, subtree: true});
@@ -17625,6 +17708,12 @@ function baseWeather () {
 	};
 
 	d20plus.weather.addWeather = () => {
+		const $readyCheck = $("#editor-wrapper .canvas-container");
+		if (!d20.engine || !$readyCheck.length || !$readyCheck.width() || !$readyCheck.height()) {
+			setTimeout(d20plus.weather.addWeather, 100);
+			return;
+		}
+
 		window.force = false; // missing variable in Roll20's code(?); define it here
 
 		d20plus.ut.log("Adding weather");
@@ -17673,19 +17762,20 @@ function baseWeather () {
 		d20.engine.weathercanvas = cv;
 
 		// add our canvas to those adjusted when canvas size changes
-		const cachedSetCanvasSize = d20.engine.setCanvasSize;
-		d20.engine.setCanvasSize = function (e, n) {
-			cv.width = e;
-			cv.height = n;
-
-			cvBuf.width = e;
-			cvBuf.height = n;
-
-			cachedSetCanvasSize(e, n);
+		// d20.engine.canvasWidth/canvasHeight don't reliably map to the container's actual
+		// width/height in the current canvas engine, so size off the DOM container directly
+		const resizeOverlay = () => {
+			cv.width = cvBuf.width = $wrpCanvas.width();
+			cv.height = cvBuf.height = $wrpCanvas.height();
 		};
 
-		cv.width = cvBuf.width = d20.engine.canvas.width;
-		cv.height = cvBuf.height = d20.engine.canvas.height;
+		const cachedSetCanvasSize = d20.engine.setCanvasSize;
+		d20.engine.setCanvasSize = function (...args) {
+			cachedSetCanvasSize(...args);
+			resizeOverlay();
+		};
+
+		resizeOverlay();
 
 		const ctx = cv.getContext("2d");
 
@@ -17850,9 +17940,13 @@ function baseWeather () {
 
 							ctxBuf.fillStyle = "#ffffffff";
 
-							const objectLen = d20.engine.canvas._objects.length;
+							// "weather" layer shape masking relied on Roll20's old Fabric.js object
+							// model (d20.engine.canvas._objects), which no longer exists; skip masking
+							// shapes until this is rebuilt against the current canvas engine.
+							const maskObjects = d20.engine.canvas?._objects || [];
+							const objectLen = maskObjects.length;
 							for (let i = 0; i < objectLen; ++i) {
-								const obj = d20.engine.canvas._objects[i];
+								const obj = maskObjects[i];
 								if (obj.type === "path" && obj.model && obj.model.get("layer") === "weather") {
 									// obj.top is X pos of center of object
 									// obj.left is Y pos of center of object
@@ -29448,6 +29542,7 @@ const betteR20Core = function () {
 			if (window.is_gm) {
 				d20plus.engine.enhancePageSelector();
 				d20plus.engine.enhanceVuePageThumbnail();
+				d20plus.engine.enhanceVuePageWeather();
 			}
 			await d20plus.js.pAddScripts();
 			await d20plus.qpi.pInitMockApi();
@@ -29491,7 +29586,7 @@ const betteR20Core = function () {
 			d20plus.engine.enhancePathWidths();
 			// d20plus.ut.fix3dDice(); // FIXME(165) re-enable when we have a better solution
 			// d20plus.engine.addLayers();
-			// d20plus.weather.addWeather();
+			d20plus.weather.addWeather();
 			// d20plus.engine.repairPrototypeMethods();
 			// d20plus.engine.disableFrameRecorder();
 			// d20plus.engine.fixPolygonTool();
