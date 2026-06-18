@@ -273,6 +273,7 @@ const SCRIPTS = {
 		"base-config",
 		"base-tool",
 		"base-tool-module",
+		"base-tool-autobackup",
 		"base-tool-unlock",
 		"base-tool-animator",
 		"base-tool-table",
