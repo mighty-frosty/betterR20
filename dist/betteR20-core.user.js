@@ -2,7 +2,7 @@
 // @name         betteR20-beta-core-death-jumpagate-import
 // @namespace    https://5e.tools/
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      1.36.1.1ji
+// @version      1.36.1.1jj
 // @updateURL    https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/betteR20-core.meta.js
 // @downloadURL  https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/betteR20-core.user.js
 // @description  Enhance your Roll20 experience
@@ -30,7 +30,7 @@ ART_HANDOUT = "betteR20-art";
 CONFIG_HANDOUT = "betteR20-config";
 
 B20_NAME = `core`;
-B20_VERSION = `1.36.1.1ji`;
+B20_VERSION = `1.36.1.1jj`;
 B20_REPO_URL = `https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/`;
 
 // TODO automate to use mirror if main site is unavailable
@@ -287,7 +287,7 @@ function baseUtil () {
 							in<span style="color: orange; font-family: monospace"> 5etools &gt; better20 &gt; #testing </span>thread
 						</p>
 					</h1>
-					<p>This version contains following changes<br>1.36.1.1ji - 2024 Sheet Support (First Release)<br>- Added drag & drop import for Spells, Items, Feats, Species/Races, and Classes directly into the new 2024 (Jumpgate) character sheet<br>- Convert existing OGL 2014 character sheets to the 2024 sheet format<br>- 2024-compatible Monster/NPC import, including monster spellcasting<br>- Monster fluff/bio text is now appended instead of overwritten<br>- Reworked token image and portrait handling for character imports<br>- Numerous spell mapping fixes (scaling, repeating attacks, healing, Toll the Dead, etc.)<br>1.36.1.1jh - Page Settings?<br>- Added Map Thumbnail tools (Upload / Reload Default) to Page Settings<br>1.36.1.1jd - Macros?<br>- add bulk macro button.<br>1.36.1.1je - Commits are real<br>- Merge PRs, and imporve Module Importer<br>1.36.1.1jg - Commits are real<br>- Fix drag and Drop.<br>1.36.1.1jga - Macros?<br>- add bulk macro button again.<br></p>
+					<p>This version contains following changes<br>1.36.1.1jj - Weather Configuration<br>- Added a working "Weather" tab to the Page Settings dialog, with live slider readouts<br>- Re-enabled the Weather rendering engine (rain/snow/fog/lightning/tint), updated to work with Roll20's current canvas engine<br>1.36.1.1ji - 2024 Sheet Support (First Release)<br>- Added drag & drop import for Spells, Items, Feats, Species/Races, and Classes directly into the new 2024 (Jumpgate) character sheet<br>- Convert existing OGL 2014 character sheets to the 2024 sheet format<br>- 2024-compatible Monster/NPC import, including monster spellcasting<br>- Monster fluff/bio text is now appended instead of overwritten<br>- Reworked token image and portrait handling for character imports<br>- Numerous spell mapping fixes (scaling, repeating attacks, healing, Toll the Dead, etc.)<br>1.36.1.1jh - Page Settings?<br>- Added Map Thumbnail tools (Upload / Reload Default) to Page Settings<br>1.36.1.1jd - Macros?<br>- add bulk macro button.<br>1.36.1.1je - Commits are real<br>- Merge PRs, and imporve Module Importer<br>1.36.1.1jg - Commits are real<br>- Fix drag and Drop.<br>1.36.1.1jga - Macros?<br>- add bulk macro button again.<br></p>
 				</div>
 			`);
 			}, 6000);
