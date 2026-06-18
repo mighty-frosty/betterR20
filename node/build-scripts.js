@@ -1,9 +1,12 @@
 const fs = require("fs");
 
-const SCRIPT_VERSION = "1.36.1.1ji";
+const SCRIPT_VERSION = "1.36.1.1jj";
 const SCRIPT_REPO = "https://raw.githubusercontent.com/DeathStalker471/betterR20/refs/heads/Jumpgate-Importer/dist/";
 
 const SCRIPT_BETA_DESCRIPTION = `This version contains following changes
+1.36.1.1jj - Weather Configuration
+- Added a working "Weather" tab to the Page Settings dialog, with live slider readouts
+- Re-enabled the Weather rendering engine (rain/snow/fog/lightning/tint), updated to work with Roll20's current canvas engine
 1.36.1.1ji - 2024 Sheet Support (First Release)
 - Added drag & drop import for Spells, Items, Feats, Species/Races, and Classes directly into the new 2024 (Jumpgate) character sheet
 - Convert existing OGL 2014 character sheets to the 2024 sheet format
