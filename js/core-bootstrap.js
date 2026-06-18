@@ -29,11 +29,7 @@ const betteR20Core = function () {
 
 			d20plus.engine.enhanceMarkdown();
 			d20plus.engine.addProFeatures();
-			// d20plus.engine.enhanceMouseDown();
-			// d20plus.engine.enhanceMouseMove();
 			// d20plus.engine.enhanceStatusEffects();
-			// It doesn't work with current version of roll20
-			// d20plus.engine.addLineCutterTool();
 			d20plus.ui.addHtmlHeader();
 			d20plus.ui.addHtmlFooter();
 			d20plus.art.initArtFromUrlButtons();
@@ -57,10 +53,6 @@ const betteR20Core = function () {
 			// d20plus.ut.fix3dDice(); // FIXME(165) re-enable when we have a better solution
 			// d20plus.engine.addLayers();
 			// d20plus.weather.addWeather();
-			// d20plus.engine.repairPrototypeMethods();
-			// d20plus.engine.disableFrameRecorder();
-			// d20plus.engine.fixPolygonTool();
-			// d20plus.ut.fixSidebarLayout();
 			d20plus.chat.enhanceChat();
 			// d20plus.ba.initBetterActions();
 

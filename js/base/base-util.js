@@ -55,17 +55,6 @@ function baseUtil () {
 		return b < a ? 1 : -1;
 	};
 
-	d20plus.ut.fix3dDice = () => {
-		Object.defineProperty(Array.prototype, "filter", {
-			enumerable: false,
-			value: Array.prototype.filter,
-		});
-
-		Object.defineProperty(Array.prototype, "map", {
-			enumerable: false,
-			value: Array.prototype.map,
-		});
-	};
 
 	d20plus.ut.injectCode = (object, method, injectedCode) => {
 		const original = object[method].bind(object);
@@ -806,19 +795,6 @@ function baseUtil () {
 		return BASE_SITE_URL.includes("://5e.tools")
 			|| BASE_SITE_URL.includes("://5etools.com")
 			|| /:\/\/5etools-mirror-\d+\./.test(BASE_SITE_URL);
-	};
-
-	d20plus.ut.fixSidebarLayout = () => {
-		$(`#textchat-input`).insertAfter(`#textchat`);
-		const cached = d20.textchat.showPopout;
-		d20.textchat.showPopout = function () {
-			cached();
-			const cached2 = d20.textchat.childWindow.onbeforeunload;
-			d20.textchat.childWindow.onbeforeunload = function () {
-				cached2();
-				$(`#textchat-input`).insertAfter(`#textchat`);
-			}
-		}
 	};
 
 	d20plus.ut.dynamicStyles = (slug) => {

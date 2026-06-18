@@ -272,8 +272,9 @@ function d20plus2024SpellImport() {
 		const parsed = buildChain ? parseSpell2024Damage(vc.entries) : null;
 		const isRepeatUpcast = !isCantripScaling && (isAutoHit || isMultiRay) && parseSpell2024RepeatUpcast(vc.entriesHigherLevel);
 		const upcast = (!isCantripScaling && buildChain && !isRepeatUpcast) ? parseSpell2024Upcast(vc.entriesHigherLevel) : null;
-		const isDiceScaling = isCantripScaling && !!vc.scalingLevelDice;
-		const isMultiDamage = isDiceScaling && Array.isArray(vc.scalingLevelDice) && vc.scalingLevelDice.length > 1;
+		const scalingLevelDice = vc ? vc.scalingLevelDice : undefined;
+		const isDiceScaling = isCantripScaling && !!scalingLevelDice;
+		const isMultiDamage = isDiceScaling && Array.isArray(scalingLevelDice) && scalingLevelDice.length > 1;
 		const cantripLevels = (isCantripScaling && buildChain) ? parseSpell2024CantripLevels(vc) : [];
 		const onSucceedHalf = hasSave && vc && vc.entries && vc.entries.some(e => typeof e === "string" && /\bhalf\b/i.test(e));
 
@@ -475,7 +476,7 @@ function d20plus2024SpellImport() {
 		if (isMultiDamage) {
 			const damageType = cap(vc.damageInflict[0]);
 
-			for (const sldEntry of vc.scalingLevelDice) {
+			for (const sldEntry of scalingLevelDice) {
 				const baseDiceStr = sldEntry.scaling["1"] || "1d8";
 				const baseDiceM = baseDiceStr.match(/(\d+)d(\d+)/i);
 				const baseDiceCount = baseDiceM ? parseInt(baseDiceM[1], 10) : 1;

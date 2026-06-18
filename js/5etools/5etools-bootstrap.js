@@ -66,18 +66,10 @@ const betteR205etools = function () {
 			// d20.Campaign.pages.each(d20plus.bindGraphics);
 			// d20.Campaign.activePage().collection.on("add", d20plus.bindGraphics);
 			// d20plus.engine.enhanceStatusEffects();
-			// d20plus.engine.enhanceMouseDown();
-			// d20plus.engine.enhanceMouseMove();
-			// It doesn't work with current version of roll20
-			// d20plus.engine.addLineCutterTool();
 			d20plus.engine.enhancePathWidths();
 			// d20plus.ut.fix3dDice(); // FIXME(165) re-enable when we have a better solution
 			// d20plus.engine.addLayers();
 			// d20plus.weather.addWeather();
-			// d20plus.engine.repairPrototypeMethods();
-			// d20plus.engine.disableFrameRecorder();
-			// d20plus.engine.fixPolygonTool();
-			// d20plus.ut.fixSidebarLayout();
 			d20plus.chat.enhanceChat();
 			// d20plus.ba.initBetterActions();
 

@@ -1,3 +1,9 @@
+/**
+ * BetterActions character/token data — fetches and maps character sheet attributes
+ * to the BA panel's token list.
+ * Originally in: js/base/base-ba-character.js
+ */
+
 function baseBACharacters () {
 	d20plus.ba = d20plus.ba || {};
 
