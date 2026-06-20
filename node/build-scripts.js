@@ -4,6 +4,9 @@ const SCRIPT_VERSION = process.env.SCRIPT_VERSION || "1.36.1.4-beta";
 const SCRIPT_REPO = process.env.SCRIPT_REPO || "https://github.com/mighty-frosty/betterR20/releases/latest/download/";
 
 const SCRIPT_BETA_DESCRIPTION = `This version contains following changes
+1.36.1.1jj - Weather Configuration
+- Added a working "Weather" tab to the Page Settings dialog, with live slider readouts
+- Re-enabled the Weather rendering engine (rain/snow/fog/lightning/tint), updated to work with Roll20's current canvas engine
 1.36.1.1ji - 2024 Sheet Support (First Release)
 - Added drag & drop import for Spells, Items, Feats, Species/Races, and Classes directly into the new 2024 (Jumpgate) character sheet
 - Convert existing OGL 2014 character sheets to the 2024 sheet format
@@ -281,6 +284,7 @@ const SCRIPTS = {
 		"base/tools/base-tool-urlfix",
 		"base/base-art",
 		"base/base-art-browse",
+        "base-tool-autobackup",
 		"overwrites/base",
 		"templates/template-roll20-token-editor",
 		"templates/template-roll20-page-settings",
@@ -385,7 +389,7 @@ Object.entries(BUILDS).forEach(([name, data]) => {
 			.replace("%B20_IMG_URL%", data.imgURL)
 			.replace("%B20_REPO_URL%", SCRIPT_REPO),
 		...libJson.map(filePath => wrapLibData(filePath.replace("data2014", "data"), fs.readFileSync(filePath, "utf-8"))),
-		...data.scripts.map(filename => filename === "base/base-util"
+		...data.scripts.map(filename => filename === "base-util"
 			? fs.readFileSync(`${JS_DIR}${filename}.js`, "utf-8").toString().replace("}, 6000);", `
 			d20plus.ut.sendHackerChat(\`
 				<div class="userscript-b20intro">

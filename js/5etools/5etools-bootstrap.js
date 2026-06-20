@@ -13,6 +13,7 @@ const betteR205etools = function () {
 				d20plus.ut.log("Is GM");
 				// d20plus.engine.enhancePageSelector();
 				d20plus.engine.enhanceVuePageThumbnail();
+				d20plus.engine.enhanceVuePageWeather();
 			} else d20plus.ut.log("Not GM. Some functionality will be unavailable.");
 
 			d20plus.setSheet();
@@ -69,7 +70,8 @@ const betteR205etools = function () {
 			d20plus.engine.enhancePathWidths();
 			// d20plus.ut.fix3dDice(); // FIXME(165) re-enable when we have a better solution
 			// d20plus.engine.addLayers();
-			// d20plus.weather.addWeather();
+			d20plus.weather.addWeather();
+			// d20plus.ut.fixSidebarLayout();
 			d20plus.chat.enhanceChat();
 			// d20plus.ba.initBetterActions();
 

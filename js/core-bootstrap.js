@@ -13,6 +13,7 @@ const betteR20Core = function () {
 			if (window.is_gm) {
 				d20plus.engine.enhancePageSelector();
 				d20plus.engine.enhanceVuePageThumbnail();
+				d20plus.engine.enhanceVuePageWeather();
 			}
 			await d20plus.js.pAddScripts();
 			await d20plus.qpi.pInitMockApi();
@@ -52,7 +53,7 @@ const betteR20Core = function () {
 			d20plus.engine.enhancePathWidths();
 			// d20plus.ut.fix3dDice(); // FIXME(165) re-enable when we have a better solution
 			// d20plus.engine.addLayers();
-			// d20plus.weather.addWeather();
+			d20plus.weather.addWeather();
 			d20plus.chat.enhanceChat();
 			// d20plus.ba.initBetterActions();
 
