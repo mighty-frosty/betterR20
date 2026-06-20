@@ -250,21 +250,7 @@ function baseUtil () {
 				$bored.remove();
 				clearInterval(d20plus.ut.cursor);
 			}, 2000);
-		
-			d20plus.ut.sendHackerChat(`
-				<div class="userscript-b20intro">
-					<h1 style="display: inline-block;line-height: 25px;margin-top: 5px; font-size: 22px;">
-						Notes on b20 beta
-						<p style="font-size: 11px;line-height: 15px;color: rgb(32, 194, 14);">
-							<span style="color: rgb(194, 32, 14)">You are using preview version of betteR20</span><br>
-							Please read this carefully and give feedback in official betteR20 Discord server,
-							in<span style="color: orange; font-family: monospace"> 5etools &gt; better20 &gt; #testing </span>thread
-						</p>
-					</h1>
-					<p>This version contains following changes<br>1.36.1.1ji - 2024 Sheet Support (First Release)<br>- Added drag & drop import for Spells, Items, Feats, Species/Races, and Classes directly into the new 2024 (Jumpgate) character sheet<br>- Convert existing OGL 2014 character sheets to the 2024 sheet format<br>- 2024-compatible Monster/NPC import, including monster spellcasting<br>- Monster fluff/bio text is now appended instead of overwritten<br>- Reworked token image and portrait handling for character imports<br>- Numerous spell mapping fixes (scaling, repeating attacks, healing, Toll the Dead, etc.)<br>1.36.1.1jh - Page Settings?<br>- Added Map Thumbnail tools (Upload / Reload Default) to Page Settings<br>1.36.1.1jd - Macros?<br>- add bulk macro button.<br>1.36.1.1je - Commits are real<br>- Merge PRs, and imporve Module Importer<br>1.36.1.1jg - Commits are real<br>- Fix drag and Drop.<br>1.36.1.1jga - Macros?<br>- add bulk macro button again.<br></p>
-				</div>
-			`);
-			}, 6000);
+		}, 6000);
 	};
 
 	d20plus.ut.showInitMessage = () => {
@@ -14806,6 +14792,7 @@ function d20plusEngine () {
 			</ul>
 			<div class='tab-content'>
 				${d20plus.html.pageSettings}
+				${d20plus.html.pageSettingsWeather}
 			</div>
 		</script>`;
 	};
@@ -14978,6 +14965,88 @@ function d20plusEngine () {
 				$preview.attr("src", imgsrc).show();
 				setThumbnail(imgsrc);
 			});
+		};
+
+		new MutationObserver(inject).observe(document.body, {childList: true, subtree: true});
+		inject();
+	};
+
+	// Roll20's Page Settings dialog is a Vue component (see enhanceVuePageThumbnail above) with
+	// its own internal tab state we can't register a tab into. Instead, clone a native tab button
+	// to look the part, and manually show/hide our content vs. whatever Vue is currently rendering.
+	d20plus.engine.enhanceVuePageWeather = () => {
+		const TAB_TESTID = "pageSettings-tab-weather";
+		const CONTENT_CLASS = "b20-weather-tab-content";
+		let isActive = false;
+
+		const getTabsRow = () => $(`.section.tabs`).first();
+		const getWrapper = ($tabsRow) => $tabsRow.next(`.wrapper`);
+
+		const applyVisibility = ($wrapper) => {
+			$wrapper.children().each((i, el) => {
+				el.style.display = el.classList.contains(CONTENT_CLASS) === isActive ? "" : "none";
+			});
+		};
+
+		const deactivate = () => {
+			if (!isActive) return;
+			isActive = false;
+			const $tabsRow = getTabsRow();
+			$tabsRow.find(`[data-testid="${TAB_TESTID}"] .grimoire-tab__button`).removeClass("selected");
+			applyVisibility(getWrapper($tabsRow));
+		};
+
+		const activate = () => {
+			isActive = true;
+			const $tabsRow = getTabsRow();
+			$tabsRow.find(`.grimoire-tab__button`).removeClass("selected");
+			$tabsRow.find(`[data-testid="${TAB_TESTID}"] .grimoire-tab__button`).addClass("selected");
+			applyVisibility(getWrapper($tabsRow));
+		};
+
+		const inject = () => {
+			const $tabsRow = getTabsRow();
+			if (!$tabsRow.length) return;
+
+			if (!$tabsRow.find(`[data-testid="${TAB_TESTID}"]`).length) {
+				const $newTab = $tabsRow.find(`.grimoire-tab`).first().clone();
+				$newTab.attr("data-testid", TAB_TESTID);
+				$newTab.find(`.grimoire-tab__label`).text("Weather");
+				$newTab.find(`.grimoire-tab__button`).removeClass("selected");
+				$newTab.on("click", (evt) => {
+					evt.stopPropagation();
+					activate();
+				});
+				$tabsRow.append($newTab);
+			}
+			// clicking a native tab hands control back to Vue
+			$tabsRow.find(`.grimoire-tab`).not(`[data-testid="${TAB_TESTID}"]`)
+				.off("click.b20weather").on("click.b20weather", deactivate);
+
+			const $wrapper = getWrapper($tabsRow);
+			if ($wrapper.length && !$wrapper.children(`.${CONTENT_CLASS}`).length) {
+				const page = d20.Campaign.activePage();
+				const $content = $(d20plus.html.pageSettingsWeather).addClass(CONTENT_CLASS).appendTo($wrapper);
+				d20plus.engine._preservePageCustomOptions(page);
+				d20plus.engine._populatePageCustomOptions(page, $content);
+				// _populatePageCustomOptions sets a raw onchange on .weather selects for the old
+				// dialog, calling _updatePageCustomOptions() with no args; clear it so it doesn't
+				// crash trying to resolve a page via the (here, unset) legacy _lastSettingsPageId
+				$content.find("select").prop("onchange", null);
+				// live-update the numeric readout next to each slider while dragging, rather than
+				// only on the old delegated "click" handler (which misses drag-without-click)
+				$content.on("input", "input[type=range]", (evt) => {
+					const {currentTarget: target} = evt;
+					if (target.name) $content.find(`.${target.name}`).val(target.value);
+				});
+				$content.on("change keyup", "input, select", () => {
+					d20plus.engine._updatePageCustomOptions(page, $content);
+					d20plus.engine._savePageCustomOptions(page);
+					page.save();
+				});
+			}
+
+			if ($wrapper.length) applyVisibility($wrapper);
 		};
 
 		new MutationObserver(inject).observe(document.body, {childList: true, subtree: true});
@@ -19704,35 +19773,35 @@ function d20plusMod () {
 		// BEGIN MOD
 		// "text" === e || "rect" === e || "ellipse" === e || "polygon" === e || "path" === e || "pan" === e || "select" === e || "targeting" === e || "measure" === e || window.is_gm || (e = "select"),
 		// END MOD
-		"text" == e ? $("#editor").addClass("texteditmode") : $("#editor").removeClass("texteditmode"),
+		"text" === e ? $("#editor").addClass("texteditmode") : $("#editor").removeClass("texteditmode"),
 			$("#floatingtoolbar li").removeClass("activebutton"),
 			$("#" + e).addClass("activebutton"),
-		"fog" == e.substring(0, 3) && $("#fogcontrols").addClass("activebutton");
+		"fog" === e.substring(0, 3) && $("#fogcontrols").addClass("activebutton");
 
 		const drawingTools = ["rect", "ellipse", "text", "path", "polygon", "line_splitter"];
 		if (drawingTools.includes(e)) {
-			if ("ellipse" == e) $('#drawingtools span.subicon').addClass('fas fa-circle');
+			if ("ellipse" === e) $('#drawingtools span.subicon').addClass('fas fa-circle');
 			else $('#drawingtools span.subicon').removeClass('fas fa-circle');
 			$("#drawingtools").addClass("activebutton").removeClass("text rect ellipse path polygon line_splitter");
-			"rect" == e && $("#drawingtools").addClass("rect");
-			"ellipse" == e && $("#drawingtools").addClass("ellipse");
-			"text" == e && $("#drawingtools").addClass("activebutton").removeClass("rect ellipse path polygon line_splitter").addClass("text");
-			"path" == e && $("#drawingtools").addClass("path");
-			"polygon" == e && $("#drawingtools").addClass("polygon");
+			"rect" === e && $("#drawingtools").addClass("rect");
+			"ellipse" === e && $("#drawingtools").addClass("ellipse");
+			"text" === e && $("#drawingtools").addClass("activebutton").removeClass("rect ellipse path polygon line_splitter").addClass("text");
+			"path" === e && $("#drawingtools").addClass("path");
+			"polygon" === e && $("#drawingtools").addClass("polygon");
 			// BEGIN MOD (also line_splitter added to above removeClass calls
-			"line_splitter" == e && $("#drawingtools").addClass("line_splitter");
+			"line_splitter" === e && $("#drawingtools").addClass("line_splitter");
 			// END MOD
 		}
-		"polygon" != e && d20.engine.finishCurrentPolygon();
+		"polygon" !== e && d20.engine.finishCurrentPolygon();
 
 		"pan" !== e && "select" !== e && d20.engine.unselect(),
-			"pan" == e ? ($("#select").addClass("pan").removeClass("select").addClass("activebutton"),
+			"pan" === e ? ($("#select").addClass("pan").removeClass("select").addClass("activebutton"),
 				d20.token_editor.removeRadialMenu(),
 				$("#editor-wrapper").addClass("panning")) : $("#editor-wrapper").removeClass("panning"),
-		"select" == e && $("#select").addClass("select").removeClass("pan").addClass("activebutton"),
+		"select" === e && $("#select").addClass("select").removeClass("pan").addClass("activebutton"),
 			$("#floatingtoolbar .mode").hide(),
-		("text" == e || "select" == e) && $("#floatingtoolbar ." + e).show(),
-			"gridalign" == e ? $("#gridaligninstructions").show() : "gridalign" === d20.engine.mode && $("#gridaligninstructions").hide(),
+		("text" === e || "select" === e) && $("#floatingtoolbar ." + e).show(),
+			"gridalign" === e ? $("#gridaligninstructions").show() : "gridalign" === d20.engine.mode && $("#gridaligninstructions").hide(),
 			"targeting" === e ? ($("#targetinginstructions").show(),
 				$("#finalcanvas").addClass("targeting"),
 				d20.engine.canvas.hoverCursor = "crosshair") : "targeting" === d20.engine.mode && ($("#targetinginstructions").hide(),
@@ -19747,17 +19816,17 @@ function d20plusMod () {
 			player: window.currentPlayer.id
 		}),
 			d20.engine.endMeasure()),
-			d20.engine.canvas.isDrawingMode = "path" == e ? !0 : !1;
-		if ("text" == e || "path" == e || "rect" == e || "ellipse" == e || "polygon" == e || "fxtools" == e) {
+			d20.engine.canvas.isDrawingMode = "path" === e ? !0 : !1;
+		if ("text" === e || "path" === e || "rect" === e || "ellipse" === e || "polygon" === e || "fxtools" === e) {
 			$("#secondary-toolbar").show();
 			$("#secondary-toolbar .mode").hide();
 			$("#secondary-toolbar ." + e).show();
-			("path" == e || "rect" == e || "ellipse" == e || "polygon" == e) && ("" === $("#path_strokecolor").val() && ($("#path_strokecolor").val("#000000").trigger("change-silent"),
+			("path" === e || "rect" === e || "ellipse" === e || "polygon" === e) && ("" === $("#path_strokecolor").val() && ($("#path_strokecolor").val("#000000").trigger("change-silent"),
 				$("#path_fillcolor").val("transparent").trigger("change-silent")),
 				d20.engine.canvas.freeDrawingBrush.color = $("#path_strokecolor").val(),
 				d20.engine.canvas.freeDrawingBrush.fill = $("#path_fillcolor").val() || "transparent",
 				$("#path_width").trigger("change")),
-			"fxtools" == e && "" === $("#fxtools_color").val() && $("#fxtools_color").val("#a61c00").trigger("change-silent"),
+			"fxtools" === e && "" === $("#fxtools_color").val() && $("#fxtools_color").val("#a61c00").trigger("change-silent"),
 				$("#floatingtoolbar").trigger("blur")
 		} else {
 			$("#secondary-toolbar").hide();
@@ -19774,23 +19843,23 @@ function d20plusMod () {
 	// BEGIN ROLL20 CODE
 	d20plus.mod.handleURL = function(e) {
 		if (!($(this).hasClass("lightly") || $(this).parents(".note-editable").length > 0)) {
-			var t = $(this).attr("href");
-			if (void 0 === t)
+            let t = $(this).attr("href");
+            if (void 0 === t)
 				return !1;
 			if (-1 !== t.indexOf("journal.roll20.net") || -1 !== t.indexOf("wiki.roll20.net")) {
-				var n = t.split("/")[3]
-					, i = t.split("/")[4]
-					, o = d20.Campaign[n + "s"].get(i);
-				if (o) {
-					var r = o.get("inplayerjournals").split(",");
-					(window.is_gm || -1 !== _.indexOf(r, "all") || window.currentPlayer && -1 !== _.indexOf(r, window.currentPlayer.id)) && o.view.showDialog()
+                const n = t.split("/")[3]
+                    , i = t.split("/")[4]
+                    , o = d20.Campaign[n + "s"].get(i);
+                if (o) {
+                    const r = o.get("inplayerjournals").split(",");
+                    (window.is_gm || -1 !== _.indexOf(r, "all") || window.currentPlayer && -1 !== _.indexOf(r, window.currentPlayer.id)) && o.view.showDialog()
 				}
 				return $("#existing" + n + "s").find("tr[data-" + n + "id=" + i + "]").trigger("click"),
 					!1
 			}
-			var a = /(?:(?:http(?:s?):\/\/(?:app\.)?roll20(?:staging)?\.(?:net|local:5000)\/|^\/?)compendium\/)([^\/]+)\/([^\/#?]+)/i
-				, s = t.match(a);
-			if (s)
+            const a = /(?:https?:\/\/(?:app\.)?roll20(?:staging)?\.(?:net|local:5000)\/|^\/?)compendium\/([^\/]+)\/([^\/#?]+)/i
+                , s = t.match(a);
+            if (s)
 				return d20.utils.openCompendiumPage(s[1], s[2]),
 					e.stopPropagation(),
 					void e.preventDefault();
@@ -19805,7 +19874,7 @@ function d20plusMod () {
 			if ("~" === t.substring(0, 1))
 				return d20.textchat.doChatInput("%{" + t.substring(1, t.length) + "}"),
 					!1;
-			if (t !== undefined && ("external" === $(this).attr("rel") || -1 === t.indexOf("javascript:") && -1 !== t.indexOf("://"))) {
+			if (("external" === $(this).attr("rel") || -1 === t.indexOf("javascript:") && -1 !== t.indexOf("://"))) {
 				// BEGIN MOD
 				e.stopPropagation();
 				e.preventDefault();
@@ -19922,7 +19991,7 @@ function d20plusMod () {
 		}
 		),
 		v.restore()
-	},
+	}
 	// END ROLL20 CODE
 
 	/* eslint-enable */
@@ -25518,6 +25587,7 @@ const betteR20Core = function () {
 			if (window.is_gm) {
 				d20plus.engine.enhancePageSelector();
 				d20plus.engine.enhanceVuePageThumbnail();
+				d20plus.engine.enhanceVuePageWeather();
 			}
 			await d20plus.js.pAddScripts();
 			await d20plus.qpi.pInitMockApi();
@@ -25557,7 +25627,7 @@ const betteR20Core = function () {
 			d20plus.engine.enhancePathWidths();
 			// d20plus.ut.fix3dDice(); // FIXME(165) re-enable when we have a better solution
 			// d20plus.engine.addLayers();
-			// d20plus.weather.addWeather();
+			d20plus.weather.addWeather();
 			d20plus.chat.enhanceChat();
 			// d20plus.ba.initBetterActions();
 
