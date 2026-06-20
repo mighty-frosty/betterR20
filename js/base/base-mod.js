@@ -41,35 +41,35 @@ function d20plusMod () {
 		// BEGIN MOD
 		// "text" === e || "rect" === e || "ellipse" === e || "polygon" === e || "path" === e || "pan" === e || "select" === e || "targeting" === e || "measure" === e || window.is_gm || (e = "select"),
 		// END MOD
-		"text" == e ? $("#editor").addClass("texteditmode") : $("#editor").removeClass("texteditmode"),
+		"text" === e ? $("#editor").addClass("texteditmode") : $("#editor").removeClass("texteditmode"),
 			$("#floatingtoolbar li").removeClass("activebutton"),
 			$("#" + e).addClass("activebutton"),
-		"fog" == e.substring(0, 3) && $("#fogcontrols").addClass("activebutton");
+		"fog" === e.substring(0, 3) && $("#fogcontrols").addClass("activebutton");
 
 		const drawingTools = ["rect", "ellipse", "text", "path", "polygon", "line_splitter"];
 		if (drawingTools.includes(e)) {
-			if ("ellipse" == e) $('#drawingtools span.subicon').addClass('fas fa-circle');
+			if ("ellipse" === e) $('#drawingtools span.subicon').addClass('fas fa-circle');
 			else $('#drawingtools span.subicon').removeClass('fas fa-circle');
 			$("#drawingtools").addClass("activebutton").removeClass("text rect ellipse path polygon line_splitter");
-			"rect" == e && $("#drawingtools").addClass("rect");
-			"ellipse" == e && $("#drawingtools").addClass("ellipse");
-			"text" == e && $("#drawingtools").addClass("activebutton").removeClass("rect ellipse path polygon line_splitter").addClass("text");
-			"path" == e && $("#drawingtools").addClass("path");
-			"polygon" == e && $("#drawingtools").addClass("polygon");
+			"rect" === e && $("#drawingtools").addClass("rect");
+			"ellipse" === e && $("#drawingtools").addClass("ellipse");
+			"text" === e && $("#drawingtools").addClass("activebutton").removeClass("rect ellipse path polygon line_splitter").addClass("text");
+			"path" === e && $("#drawingtools").addClass("path");
+			"polygon" === e && $("#drawingtools").addClass("polygon");
 			// BEGIN MOD (also line_splitter added to above removeClass calls
-			"line_splitter" == e && $("#drawingtools").addClass("line_splitter");
+			"line_splitter" === e && $("#drawingtools").addClass("line_splitter");
 			// END MOD
 		}
-		"polygon" != e && d20.engine.finishCurrentPolygon();
+		"polygon" !== e && d20.engine.finishCurrentPolygon();
 
 		"pan" !== e && "select" !== e && d20.engine.unselect(),
-			"pan" == e ? ($("#select").addClass("pan").removeClass("select").addClass("activebutton"),
+			"pan" === e ? ($("#select").addClass("pan").removeClass("select").addClass("activebutton"),
 				d20.token_editor.removeRadialMenu(),
 				$("#editor-wrapper").addClass("panning")) : $("#editor-wrapper").removeClass("panning"),
-		"select" == e && $("#select").addClass("select").removeClass("pan").addClass("activebutton"),
+		"select" === e && $("#select").addClass("select").removeClass("pan").addClass("activebutton"),
 			$("#floatingtoolbar .mode").hide(),
-		("text" == e || "select" == e) && $("#floatingtoolbar ." + e).show(),
-			"gridalign" == e ? $("#gridaligninstructions").show() : "gridalign" === d20.engine.mode && $("#gridaligninstructions").hide(),
+		("text" === e || "select" === e) && $("#floatingtoolbar ." + e).show(),
+			"gridalign" === e ? $("#gridaligninstructions").show() : "gridalign" === d20.engine.mode && $("#gridaligninstructions").hide(),
 			"targeting" === e ? ($("#targetinginstructions").show(),
 				$("#finalcanvas").addClass("targeting"),
 				d20.engine.canvas.hoverCursor = "crosshair") : "targeting" === d20.engine.mode && ($("#targetinginstructions").hide(),
@@ -84,17 +84,17 @@ function d20plusMod () {
 			player: window.currentPlayer.id
 		}),
 			d20.engine.endMeasure()),
-			d20.engine.canvas.isDrawingMode = "path" == e ? !0 : !1;
-		if ("text" == e || "path" == e || "rect" == e || "ellipse" == e || "polygon" == e || "fxtools" == e) {
+			d20.engine.canvas.isDrawingMode = "path" === e ? !0 : !1;
+		if ("text" === e || "path" === e || "rect" === e || "ellipse" === e || "polygon" === e || "fxtools" === e) {
 			$("#secondary-toolbar").show();
 			$("#secondary-toolbar .mode").hide();
 			$("#secondary-toolbar ." + e).show();
-			("path" == e || "rect" == e || "ellipse" == e || "polygon" == e) && ("" === $("#path_strokecolor").val() && ($("#path_strokecolor").val("#000000").trigger("change-silent"),
+			("path" === e || "rect" === e || "ellipse" === e || "polygon" === e) && ("" === $("#path_strokecolor").val() && ($("#path_strokecolor").val("#000000").trigger("change-silent"),
 				$("#path_fillcolor").val("transparent").trigger("change-silent")),
 				d20.engine.canvas.freeDrawingBrush.color = $("#path_strokecolor").val(),
 				d20.engine.canvas.freeDrawingBrush.fill = $("#path_fillcolor").val() || "transparent",
 				$("#path_width").trigger("change")),
-			"fxtools" == e && "" === $("#fxtools_color").val() && $("#fxtools_color").val("#a61c00").trigger("change-silent"),
+			"fxtools" === e && "" === $("#fxtools_color").val() && $("#fxtools_color").val("#a61c00").trigger("change-silent"),
 				$("#floatingtoolbar").trigger("blur")
 		} else {
 			$("#secondary-toolbar").hide();
@@ -111,23 +111,23 @@ function d20plusMod () {
 	// BEGIN ROLL20 CODE
 	d20plus.mod.handleURL = function(e) {
 		if (!($(this).hasClass("lightly") || $(this).parents(".note-editable").length > 0)) {
-			var t = $(this).attr("href");
-			if (void 0 === t)
+            let t = $(this).attr("href");
+            if (void 0 === t)
 				return !1;
 			if (-1 !== t.indexOf("journal.roll20.net") || -1 !== t.indexOf("wiki.roll20.net")) {
-				var n = t.split("/")[3]
-					, i = t.split("/")[4]
-					, o = d20.Campaign[n + "s"].get(i);
-				if (o) {
-					var r = o.get("inplayerjournals").split(",");
-					(window.is_gm || -1 !== _.indexOf(r, "all") || window.currentPlayer && -1 !== _.indexOf(r, window.currentPlayer.id)) && o.view.showDialog()
+                const n = t.split("/")[3]
+                    , i = t.split("/")[4]
+                    , o = d20.Campaign[n + "s"].get(i);
+                if (o) {
+                    const r = o.get("inplayerjournals").split(",");
+                    (window.is_gm || -1 !== _.indexOf(r, "all") || window.currentPlayer && -1 !== _.indexOf(r, window.currentPlayer.id)) && o.view.showDialog()
 				}
 				return $("#existing" + n + "s").find("tr[data-" + n + "id=" + i + "]").trigger("click"),
 					!1
 			}
-			var a = /(?:(?:http(?:s?):\/\/(?:app\.)?roll20(?:staging)?\.(?:net|local:5000)\/|^\/?)compendium\/)([^\/]+)\/([^\/#?]+)/i
-				, s = t.match(a);
-			if (s)
+            const a = /(?:https?:\/\/(?:app\.)?roll20(?:staging)?\.(?:net|local:5000)\/|^\/?)compendium\/([^\/]+)\/([^\/#?]+)/i
+                , s = t.match(a);
+            if (s)
 				return d20.utils.openCompendiumPage(s[1], s[2]),
 					e.stopPropagation(),
 					void e.preventDefault();
@@ -142,7 +142,7 @@ function d20plusMod () {
 			if ("~" === t.substring(0, 1))
 				return d20.textchat.doChatInput("%{" + t.substring(1, t.length) + "}"),
 					!1;
-			if (t !== undefined && ("external" === $(this).attr("rel") || -1 === t.indexOf("javascript:") && -1 !== t.indexOf("://"))) {
+			if (("external" === $(this).attr("rel") || -1 === t.indexOf("javascript:") && -1 !== t.indexOf("://"))) {
 				// BEGIN MOD
 				e.stopPropagation();
 				e.preventDefault();
@@ -259,7 +259,7 @@ function d20plusMod () {
 		}
 		),
 		v.restore()
-	},
+	}
 	// END ROLL20 CODE
 
 	/* eslint-enable */
