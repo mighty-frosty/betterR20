@@ -191,6 +191,16 @@ const SCRIPTS = {
 		"base/base-remote-libre",
 		"base/base-jukebox-widget",
 
+		"functions/engine-layers",
+		"functions/engine-status-effects",
+		"functions/engine-token-hover",
+		"functions/ui-layers",
+		"functions/weather",
+		"functions/util-fix3d-dice",
+		"functions/better-actions-characters",
+		"functions/better-actions-rolltemplates",
+		"functions/better-actions",
+
 		"core-bootstrap",
 
 		"base/base",
@@ -234,6 +244,17 @@ const SCRIPTS = {
 		"base/base-character-io",
 		"base/base-remote-libre",
 		"base/base-jukebox-widget",
+
+		"functions/engine-layers",
+		"functions/engine-status-effects",
+		"functions/engine-token-hover",
+		"functions/ui-layers",
+		"functions/weather",
+		"functions/util-fix3d-dice",
+		"functions/better-actions-characters",
+		"functions/better-actions-rolltemplates",
+		"functions/better-actions",
+		"functions/5etools-bind-graphics",
 
 		"5etools/5etools-bootstrap",
 		"5etools/5etools-config",
@@ -305,6 +326,17 @@ const SCRIPTS = {
 		"base/base-chat",
 		"base/base-remote-libre",
 		"base/base-jukebox-widget",
+
+		"functions/engine-layers",
+		"functions/engine-status-effects",
+		"functions/engine-token-hover",
+		"functions/ui-layers",
+		"functions/weather",
+		"functions/util-fix3d-dice",
+		"functions/better-actions-characters",
+		"functions/better-actions-rolltemplates",
+		"functions/better-actions",
+		"functions/5etools-bind-graphics",
 
 		"5etools/5etools-bootstrap",
 		"5etools/5etools-config",
