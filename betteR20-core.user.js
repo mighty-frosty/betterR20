@@ -25572,6 +25572,3441 @@ function jukeboxWidget () {
 SCRIPT_EXTENSIONS.push(jukeboxWidget);
 
 
+/**
+ * WHAT THIS DOES:
+ * Adds extra named layers
+ *   Foreground (now also in Roll20 natively, will need to be removed),
+ *   Background, Floor, Roof, and Weather exclusion mask.
+ * Replaces Roll20's canvas rendering methods (renderAll, sortTokens, drawAnyLayer,
+ * drawTokensWithoutAuras) with custom versions that know about these extra layers.
+ * Tokens on extra layers can be hidden/shown per-page via layersToggle, and their
+ * visibility state is persisted as a page custom property (bR20cfg_hidden).
+ *
+ * This is probably a hell of a task to re implement.
+ *
+ * TODO: Check whether d20.engine.canvas still exposes _renderAll, sortTokens,
+ * drawAnyLayer, drawTokensWithoutAuras as replaceable properties. If Roll20 moved
+ * these to prototype methods or non-configurable properties the approach needs rethinking.
+ * The extra layer data (bR20cfg_hidden page properties) might still be intact.
+ *
+ * Originally in: js/base/base-engine.js
+ */
+
+// Checks page settings and syncs visibility icons for the extra layers.
+d20plus.engine.layersIsMarkedAsHidden = (layer) => {
+	const page = d20.Campaign.activePage();
+	return page?.get(`bR20cfg_hidden`)?.search(layer) > -1;
+}
+
+// Iterates extra layers and hides/shows tokens on each based on stored page state.
+d20plus.engine.layersVisibilityCheck = () => {
+	const layers = ["floors", "background", "foreground", "roofs"];
+	layers.forEach((layer) => {
+		const isHidden = d20.engine.canvas._objects.some((o) => {
+			if (o.model) return o.model.get("layer") === `hidden_${layer}`;
+		}) || d20plus.engine.layersIsMarkedAsHidden(layer);
+		d20plus.engine.layerVisibilityOff(layer, isHidden, true);
+	});
+}
+
+// Toggles an extra layer's visibility and persists the state to the page.
+d20plus.engine.layersToggle = (layer) => {
+	const page = d20.Campaign.activePage();
+	if (!page.get(`bR20cfg_hidden`)) page.set(`bR20cfg_hidden`, "");
+	if (d20plus.engine.layersIsMarkedAsHidden(layer)) {
+		d20plus.engine.layerVisibilityOff(layer, false);
+	} else {
+		d20plus.engine.layerVisibilityOff(layer, true);
+	}
+};
+
+// Hides or shows all tokens on a given extra layer. Persists the state as a page prop.
+// Calls objectsHideUnhide (still in base-engine.js) and layerVisibilityIcon (ui-layers.js).
+d20plus.engine.layerVisibilityOff = (layer, off, force) => {
+	const page = d20.Campaign.activePage();
+	if (off) {
+		if (d20plus.engine.objectsHideUnhide("layer", layer, "layeroff", false) || force) {
+			if (window.currentEditingLayer === layer) d20plus.ui.switchToR20Layer();
+			d20plus.ui.layerVisibilityIcon(layer, false);
+			if (!d20plus.engine.layersIsMarkedAsHidden(layer)) {
+				page.set(`bR20cfg_hidden`, `${page.get(`bR20cfg_hidden`)} ${layer}`);
+				page.save();
+			}
+		}
+	} else {
+		d20plus.engine.objectsHideUnhide("layer", layer, "layeroff", true);
+		d20plus.ui.layerVisibilityIcon(layer, true);
+		if (d20plus.engine.layersIsMarkedAsHidden(layer)) {
+			page.set(`bR20cfg_hidden`, page.get(`bR20cfg_hidden`).replace(` ${layer}`, ""));
+			page.save();
+		}
+	}
+}
+
+// Entry point: replaces Roll20's canvas render methods and wires up page-change listeners.
+d20plus.engine.addLayers = () => {
+	d20plus.ut.log("Adding layers");
+
+	d20.engine.canvas._renderAll = _.bind(d20plus.mod.renderAll, d20.engine.canvas);
+	d20.engine.canvas.sortTokens = _.bind(d20plus.mod.sortTokens, d20.engine.canvas);
+	d20.engine.canvas.drawAnyLayer = _.bind(d20plus.mod.drawAnyLayer, d20.engine.canvas);
+	d20.engine.canvas.drawTokensWithoutAuras = _.bind(d20plus.mod.drawTokensWithoutAuras, d20.engine.canvas);
+
+	if (window.is_gm) {
+		$(document).on("d20:new_page_fully_loaded", d20plus.engine.checkPageSettings);
+		d20plus.engine.checkPageSettings();
+	}
+};
+
+// Waits for the active page to be ready, then syncs layer visibility icons.
+d20plus.engine.checkPageSettings = () => {
+	if (!d20plus.cfg.getOrDefault("canvas", "extraLayerButtons")) return;
+	if (!d20.Campaign.activePage() || !d20.Campaign.activePage().get) {
+		setTimeout(d20plus.engine.checkPageSettings, 50);
+	} else {
+		d20plus.engine.layersVisibilityCheck();
+	}
+}
+
+
+/**
+ * WHAT THIS DOES:
+ * Replaces Roll20's token status marker rendering with a custom version that:
+ *   - Scales marker icons and token name plates to match the grid snapping increment
+ *   - Lets you assign a numeric counter to any status marker by pressing a number key
+ *     while hovering over it in the marker menu (backtick clears the counter)
+ *   - Supports custom 5etools status markers injected via CSS
+ *
+ * WHY IT'S BROKEN (probably):
+ * overwriteStatusEffects patches it.model.view.updateBackdrops on every canvas object.
+ * Roll20 likely renamed or restructured this method, so the patch no longer applies.
+ * The bootstrap comment says "It doesn't work with current version of roll20."
+ *
+ * TODO: Log a canvas object after Roll20 loads and check whether updateBackdrops still
+ * exists on token model views. If the method was renamed, update the patch target.
+ * If Roll20 moved to a different rendering pipeline entirely, a broader rewrite is needed.
+ *
+ * Originally in: js/base/base-engine.js (_removeStatusEffectEntries, enhanceStatusEffects)
+ *                js/base/base-mod.js (overwriteStatusEffects, mouseEnterMarkerMenu)
+ */
+
+// --- from js/base/base-engine.js ---
+
+// Clears injected 5etools status CSS and removes all 5etools_ prefixed markers
+// from Roll20's token editor marker registry (used when reloading status effects).
+d20plus.engine._removeStatusEffectEntries = () => {
+	$(`#5etools-status-css`).html("");
+	Object.keys(d20.token_editor.statusmarkers).filter(k => k.startsWith("5etools_")).forEach(k => delete d20.token_editor.statusmarkers[k]);
+};
+
+// Entry point: injects the status CSS tag, patches all existing tokens via
+// overwriteStatusEffects, and wires up object:added and markermenu hover listeners
+// so new tokens and the marker UI stay in sync.
+d20plus.engine.enhanceStatusEffects = () => {
+	d20plus.ut.log("Enhance status effects");
+	$(`head`).append(`<style id="5etools-status-css"/>`);
+
+	d20plus.mod.overwriteStatusEffects();
+
+	d20.engine.canvas.off("object:added");
+	d20.engine.canvas.on("object:added", d20plus.mod.overwriteStatusEffects);
+
+	$(document).off("mouseenter", ".markermenu");
+	$(document).on("mouseenter", ".markermenu", d20plus.mod.mouseEnterMarkerMenu)
+};
+
+// --- from js/base/base-mod.js ---
+
+// Iterates every canvas object and monkey-patches updateBackdrops on its model view.
+// The patched version scales status icons and name plates to the grid snapping increment,
+// renders custom 5etools marker images, and supports numeric counters on markers.
+// This is a near-complete copy of Roll20's own rendering code with targeted modifications.
+d20plus.mod.overwriteStatusEffects = function () {
+	d20.engine.canvasDirty = true;
+	d20.engine.canvasTopDirty = true;
+	d20.engine.canvas._objects.forEach(it => {
+		// avoid adding it to any objects that wouldn't have it to begin with
+		if (!it.model || !it.model.view || !it.model.view.updateBackdrops) return;
+
+		// BEGIN ROLL20 CODE
+		it.model.view.updateBackdrops = function (e) {
+			if (!this.nohud && ("objects" == this.model.get("layer") || "gmlayer" == this.model.get("layer")) && "image" == this.model.get("type") && this.model && this.model.collection && this.graphic) {
+				// BEGIN MOD
+				const scaleFact = (d20plus.cfg.get("canvas", "scaleNamesStatuses") && d20.Campaign.activePage().get("snapping_increment"))
+					? d20.Campaign.activePage().get("snapping_increment")
+					: 1;
+				// END MOD
+				var t = this.model.collection.page
+					, n = e || d20.engine.canvas.getContext();
+				n.save(),
+				(this.graphic.get("flipX") || this.graphic.get("flipY")) && n.scale(this.graphic.get("flipX") ? -1 : 1, this.graphic.get("flipY") ? -1 : 1);
+				var i = this
+					, r = Math.floor(this.graphic.get("width") / 2)
+					, o = Math.floor(this.graphic.get("height") / 2)
+					, a = (parseFloat(t.get("scale_number")),
+					this.model.get("statusmarkers").split(","));
+				-1 !== a.indexOf("dead") && (n.strokeStyle = "rgba(189,13,13,0.60)",
+					n.lineWidth = 10,
+					n.beginPath(),
+					n.moveTo(-r + 7, -o + 15),
+					n.lineTo(r - 7, o - 5),
+					n.moveTo(r - 7, -o + 15),
+					n.lineTo(-r + 7, o - 5),
+					n.closePath(),
+					n.stroke()),
+					n.rotate(-this.graphic.get("angle") * Math.PI / 180),
+					n.strokeStyle = "rgba(0,0,0,0.65)",
+					n.lineWidth = 1;
+				var s = 0
+					, l = i.model.get("bar1_value")
+					, c = i.model.get("bar1_max");
+				if ("" != c && (window.is_gm || this.model.get("showplayers_bar1") || this.model.currentPlayerControls() && this.model.get("playersedit_bar1"))) {
+					var u = parseInt(l, 10) / parseInt(c, 10)
+						, d = -o - 20 + 0;
+					n.fillStyle = "rgba(" + d20.Campaign.tokendisplay.bar1_rgb + ",0.75)",
+						n.beginPath(),
+						n.rect(-r + 3, d, Math.floor((2 * r - 6) * u), 8),
+						n.closePath(),
+						n.fill(),
+						n.beginPath(),
+						n.rect(-r + 3, d, 2 * r - 6, 8),
+						n.closePath(),
+						n.stroke(),
+						s++
+				}
+				var l = i.model.get("bar2_value")
+					, c = i.model.get("bar2_max");
+				if ("" != c && (window.is_gm || this.model.get("showplayers_bar2") || this.model.currentPlayerControls() && this.model.get("playersedit_bar2"))) {
+					var u = parseInt(l, 10) / parseInt(c, 10)
+						, d = -o - 20 + 12;
+					n.fillStyle = "rgba(" + d20.Campaign.tokendisplay.bar2_rgb + ",0.75)",
+						n.beginPath(),
+						n.rect(-r + 3, d, Math.floor((2 * r - 6) * u), 8),
+						n.closePath(),
+						n.fill(),
+						n.beginPath(),
+						n.rect(-r + 3, d, 2 * r - 6, 8),
+						n.closePath(),
+						n.stroke(),
+						s++
+				}
+				var l = i.model.get("bar3_value")
+					, c = i.model.get("bar3_max");
+				if ("" != c && (window.is_gm || this.model.get("showplayers_bar3") || this.model.currentPlayerControls() && this.model.get("playersedit_bar3"))) {
+					var u = parseInt(l, 10) / parseInt(c, 10)
+						, d = -o - 20 + 24;
+					n.fillStyle = "rgba(" + d20.Campaign.tokendisplay.bar3_rgb + ",0.75)",
+						n.beginPath(),
+						n.rect(-r + 3, d, Math.floor((2 * r - 6) * u), 8),
+						n.closePath(),
+						n.fill(),
+						n.beginPath(),
+						n.rect(-r + 3, d, 2 * r - 6, 8),
+						n.closePath(),
+						n.stroke()
+				}
+				var h, p, g = 1, f = !1;
+				switch (d20.Campaign.get("markers_position")) {
+					case "bottom":
+						h = o - 10,
+							p = r;
+						break;
+					case "left":
+						h = -o - 10,
+							p = -r,
+							f = !0;
+						break;
+					case "right":
+						h = -o - 10,
+							p = r - 18,
+							f = !0;
+						break;
+					default:
+						h = -o + 10,
+							p = r
+				}
+				// BEGIN MOD
+				n.strokeStyle = "white";
+				n.lineWidth = 3 * scaleFact;
+				const scaledFont = 14 * scaleFact;
+				n.font = "bold " + scaledFont + "px Arial";
+				// END MOD
+				_.each(a, function (e) {
+					var t = d20.token_editor.statusmarkers[e.split("@")[0]];
+					if (!t)
+						return !0;
+					if ("dead" === e)
+						return !0;
+					var i = 0;
+					if (g--,
+					"#" === t.substring(0, 1))
+						n.fillStyle = t,
+							n.beginPath(),
+							f ? h += 16 : p -= 16,
+							n.arc(p + 8, f ? h + 4 : h, 6, 0, 2 * Math.PI, !0),
+							n.closePath(),
+							n.stroke(),
+							n.fill(),
+							i = f ? 10 : 4;
+					else {
+						// BEGIN MOD
+						if (!d20.token_editor.statussheet_ready) return;
+						const scaledWH = 21 * scaleFact;
+						const scaledOffset = 22 * scaleFact;
+						f ? h += scaledOffset : p -= scaledOffset;
+
+						if (d20.engine.canvasZoom <= 1) {
+							n.drawImage(d20.token_editor.statussheet_small, parseInt(t, 10), 0, 21, 21, p, h - 9, scaledWH, scaledWH);
+						} else {
+							n.drawImage(d20.token_editor.statussheet, parseInt(t, 10), 0, 24, 24, p, h - 9, scaledWH, scaledWH)
+						}
+
+						i = f ? 14 : 12;
+						i *= scaleFact;
+						// END MOD
+					}
+					if (-1 !== e.indexOf("@")) {
+						var r = e.split("@")[1];
+						// BEGIN MOD
+						// bing backtick to "clear counter"
+						if (r === "`") return;
+						n.fillStyle = "rgb(222,31,31)";
+						var o = f ? 9 : 14;
+						o *= scaleFact;
+						o -= (14 - (scaleFact * 14));
+						n.strokeText(r + "", p + i, h + o);
+						n.fillText(r + "", p + i, h + o);
+						// END MOD
+					}
+				});
+				var m = i.model.get("name");
+				if ("" != m && 1 == this.model.get("showname") && (window.is_gm || this.model.get("showplayers_name") || this.model.currentPlayerControls() && this.model.get("playersedit_name"))) {
+					n.textAlign = "center";
+					// BEGIN MOD
+					const fontSize = 14;
+					var scaledFontSize = fontSize * scaleFact;
+					const scaledY = 22 * scaleFact;
+					const scaled6 = 6 * scaleFact;
+					const scaled8 = 8 * scaleFact;
+					n.font = "bold " + scaledFontSize + "px Arial";
+					var v = n.measureText(m).width;
+
+					/*
+						Note(stormy): compatibility with R20ES's ScaleTokenNamesBySize module.
+					 */
+					if(window.r20es && window.r20es.drawNameplate) {
+						window.r20es.drawNameplate(this.model, n, v, o, fontSize, m);
+					} else {
+						n.fillStyle = "rgba(255,255,255,0.50)";
+						n.fillRect(-1 * Math.floor((v + scaled6) / 2), o + scaled8, v + scaled6, scaledFontSize + scaled6);
+						n.fillStyle = "rgb(0,0,0)";
+						n.fillText(m + "", 0, o + scaledY, v);
+					}
+					// END MOD
+				}
+				n.restore()
+			}
+		}
+		// END ROLL20 CODE
+	});
+};
+
+// Attached to the markermenu mouseenter event. While a status icon is hovered,
+// any number key press sets that counter on the selected token's marker. Backtick clears it.
+d20plus.mod.mouseEnterMarkerMenu = function () {
+	var e = this;
+	$(this).on("mouseover.statusiconhover", ".statusicon", function () {
+		a = $(this).attr("data-action-type").replace("toggle_status_", "")
+	}),
+		$(document).on("keypress.statusnum", function (t) {
+			// BEGIN MOD // TODO see if this clashes with keyboard shortcuts
+			let currentcontexttarget = d20.engine.selected()[0];
+			if ("dead" !== a && currentcontexttarget) {
+				// END MOD
+				var n = String.fromCharCode(t.which)
+					,
+					i = "" == currentcontexttarget.model.get("statusmarkers") ? [] : currentcontexttarget.model.get("statusmarkers").split(",")
+					, r = (_.map(i, function (e) {
+						return e.split("@")[0]
+					}),
+						!1);
+				i = _.map(i, function (e) {
+					return e.split("@")[0] == a ? (r = !0,
+					a + "@" + n) : e
+				}),
+				r || ($(e).find(".statusicon[data-action-type=toggle_status_" + a + "]").addClass("active"),
+					i.push(a + "@" + n)),
+					currentcontexttarget.model.save({
+						statusmarkers: i.join(",")
+					})
+			}
+		})
+};
+
+
+/**
+ * WHAT THIS DOES:
+ * When a GM holds Shift and hovers over a token, displays the token's GM Notes field
+ * as a floating tooltip positioned over the canvas.
+ *
+ * TODO: Check if d20.engine.renderLoop still exists and is a plain replaceable function.
+ * If Roll20 moved to requestAnimationFrame directly, hook _drawTokenHover via
+ * d20.engine.canvas.on("after:render") instead. This feature has no Roll20 API
+ * dependencies beyond renderLoop and canvas mouse events — likely easy to restore.
+ *
+ * Originally in: js/base/base-engine.js
+ */
+
+// Holds the current hover state: { pt, text, id } or null when not hovering.
+d20plus.engine._tokenHover = null;
+
+// Called each render frame; removes any existing tooltip and redraws it at the
+// current cursor position if _tokenHover is populated.
+d20plus.engine._drawTokenHover = () => {
+	$(`.Vetools-token-hover`).remove();
+	if (!d20plus.engine._tokenHover || !d20plus.engine._tokenHover.text) return;
+
+	const pt = d20plus.engine._tokenHover.pt;
+	const txt = unescape(d20plus.engine._tokenHover.text);
+
+	$(`body`).append(`<div class="Vetools-token-hover" style="top: ${pt.y * d20.engine.canvasZoom}px; left: ${pt.x * d20.engine.canvasZoom}px">${txt}</div>`);
+};
+
+// Wraps d20.engine.renderLoop to call _drawTokenHover every frame, and hooks
+// canvas mouse:move to populate _tokenHover when Shift is held over a token.
+d20plus.engine.addTokenHover = () => {
+	// gm notes on shift-hover
+	const cacheRenderLoop = d20.engine.renderLoop;
+	d20.engine.renderLoop = () => {
+		d20plus.engine._drawTokenHover();
+		cacheRenderLoop();
+	};
+
+	// store data for the rendering function to access
+	d20.engine.canvas.on("mouse:move", (data, ...others) => {
+		// enable hover from GM layer -> token layer
+		let hoverTarget = data.target;
+		if (data.e && window.currentEditingLayer === "gmlayer") {
+			const cache = window.currentEditingLayer;
+			window.currentEditingLayer = "objects";
+			hoverTarget = d20.engine.canvas.findTarget(data.e, null, true);
+			window.currentEditingLayer = cache;
+		}
+
+		if (data.e.shiftKey && hoverTarget && hoverTarget.model) {
+			d20.engine.redrawScreenNextTick();
+			const gmNotes = hoverTarget.model.get("gmnotes");
+			const pt = d20.engine.canvas.getPointer(data.e);
+			pt.x -= d20.engine.currentCanvasOffset[0];
+			pt.y -= d20.engine.currentCanvasOffset[1];
+			d20plus.engine._tokenHover = {
+				pt: pt,
+				text: gmNotes,
+				id: hoverTarget.model.id,
+			};
+		} else {
+			if (d20plus.engine._tokenHover) d20.engine.redrawScreenNextTick();
+			d20plus.engine._tokenHover = null;
+		}
+	})
+};
+
+
+/**
+ * WHAT THIS DOES:
+ * Adds custom layer-switcher buttons to the Roll20 toolbar for the extra layers
+ * (Floor, Roof, Weather mask). A secondary panel expands
+ * from an "extras" button, showing one button per enabled extra layer. Each button
+ * switches the editing layer and has a toggle (eye icon) to hide/show that layer's
+ * tokens. The active layer icon is mirrored on the main toolbar button.
+ *
+ * Some duplicated stuff with engine layers that can be merged together.
+ *
+ * TODO: Verify the toolbar button selectors still exist in the Jumpgate DOM.
+ * The logic itself is self-contained jQuery UI code — if the selectors are right
+ * it should work. Check also that d20plus.html.layerSecondaryPanel and
+ * d20plus.html.layerExtrasButton templates still render correctly.
+ *
+ * Originally in: js/base/base-ui.js
+ */
+
+// Local helpers — only usable from addQuickUiGm's event handlers.
+
+// Switches the active editing layer to a betterR20 extra layer and updates toolbar state.
+const switchToB20Layer = (evt) => {
+	const $selected = $(evt.currentTarget);
+	const $icon = $selected.find(".icon-slot");
+	const icon = $icon.find("span").text();
+	const $roll20LayersButton = $("#layers-menu-button").find(".grimoire__roll20-icon");
+
+	currentEditingLayer = $selected.data("layer");
+	d20.Campaign.activePage().onLayerChange();
+	d20plus.ui.b20LayersActive = true;
+
+	d20plus.ui.secondaryPanel.buttons.removeClass("b20-selected");
+	d20plus.ui.secondaryPanel.iconSlots.removeClass("icon-selected");
+
+	$selected.addClass("b20-selected");
+	$icon.addClass("icon-selected icon-circle");
+	d20plus.ui.$r20Buttons.removeClass("icon-selected").attr("style", "");
+	d20plus.ui.extraButton.icon.text(icon);
+	$roll20LayersButton.css({"font-family": "Pictos", "font-size": "1.5em"});
+	$roll20LayersButton.text(icon);
+};
+
+// Toggles the secondary panel open/closed from either the extras button or the main layers button.
+const switchLayersToolbar = (evt) => {
+	if (evt.delegateTarget.id === "extra-layer-button") {
+		d20plus.ui.$secondaryPanel
+			.css({left: "60px"})
+			.toggle();
+		if (d20plus.ui.$secondaryPanel.css("display") === "none"
+			&& d20plus.ui.b20LayersActive) {
+			d20plus.ui.extraButton.button.addClass("b20-selected");
+			d20plus.ui.extraButton.iconSlot.addClass("icon-selected");
+		} else {
+			d20plus.ui.extraButton.button.removeClass("b20-selected");
+		}
+	} else {
+		const roll20ToolbarVisible = $("#tokens-layer-button").parent().is(":visible");
+		d20plus.ui.$secondaryPanel
+			.css({left: "110px"})
+			.toggle(roll20ToolbarVisible);
+	}
+};
+
+// Resets toolbar state when switching back to a native Roll20 layer.
+d20plus.ui.switchToR20Layer = (evt) => {
+	d20plus.ui.secondaryPanel.buttons.removeClass("b20-selected");
+	d20plus.ui.secondaryPanel.iconSlots.removeClass("icon-selected").addClass("icon-circle");
+	d20plus.ui.extraButton.button.removeClass("b20-selected");
+	d20plus.ui.extraButton.icon.text("|");
+	d20plus.ui.b20LayersActive = false;
+
+	// the following check with setTimeout is required to properly process native r20 buttons.
+	// Without it the previously active layer won't be activated again
+	const $triggeredBy = $(evt?.target || "#tokens-layer-button .icon-slot");
+	const $pressed = $triggeredBy.closest(".toolbar-button-outer");
+	const $pressedIcon = $triggeredBy.closest(".icon-slot");
+	const $pressedButton = $triggeredBy.closest(".toolbar-button-inner");
+	const isFirstButton = $pressed.attr("id") === d20plus.ui.r20Buttons[0].id;
+	const $roll20LayersButton = $("#layers-menu-button").find(".grimoire__roll20-icon");
+	const secondaryPanelHidden = d20plus.ui.$secondaryPanel.css("display") === "none";
+
+	if (secondaryPanelHidden) d20plus.ui.extraButton.iconSlot.addClass("icon-circle").removeClass("icon-selected");
+	$roll20LayersButton.css({"font-family": "Roll20Icons", "font-size": "1.3em"});
+
+	setTimeout(() => {
+		if ($pressedIcon.attr("style")) return;
+		const layer = d20plus.ui.r20Buttons.find(b => b.DOMid === $pressed.attr("id"));
+		if (!layer?.color) return;
+		$pressedIcon
+			.addClass("icon-selected")
+			.attr("style", `background-color: var(${layer.color});`);
+		currentEditingLayer = layer.id;
+		d20.Campaign.activePage().onLayerChange();
+	}, 100);
+};
+
+// Entry point: builds the extra layer button and secondary panel, appends them to the toolbar.
+d20plus.ui.addQuickUiGm = () => {
+	if (!d20plus.cfg.getOrDefault("canvas", "extraLayerButtons")) return;
+	const buttonsHmtl = d20plus.ui.b20Buttons.reduce((html, l) => {
+		l.enabled = d20plus.cfg.getOrDefault("canvas", l.cfg);
+		return `${html}${(l.enabled ? d20plus.html.layerSecondaryPanel(l) : "")}`;
+	}, "");
+	if (!d20plus.ui.b20Buttons.some(b => b.enabled)) return;
+
+	d20plus.ui.$extraButton = $(d20plus.html.layerExtrasButton);
+	d20plus.ui.$secondaryPanel = $(`
+		<div class="drawer-outer b20" style="left: 111px;display:none">
+		${buttonsHmtl}</div>
+	`);
+
+	d20plus.ui.extraButton = {
+		icon: d20plus.ui.$extraButton.find(".icon-slot span"),
+		iconSlot: d20plus.ui.$extraButton.find(".icon-slot"),
+		button: d20plus.ui.$extraButton.find(".toolbar-button-inner"),
+	};
+
+	d20plus.ui.secondaryPanel = {
+		iconSlots: d20plus.ui.$secondaryPanel.find(".icon-slot"),
+		buttons: d20plus.ui.$secondaryPanel.find(".toolbar-button-inner"),
+	};
+
+	d20plus.ui.$r20Buttons = $("#tokens-layer-button")
+		.parent()
+		.find(".toolbar-button-outer:not(.b20) .icon-slot");
+
+	$("body").append(d20plus.ui.$secondaryPanel);
+	$("#map-layer-button").after(d20plus.ui.$extraButton);
+
+	d20plus.ui.$extraButton.on("mouseenter", ".toolbar-button-inner", (evt) => {
+		$(evt.currentTarget).find(".icon-slot").addClass("icon-selected").removeClass("icon-circle");
+	}).on("mouseleave", ".toolbar-button-inner", (evt) => {
+		if (d20plus.ui.b20LayersActive || d20plus.ui.$secondaryPanel.css("display") !== "none") return;
+		$(evt.currentTarget).find(".icon-slot").removeClass("icon-selected").addClass("icon-circle");
+	}).on(clicktype, ".toolbar-button-inner", switchLayersToolbar);
+
+	d20plus.ui.$secondaryPanel.on("mouseenter", ".toolbar-button-inner", (evt) => {
+		$(evt.currentTarget).find(".icon-slot").addClass("icon-selected").removeClass("icon-circle");
+	}).on("mouseleave", ".toolbar-button-inner", (evt) => {
+		if ($(evt.currentTarget).hasClass("b20-selected")) return;
+		$(evt.currentTarget).find(".icon-slot").removeClass("icon-selected").addClass("icon-circle");
+	}).on(clicktype, ".layer-toggle", (evt) => {
+		evt.stopPropagation();
+		const $layerIcon = $(evt.currentTarget).prev(".toolbar-button-inner");
+		const state = d20plus.engine.layersToggle($layerIcon.data("layer"));
+	}).on(clicktype, ".toolbar-button-inner", switchToB20Layer);
+
+	$(document.body)
+		.on("mouseup", d20plus.ui.r20Buttons.reduce((css, b) => {
+			return `${css}${css ? ", " : ""}#${b.DOMid}  .icon-slot`;
+		}, ""), d20plus.ui.switchToR20Layer)
+		.on(clicktype, "#layers-menu-button .toolbar-button-inner", switchLayersToolbar);
+
+	$("#playerzone").css({"z-index": 10100}); // otherwise it has the same z-index as native buttons
+};
+
+// Updates the visibility icon on the extra layer button for a given layer.
+// Called from engine-layers.js (layerVisibilityOff / layersVisibilityCheck).
+d20plus.ui.layerVisibilityIcon = (layer, state) => {
+	const $layerIcon = d20plus.ui.$secondaryPanel?.find(`[data-layer=${layer}]`);
+	$layerIcon?.toggleClass("layer-off", !state);
+}
+
+
+/**
+ * WHAT THIS DOES:
+ * Adds an animated weather overlay to the Roll20 map.
+ * This should need engine layers and ui layers to be restored to be working again. (sigh)
+ * A separate <canvas> element is injected on top of Roll20's canvas and driven by requestAnimationFrame
+ * Settings are stored as per-page custom properties (bR20cfg_weatherType1 etc.).
+ *
+ * Likely broken by Roll20 changes to the canvas
+ * container structure or setCanvasSize internals that this function wraps.
+ */
+d20plus.weather.addWeather = () => {
+    const $readyCheck = $("#editor-wrapper .canvas-container");
+    if (!d20.engine || !$readyCheck.length || !$readyCheck.width() || !$readyCheck.height()) {
+        setTimeout(d20plus.weather.addWeather, 100);
+        return;
+    }
+
+    window.force = false; // missing variable in Roll20's code(?); define it here
+
+    d20plus.ut.log("Adding weather");
+
+    const MAX_ZOOM = 2.5; // max canvas zoom
+    const tmp = []; // temp vector
+    // cache images
+    const IMAGES = {
+        "Rain": new Image(),
+        "Snow": new Image(),
+        "Fog": new Image(),
+        "Waves": new Image(),
+        "Ripples": new Image(),
+        "Blood Rain": new Image(),
+    };
+    IMAGES.Rain.src = "https://i.imgur.com/lZrqiVk.png";
+    IMAGES.Snow.src = "https://i.imgur.com/uwLQjWY.png";
+    IMAGES.Fog.src = "https://i.imgur.com/SRsUpHW.png";
+    IMAGES.Waves.src = "https://i.imgur.com/iYEzmvB.png";
+    IMAGES.Ripples.src = "https://i.imgur.com/fFCr0yx.png";
+    IMAGES["Blood Rain"].src = "https://i.imgur.com/SP2aoeq.png";
+    const SFX = {
+        lightning: [],
+    };
+
+    // FIXME find a better way of handling this; `clip` is super-slow
+    const clipMode = "EXCLUDE";
+
+    function SfxLightning () {
+        this.brightness = 255;
+    }
+
+    const $wrpEditor = $("#editor-wrapper");
+
+    // add custom canvas
+    const $wrpCanvas = $wrpEditor.find(".canvas-container");
+
+    // make buffer canvas
+    const $canBuf = $("<canvas style='position: absolute; z-index: -100; left:0; top: 0; pointer-events: none;' tabindex='-1'/>").appendTo($wrpCanvas);
+    const cvBuf = $canBuf[0];
+    const ctxBuf = cvBuf.getContext("2d");
+
+    // make weather canvas
+    const $canvasWeather = $("<canvas id='Vet-canvas-weather' style='position: absolute; z-index: 2; left:0; top: 0; pointer-events: none;' tabindex='-1'/>").appendTo($wrpCanvas);
+    const cv = $canvasWeather[0];
+    d20.engine.weathercanvas = cv;
+
+    // add our canvas to those adjusted when canvas size changes
+    // d20.engine.canvasWidth/canvasHeight don't reliably map to the container's actual
+    // width/height in the current canvas engine, so size off the DOM container directly
+    const resizeOverlay = () => {
+        cv.width = cvBuf.width = $wrpCanvas.width();
+        cv.height = cvBuf.height = $wrpCanvas.height();
+    };
+
+    const cachedSetCanvasSize = d20.engine.setCanvasSize;
+    d20.engine.setCanvasSize = function (...args) {
+        cachedSetCanvasSize(...args);
+        resizeOverlay();
+    };
+
+    resizeOverlay();
+
+    const ctx = cv.getContext("2d");
+
+    const CTX = {
+        _hasWarned: new Set(),
+    };
+
+    function ofX (x) { // offset X
+        return x - d20.engine.currentCanvasOffset[0];
+    }
+
+    function ofY (y) { // offset Y
+        return y - d20.engine.currentCanvasOffset[1];
+    }
+
+    function lineIntersectsBounds (points, bounds) {
+        return d20plus.math.doPolygonsIntersect([points[0], points[2], points[3], points[1]], bounds);
+    }
+
+    function copyPoints (toCopy) {
+        return [...toCopy.map(pt => [...pt])];
+    }
+
+    function getImage (page) {
+        const imageName = page.get("bR20cfg_weatherType1");
+
+        switch (imageName) {
+            case "Rain":
+            case "Snow":
+            case "Fog":
+            case "Waves":
+            case "Ripples":
+            case "Blood Rain":
+                IMAGES["Custom"] = null;
+                return IMAGES[imageName];
+            case "Custom (see below)":
+                if (!IMAGES["Custom"] || (
+                    (IMAGES["Custom"].src !== page.get("bR20cfg_weatherTypeCustom1") && IMAGES["Custom"]._errorSrc == null)
+                    || (IMAGES["Custom"]._errorSrc != null && IMAGES["Custom"]._errorSrc !== page.get("bR20cfg_weatherTypeCustom1")))
+                ) {
+                    IMAGES["Custom"] = new Image();
+                    IMAGES["Custom"]._errorSrc = null;
+                    IMAGES["Custom"].onerror = () => {
+                        if (IMAGES["Custom"]._errorSrc == null) {
+                            IMAGES["Custom"]._errorSrc = page.get("bR20cfg_weatherTypeCustom1");
+                            alert(`Custom weather image "${IMAGES["Custom"].src}" failed to load!`);
+                        }
+                        IMAGES["Custom"].src = IMAGES["Rain"].src;
+                    };
+                    IMAGES["Custom"].src = page.get("bR20cfg_weatherTypeCustom1");
+                }
+                return IMAGES["Custom"];
+            default:
+                IMAGES["Custom"] = null;
+                return null;
+        }
+    }
+
+    function getDirectionRotation (page) {
+        const dir = page.get("bR20cfg_weatherDir1") || d20plus.weather.props.weatherDir1;
+        switch (dir) {
+            case "Northerly": return 0.25 * Math.PI;
+            case "North-Easterly": return 0.5 * Math.PI;
+            case "Easterly": return 0.75 * Math.PI;
+            case "South-Easterly": return Math.PI;
+            case "Southerly": return 1.25 * Math.PI;
+            case "South-Westerly": return 1.5 * Math.PI;
+            case "Westerly": return 1.75 * Math.PI;
+            case "North-Westerly": return 0;
+            case "Custom (see below)":
+                return Number(page.get("bR20cfg_weatherDirCustom1") || d20plus.weather.props.weatherDirCustom1) * Math.PI / 180;
+            default: return 0;
+        }
+    }
+
+    function getOpacity (page) {
+        return page.get("bR20cfg_weatherOpacity1") || d20plus.weather.props.weatherOpacity1;
+    }
+
+    let oscillateMode = null;
+    function isOscillating (page) {
+        return !!page.get("bR20cfg_weatherOscillate1");
+    }
+
+    function getOscillationThresholdFactor (page) {
+        return page.get("bR20cfg_weatherOscillateThreshold1") || d20plus.weather.props.weatherOscillateThreshold1;
+    }
+
+    function getIntensity (page) {
+        const tint = page.get("bR20cfg_weatherIntensity1");
+        switch (tint) {
+            case "Heavy": return 1;
+            default: return 0;
+        }
+    }
+
+    function getTintColor (page) {
+        const tintEnabled = page.get("bR20cfg_weatherTint1");
+        if (tintEnabled) {
+            const tintOpacity = page.get("bR20cfg_weatherTintOpacity1") || d20plus.weather.props.weatherTintOpacity1;
+            const tintOpacityHex = tintOpacity ? Math.round(255 * tintOpacity).toString(16) : 80;
+            return `${(page.get("bR20cfg_weatherTintColor1") || d20plus.weather.props.weatherTintColor1)}${tintOpacityHex}`;
+        } else return null;
+    }
+
+    function getEffect (page) {
+        const effect = page.get("bR20cfg_weatherEffect1");
+        switch (effect) {
+            case "Lightning": return "lightning";
+            default: return null;
+        }
+    }
+
+    function handleSvgCoord (coords, obj, basesXY, center, angle) {
+        const vec = [
+            ofX(coords[0] * obj.scaleX) + basesXY[0],
+            ofY(coords[1] * obj.scaleY) + basesXY[1],
+        ];
+        d20plus.math.vec2.scale(vec, vec, d20.engine.canvasZoom);
+        if (angle) d20plus.math.vec2.rotate(vec, vec, center, angle);
+        return vec;
+    }
+
+    let accum = 0;
+    let then = 0;
+    let image;
+    let currentSfx;
+    let hasWeather = false;
+    function drawFrame (now) {
+        const deltaTime = now - then;
+        then = now;
+
+        const page = d20 && d20.Campaign && d20.Campaign.activePage ? d20.Campaign.activePage() : null;
+        if (page && page.get("bR20cfg_weatherType1") !== "None") {
+            image = getImage(page);
+            currentSfx = getEffect(page);
+
+            // generate SFX
+            if (currentSfx) {
+                if (currentSfx === "lightning" && Math.random() > 0.999) SFX.lightning.push(new SfxLightning());
+            } else {
+                SFX.lightning = [];
+            }
+
+            if (hasWeather) ctx.clearRect(0, 0, cv.width, cv.height);
+            const hasImage = image && image.complete;
+            const tint = getTintColor(page);
+            const scaledW = hasImage ? Math.ceil((image.width * d20.engine.canvasZoom) / MAX_ZOOM) : -1;
+            const scaledH = hasImage ? Math.ceil((image.height * d20.engine.canvasZoom) / MAX_ZOOM) : -1;
+            const hasSfx = SFX.lightning.length;
+            if (hasImage || tint || hasSfx) {
+                hasWeather = true;
+
+                // draw weather
+                if (
+                    hasImage
+                    && !(scaledW <= 0 || scaledH <= 0) // sanity check
+                ) {
+                    // mask weather
+                    const doMaskStep = () => {
+                        ctxBuf.clearRect(0, 0, cvBuf.width, cvBuf.height);
+
+                        ctxBuf.fillStyle = "#ffffffff";
+
+                        // "weather" layer shape masking relied on Roll20's old Fabric.js object
+                        // model (d20.engine.canvas._objects), which no longer exists; skip masking
+                        // shapes until this is rebuilt against the current canvas engine.
+                        const maskObjects = d20.engine.canvas?._objects || [];
+                        const objectLen = maskObjects.length;
+                        for (let i = 0; i < objectLen; ++i) {
+                            const obj = maskObjects[i];
+                            if (obj.type === "path" && obj.model && obj.model.get("layer") === "weather") {
+                                // obj.top is X pos of center of object
+                                // obj.left is Y pos of center of object
+                                const xBase = (obj.left - (obj.width * obj.scaleX / 2));
+                                const yBase = (obj.top - (obj.height * obj.scaleY / 2));
+                                const basesXY = [xBase, yBase];
+                                const angle = (obj.angle > 360 ? obj.angle - 360 : obj.angle) / 180 * Math.PI;
+                                const center = [ofX(obj.left), ofY(obj.top)];
+                                d20plus.math.vec2.scale(center, center, d20.engine.canvasZoom);
+
+                                ctxBuf.beginPath();
+                                obj.path.forEach(opp => {
+                                    const [op, x, y, ...others] = opp;
+                                    switch (op) {
+                                        case "M": {
+                                            const vec = handleSvgCoord([x, y], obj, basesXY, center, angle);
+                                            ctxBuf.moveTo(vec[0], vec[1]);
+                                            break;
+                                        }
+                                        case "L": {
+                                            const vec = handleSvgCoord([x, y], obj, basesXY, center, angle);
+                                            ctxBuf.lineTo(vec[0], vec[1]);
+                                            break;
+                                        }
+                                        case "C": {
+                                            const control1 = handleSvgCoord([x, y], obj, basesXY, center, angle);
+                                            const control2 = handleSvgCoord([others[0], others[1]], obj, basesXY, center, angle);
+                                            const end = handleSvgCoord([others[2], others[3]], obj, basesXY, center, angle);
+                                            ctxBuf.bezierCurveTo(...control1, ...control2, ...end);
+                                            break;
+                                        }
+                                        default:
+                                            if (!CTX._hasWarned.has(op)) {
+                                                CTX._hasWarned.add(op);
+                                                // eslint-disable-next-line no-console
+                                                console.error(`UNHANDLED OP!: ${op}`);
+                                            }
+                                    }
+                                });
+                                ctxBuf.fill();
+                                ctxBuf.closePath();
+                            }
+                        }
+
+                        // draw final weather mask
+                        /// / change drawing mode
+                        ctx.globalCompositeOperation = "destination-out";
+                        ctx.drawImage(cvBuf, 0, 0);
+
+                        // handle opacity
+                        const opacity = Number(getOpacity(page));
+                        if (opacity !== 1) {
+                            ctxBuf.clearRect(0, 0, cvBuf.width, cvBuf.height);
+                            ctxBuf.fillStyle = `#ffffff${Math.round((1 - opacity) * 255).toString(16)}`;
+                            ctxBuf.fillRect(0, 0, cvBuf.width, cvBuf.height);
+                            ctx.drawImage(cvBuf, 0, 0);
+                        }
+
+                        /// / reset drawing mode
+                        ctx.globalCompositeOperation = "source-over";
+                    };
+
+                    // if (clipMode === "INCLUDE") doMaskStep(true);
+
+                    const speed = page.get("bR20cfg_weatherSpeed1") || d20plus.weather.props.weatherSpeed1;
+                    const speedFactor = speed * d20.engine.canvasZoom;
+                    const maxAccum = Math.floor(scaledW / speedFactor);
+                    const rot = getDirectionRotation(page);
+                    const w = scaledW;
+                    const h = scaledH;
+                    const boundingBox = [
+                        [
+                            -1.5 * w,
+                            -1.5 * h,
+                        ],
+                        [
+                            -1.5 * w,
+                            cv.height + (1.5 * h) + d20.engine.currentCanvasOffset[1],
+                        ],
+                        [
+                            cv.width + (1.5 * w) + d20.engine.currentCanvasOffset[0],
+                            cv.height + (1.5 * h) + d20.engine.currentCanvasOffset[1],
+                        ],
+                        [
+                            cv.width + (1.5 * w) + d20.engine.currentCanvasOffset[0],
+                            -1.5 * h,
+                        ],
+                    ];
+                    const BASE_OFFSET_X = -w / 2;
+                    const BASE_OFFSET_Y = -h / 2;
+
+                    // calculate resultant points of a rotated shape
+                    const pt00 = [0, 0];
+                    const pt01 = [0, 1];
+                    const pt10 = [1, 0];
+                    const pt11 = [1, 1];
+                    const basePts = [
+                        pt00,
+                        pt01,
+                        pt10,
+                        pt11,
+                    ].map(pt => [
+                        (pt[0] * w) + BASE_OFFSET_X - d20.engine.currentCanvasOffset[0],
+                        (pt[1] * h) + BASE_OFFSET_Y - d20.engine.currentCanvasOffset[1],
+                    ]);
+                    basePts.forEach(pt => d20plus.math.vec2.rotate(pt, pt, [0, 0], rot));
+
+                    // calculate animation values
+                    (() => {
+                        if (isOscillating(page)) {
+                            const oscThreshFactor = getOscillationThresholdFactor(page);
+
+                            if (oscillateMode == null) {
+                                oscillateMode = 1;
+                                accum += deltaTime;
+                                if (accum >= maxAccum * oscThreshFactor) accum -= maxAccum;
+                            } else {
+                                if (oscillateMode === 1) {
+                                    accum += deltaTime;
+                                    if (accum >= maxAccum * oscThreshFactor) {
+                                        accum -= 2 * deltaTime;
+                                        oscillateMode = -1;
+                                    }
+                                } else {
+                                    accum -= deltaTime;
+                                    if (accum <= 0) {
+                                        oscillateMode = 1;
+                                        accum += 2 * deltaTime;
+                                    }
+                                }
+                            }
+                        } else {
+                            oscillateMode = null;
+                            accum += deltaTime;
+                            if (accum >= maxAccum) accum -= maxAccum;
+                        }
+                    })();
+
+                    const intensity = getIntensity(page) * speedFactor;
+                    const timeOffsetX = Math.ceil(speedFactor * accum);
+                    const timeOffsetY = Math.ceil(speedFactor * accum);
+
+                    /// / rotate coord space
+                    ctx.rotate(rot);
+
+                    // draw base image
+                    const doDraw = (offsetX, offsetY) => {
+                        const xPos = BASE_OFFSET_X + timeOffsetX + offsetX - d20.engine.currentCanvasOffset[0];
+                        const yPos = BASE_OFFSET_Y + timeOffsetY + offsetY - d20.engine.currentCanvasOffset[1];
+                        ctx.drawImage(
+                            image,
+                            xPos,
+                            yPos,
+                            w,
+                            h,
+                        );
+
+                        if (intensity) {
+                            const offsetIntensity = -Math.floor(w / 4);
+                            ctx.drawImage(
+                                image,
+                                xPos + offsetIntensity,
+                                yPos + offsetIntensity,
+                                w,
+                                h,
+                            );
+                        }
+                    }
+
+                    const inBounds = (nextPts) => {
+                        return lineIntersectsBounds(nextPts, boundingBox);
+                    }
+
+                    const moveXDir = (pt, i, isAdd) => {
+                        if (i % 2) d20plus.math.vec2.sub(tmp, basePts[3], basePts[1]);
+                        else d20plus.math.vec2.sub(tmp, basePts[2], basePts[0]);
+
+                        if (isAdd) d20plus.math.vec2.add(pt, pt, tmp);
+                        else d20plus.math.vec2.sub(pt, pt, tmp);
+                    }
+
+                    const moveYDir = (pt, i, isAdd) => {
+                        if (i > 1) d20plus.math.vec2.sub(tmp, basePts[3], basePts[2]);
+                        else d20plus.math.vec2.sub(tmp, basePts[1], basePts[0]);
+
+                        if (isAdd) d20plus.math.vec2.add(pt, pt, tmp);
+                        else d20plus.math.vec2.sub(pt, pt, tmp);
+                    }
+
+                    const getMaxMoves = () => {
+                        const hyp = [];
+                        d20plus.math.vec2.sub(hyp, boundingBox[2], boundingBox[0]);
+
+                        const dist = d20plus.math.vec2.len(hyp);
+                        const maxMoves = dist / Math.min(w, h);
+                        return [Math.abs(hyp[0]) > Math.abs(hyp[1]) ? "x" : "y", maxMoves];
+                    };
+
+                    const handleXAxisYIncrease = (nxtPts, maxMoves, moves, xDir) => {
+                        const handleY = (dir) => {
+                            let subNxtPts, subMoves;
+                            subNxtPts = copyPoints(nxtPts);
+                            subMoves = 0;
+                            while (subMoves <= maxMoves[1]) {
+                                subNxtPts.forEach((pt, i) => moveYDir(pt, i, dir > 0));
+                                subMoves++;
+                                if (inBounds(subNxtPts)) doDraw(xDir * moves * w, dir * (subMoves * h));
+                            }
+                        };
+
+                        handleY(1); // y axis increasing
+                        handleY(-1); // y axis decreasing
+                    };
+
+                    const handleYAxisXIncrease = (nxtPts, maxMoves, moves, yDir) => {
+                        const handleX = (dir) => {
+                            let subNxtPts, subMoves;
+                            subNxtPts = copyPoints(nxtPts);
+                            subMoves = 0;
+                            while (subMoves <= maxMoves[1]) {
+                                subNxtPts.forEach((pt, i) => moveXDir(pt, i, dir > 0));
+                                subMoves++;
+                                if (lineIntersectsBounds(subNxtPts, boundingBox)) doDraw(dir * (subMoves * w), yDir * moves * h);
+                            }
+                        };
+
+                        handleX(1); // x axis increasing
+                        handleX(-1); // x axis decreasing
+                    };
+
+                    const handleBasicX = (maxMoves) => {
+                        const handleX = (dir) => {
+                            let nxtPts, moves;
+                            nxtPts = copyPoints(basePts);
+                            moves = 0;
+                            while (moves < maxMoves) {
+                                nxtPts.forEach((pt, i) => moveXDir(pt, i, dir > 0));
+                                moves++;
+                                if (lineIntersectsBounds(nxtPts, boundingBox)) doDraw(dir * (moves * w), 0);
+                            }
+                        };
+
+                        handleX(1); // x axis increasing
+                        handleX(-1); // x axis decreasing
+                    };
+
+                    const handleBasicY = (maxMoves) => {
+                        const handleY = (dir) => {
+                            let nxtPts, moves;
+                            nxtPts = copyPoints(basePts);
+                            moves = 0;
+                            while (moves < maxMoves) {
+                                nxtPts.forEach((pt, i) => moveYDir(pt, i, dir > 0));
+                                moves++;
+                                if (lineIntersectsBounds(nxtPts, boundingBox)) doDraw(0, dir * (moves * h));
+                            }
+                        };
+
+                        handleY(1); // y axis increasing
+                        handleY(-1); // y axis decreasing
+                    };
+
+                    doDraw(0, 0);
+
+                    (() => {
+                        // choose largest axis
+                        const maxMoves = getMaxMoves();
+
+                        if (maxMoves[0] === "x") {
+                            const handleX = (dir) => {
+                                let nxtPts, moves;
+                                nxtPts = copyPoints(basePts);
+                                moves = 0;
+                                while (moves < maxMoves[1]) {
+                                    nxtPts.forEach((pt, i) => moveXDir(pt, i, dir > 0));
+                                    moves++;
+                                    if (lineIntersectsBounds(nxtPts, boundingBox)) doDraw(dir * (moves * w), 0);
+                                    handleXAxisYIncrease(nxtPts, maxMoves, moves, dir);
+                                }
+                            };
+
+                            handleBasicY(maxMoves[1]);
+                            handleX(1); // x axis increasing
+                            handleX(-1); // x axis decreasing
+                        } else {
+                            const handleY = (dir) => {
+                                let nxtPts, moves;
+                                nxtPts = copyPoints(basePts);
+                                moves = 0;
+                                while (moves < maxMoves[1]) {
+                                    nxtPts.forEach((pt, i) => moveYDir(pt, i, dir > 0));
+                                    moves++;
+                                    if (lineIntersectsBounds(nxtPts, boundingBox)) doDraw(0, dir * (moves * h));
+                                    handleYAxisXIncrease(nxtPts, maxMoves, moves, dir);
+                                }
+                            };
+
+                            handleBasicX(maxMoves[1]);
+                            handleY(1); // y axis increasing
+                            handleY(-1); // y axis decreasing
+                        }
+                    })();
+
+                    /// / revert coord space rotation
+                    ctx.rotate(-rot);
+
+                    if (clipMode === "EXCLUDE") doMaskStep(false);
+                }
+
+                // draw sfx
+                if (hasSfx) {
+                    for (let i = SFX.lightning.length - 1; i >= 0; --i) {
+                        const l = SFX.lightning[i];
+                        if (l.brightness <= 5) {
+                            SFX.lightning.splice(i, 1);
+                        } else {
+                            ctx.fillStyle = `#effbff${l.brightness.toString(16).padStart(2, "0")}`;
+                            ctx.fillRect(0, 0, cv.width, cv.height);
+                            l.brightness -= Math.floor(deltaTime);
+                        }
+                    }
+                }
+
+                // draw tint
+                if (tint) {
+                    ctx.fillStyle = tint;
+                    ctx.fillRect(0, 0, cv.width, cv.height);
+                }
+            }
+
+            requestAnimationFrame(drawFrame);
+        } else {
+            // if weather is disabled, maintain a background tick
+            if (hasWeather) {
+                ctx.clearRect(0, 0, cv.width, cv.height);
+                hasWeather = false;
+            }
+            setTimeout(() => {
+                drawFrame(0);
+            }, 1000);
+        }
+    }
+
+    requestAnimationFrame(drawFrame);
+};
+
+/**
+ * Makes Array.prototype.filter and .map non-enumerable so 3d dice libraries
+ * that iterate arrays with for-in don't pick them up and break.
+ *
+ * Might be removed. THere's 3d dice in Roll20 and I find it so annoying that I will never enable it.
+ * Disabled (FIXME #165) pending a cleaner solution.
+ * Originally in: js/base/base-util.js
+ */
+
+d20plus.ut.fix3dDice = () => {
+	Object.defineProperty(Array.prototype, "filter", {
+		enumerable: false,
+		value: Array.prototype.filter,
+	});
+
+	Object.defineProperty(Array.prototype, "map", {
+		enumerable: false,
+		value: Array.prototype.map,
+	});
+};
+
+
+/**
+ * BetterActions character/token data — fetches and maps character sheet attributes
+ * to the BA panel's token list.
+ * Originally in: js/base/base-ba-character.js
+ */
+
+function baseBACharacters () {
+	d20plus.ba = d20plus.ba || {};
+
+	d20plus.ba.characters = [];
+	d20plus.ba.tokens = [];
+
+	d20plus.ba.characters.Connector = function (ref) {
+		const abilities = ["strength", "dexterity", "constitution", "intelligence", "wisdom", "charisma"];
+
+		const skills = {
+			acrobatics: "dexterity",
+			animal_handling: "wisdom",
+			arcana: "intelligence",
+			athletics: "strength",
+			deception: "charisma",
+			history: "intelligence",
+			insight: "wisdom",
+			intimidation: "charisma",
+			investigation: "intelligence",
+			medicine: "wisdom",
+			nature: "intelligence",
+			perception: "wisdom",
+			performance: "charisma",
+			persuasion: "charisma",
+			religion: "intelligence",
+			sleight_of_hand: "dexterity",
+			stealth: "dexterity",
+			survival: "wisdom",
+
+			initiative: "dexterity",
+		};
+
+		const prepareRawStats = (lvls, attrib, id, val) => {
+			if (!Array.isArray(lvls)) lvls = [lvls];
+			const max = attrib?.attributes.max;
+			let obj = this.sheet.data;
+			lvls.forEach(lvl => {
+				obj[lvl] = obj[lvl] || {};
+				obj = obj[lvl];
+			});
+			obj._ref = obj._ref || {};
+			obj._ref[id] = attrib;
+			obj[id] = val || attrib.attributes.current;
+			if (max !== undefined && max !== "") obj[`${id}_max`] = max;
+			if (lvls.length > 1) obj._id = lvls.last();
+		}
+
+		const prepareResources = () => {
+			const resources = { _ref: {} };
+			["other", "class"].forEach(r => {
+				const tag = this.sheet.data.stats[`${r}_resource_name`];
+				const num = this.sheet.data.stats[`${r}_resource`];
+				const ref = this.sheet.data.stats._ref[`${r}_resource`];
+				if (num !== undefined && tag) {
+					resources[tag] = num;
+					resources._ref[tag] = ref;
+				}
+			});
+			Object.entries(this.sheet.data.resources || {}).forEach(([id, r]) => {
+				["left", "right"].forEach(n => {
+					const tag = r[`resource_${n}_name`];
+					const num = r[`resource_${n}`];
+					if (num !== undefined && tag) {
+						resources[tag] = num;
+						resources._ref[tag] = this.sheet.data.resources[id]?._ref;
+					}
+				});
+			})
+			this.sheet.data.resources = resources;
+		}
+
+		const fetchAttribs = () => {
+			this.isNpc = false;
+			this.sheet.data = {
+				stats: {},
+				npcStats: {},
+				spellslots: {},
+			};
+			this.name = {
+				tk: this.refLastToken.attributes.name,
+				ch: this._ref.attributes.name,
+			};
+			this._ref.attribs?.models.forEach(prop => {
+				const [tag, type, id, ...attrPath] = prop.attributes.name.split("_");
+				const attr = attrPath.join("_");
+				const current = prop.attributes.current;
+				if (type === undefined) {
+					if (tag === "npc" && current === "1") this.isNpc = true;
+					else prepareRawStats("stats", prop, tag);
+				} else if (type === "slots") {
+					const lvl = tag.slice(-1);
+					prepareRawStats(["spellslots", lvl], prop, id);
+				} else if (tag === "repeating") {
+					const [stype, lvl] = type.split("-");
+					if (stype === "spell") {
+						if (lvl) {
+							prepareRawStats(["spells", id], prop, attr);
+							this.sheet.data.spells[id].lvl = lvl;
+						} else {
+							prepareRawStats("stats", prop, [type].concat(id || []).join("_"));
+						}
+					} else if (stype === "npcaction") {
+						prepareRawStats(["actions", id], prop, attr);
+						if (lvl) this.sheet.data.actions[id].actionType = lvl;
+					} else if (type === "attack") {
+						prepareRawStats(["attacks", id], prop, attr);
+					} else if (type === "inventory") {
+						prepareRawStats(["items", id], prop, attr);
+					} else if (["proficiencies", "tool", "resource"].includes(type)) {
+						const stype = type.last() === "s" ? type : `${type}s`;
+						prepareRawStats([stype, id], prop, attr);
+					} else if (["acmod", "damagemod", "savemod", "skillmod", "tohitmod"].includes(type)) {
+						const stype = type.split("mod")[0].replace("tohit", "attack");
+						prepareRawStats(["mods", stype, id], prop, attr);
+					} else if (type === "npctrait" || type === "traits") {
+						prepareRawStats(["traits", id], prop, attr);
+						prepareRawStats(["traits", id], undefined, "isTrait", true);
+					}
+				} else if (type === "reporder") {
+					prepareRawStats("order", prop, attr, current.split(","));
+				} else if (tag === "global" && id === "mod" && attr === "flag") {
+					prepareRawStats(["mods", "active"], prop, type);
+				} else if (tag === "npc") {
+					if (type === "name") this.name.npc = prop.attributes.current;
+					prepareRawStats("npcStats", prop, [type].concat(id || [], attr || []).join("_"));
+				} else {
+					if (prop.attributes.name === "charactersheet_type" && current === "npc") this.isNpc = true;
+					prepareRawStats("stats", prop, [tag].concat(type || [], id || [], attr || []).join("_"));
+				}
+			});
+		}
+
+		const getMod = (val) => {
+			return val
+				? `+${val}`.replace("++", "+").replace("+-", "-")
+				: "+0";
+		}
+
+		const filterVal = (val) => {
+			return val === undefined ? undefined : `${val}`;
+		}
+
+		const checkType = function (type) {
+			switch (type) {
+				case "ability": return abilities.includes(this.val);
+				case "ability_mod": return abilities.map(a => `${a}_mod`).includes(this.val);
+				case "ability_save": return abilities.map(a => `${a}_save`).includes(this.val);
+				case "skill": return Object.keys(skills).includes(this.val);
+				case "skill_mod": return Object.keys(skills).map(a => `${a}_mod`).includes(this.val);
+				case "skill_pb": return Object.keys(skills).map(a => `${a}_pb`).includes(this.val);
+			}
+		}
+
+		const getStats = (q) => {
+			const char = this.sheet.data.stats._ref;
+			const npc = this.sheet.data.npcStats._ref;
+			const str = {val: q, is: checkType};
+			if (str.is("ability")) return `${char[q]?.attributes.current}` || "10";
+			else if (str.is("ability_mod")) return getMod(char[q]?.attributes.current);
+			else if (str.is("ability_save")) {
+				return getMod(
+					(this.isNpc && filterVal(npc[`${q.substr(0, 3)}_save`]?.attributes.current))
+					|| char[`${q}_bonus`]?.attributes.current);
+			} else if (str.is("skill")) {
+				return `${10 + Number(
+					(this.isNpc && filterVal(npc[q]?.attributes.current))
+					|| char[`${q}_bonus`]?.attributes.current || 0)}`;
+			} else if (str.is("skill_mod")) {
+				q = q === "concentration_mod" ? "constitution" : q.replace("_mod", "");
+				return getMod(
+					(this.isNpc && filterVal(npc[q]?.attributes.current))
+					|| char[`${q}_bonus`]?.attributes.current);
+			} else if (q === "passive_perception") {
+				return `${
+					(this.isNpc && (10 + Number(filterVal(npc[`passive`]?.attributes.current)
+						|| filterVal(npc[`perception`]?.attributes.current)
+						|| filterVal(char[`perception_bonus`]?.attributes.current))))
+					|| char[`passive_wisdom`]?.attributes.current}`;
+			} else return (this.isNpc && filterVal(npc[q]?.attributes.current)) || char[q]?.attributes.current;
+		}
+
+		const types = {
+			spells: {
+				id: "spells",
+				utils: {
+					_char: () => this,
+					_get: function (q) {
+						if (q === "name") return this._ref.spellname?.attributes.current;
+						else if (q === "description") return this._ref.spelldescription?.attributes.current;
+						else if (q === "uses") {
+							if (this._resource === undefined) {
+								const resourceName = this._ref.innate?.attributes.current;
+								const resource = this._char().sheet.getResources(resourceName);
+								this._resource = resource || false;
+							}
+							return this._resource?.current;
+						}
+						return this._ref[q]?.attributes.current;
+					},
+					_has: function (q) {
+						switch (q) {
+							case "atk": return (
+								this._ref.spellattack?.attributes.current
+								&& this._ref.spellattack?.attributes.current !== "None"
+							);
+							case "dmg": return (
+								this._ref.spelldamage?.attributes.current
+								|| this._ref.spelldamage2?.attributes.current
+							);
+							case "dmgorheal": return (
+								this._ref.spelldamage?.attributes.current
+								|| this._ref.spelldamage2?.attributes.current
+								|| this._ref.spellhealing?.attributes.current
+							);
+							case "upcast": return (
+								!isNaN(this._ref.spellhldie?.attributes.current)
+								&& !!this._ref.spellhldietype?.attributes.current
+							);
+							case "action": return (
+								this._ref.spelldamage?.attributes.current
+								|| this._ref.spelldamage2?.attributes.current
+								|| this._ref.spellhealing?.attributes.current
+								|| (this._ref.spellattack?.attributes.current
+									&& this._ref.spellattack?.attributes.current !== "None")
+								|| this._ref.spellsave?.attributes.current
+							);
+							case "uses": {
+								if (this._resource) return true;
+								const resourceName = this._ref.innate?.attributes.current;
+								const resource = this._char().sheet.getResources(resourceName);
+								if (resource) {
+									this._resource = resource;
+									return true;
+								} else {
+									this._resource = false;
+									return false;
+								}
+							}
+							case "ritual": return (
+								this._ref.spellritual?.attributes.current !== "0"
+								&& this._ref.spellritual?.attributes.current
+							);
+							case "active": return this._ref.spellprepared?.attributes.current === "1"
+							case "save": return !!this._ref.spellsave?.attributes.current;
+						}
+					},
+				},
+			},
+			attacks: {
+				id: "attacks",
+				utils: {
+					_char: () => this,
+					_get: function (q) {
+						switch (q) {
+							case "name": return this._ref.atkname?.attributes.current;
+							case "range": return this._ref.atkrange?.attributes.current;
+							case "dmg1type": return this._ref.dmgtype?.attributes.current;
+							case "dmg2type": return this._ref.dmg2type?.attributes.current;
+							case "dmg1": return this._ref.attack_damage?.attributes.current;
+							case "dmg2": return this._ref.attack_damage2?.attributes.current;
+							case "attr": return this._ref.atkattr_base?.attributes.current.replace(/@{(.*?)}/, "$1");
+							default: return this._ref[q]?.attributes.current;
+						}
+					},
+					_has: function (q) {
+						switch (q) {
+							case "atk": return this._ref.atkflag?.attributes.current !== "0";
+							case "save": return !!this._ref.savedc?.attributes.current;
+							case "dmg1": return (
+								!!this._ref.dmgbase?.attributes.current
+								&& this._ref.dmgflag?.attributes.current !== "0");
+							case "dmg2": return (
+								!!this._ref.dmg2base?.attributes.current
+								&& this._ref.dmg2flag?.attributes.current !== "0");
+							case "pb": return this._ref.atkprofflag?.attributes.current !== "0"; // idiotic thing (pc only)?
+							case "range": return this._ref.atkrange?.attributes.current.includes("/");
+							default: return (
+								this._ref[q]?.attributes.current
+								&& this._ref[q]?.attributes.current !== "0");
+						}
+					},
+				},
+			},
+			actions: {
+				id: "actions", // npc's attack are stored here
+				utils: {
+					_char: () => this,
+					_get: function (q) {
+						switch (q) {
+							case "name": return this._ref.name?.attributes.current;
+							case "range": return this._ref.attack_range?.attributes.current;
+							case "dmg1type": return this._ref.attack_damagetype?.attributes.current;
+							case "dmg2type": return this._ref.attack_damagetype2?.attributes.current;
+							case "dmg1": return this._ref.attack_damage?.attributes.current;
+							case "dmg2": return this._ref.attack_damage2?.attributes.current;
+							case "attr": return undefined;
+							default: return this._ref[q]?.attributes.current;
+						}
+					},
+					_has: function (q) {
+						switch (q) {
+							case "atk": return this._ref.attack_flag?.attributes.current !== "0";
+							case "dmg1": return !!this._ref.attack_damage?.attributes.current;
+							case "dmg2": return !!this._ref.attack_damage2?.attributes.current;
+							case "pb": return false; // idiotic thing (pc only)?
+							case "save": return false;
+							case "range": return this._ref.attack_type?.attributes.current === "Ranged";
+							default: return (
+								this._ref[q]?.attributes.current
+								&& this._ref[q]?.attributes.current !== "0");
+						}
+					},
+				},
+			},
+			traits: {
+				id: "traits",
+				utils: {
+					_char: () => this,
+					_get: function (q) {
+						switch (q) {
+							case "name": return this._ref.name?.attributes.current;
+							case "description": return this._ref.description?.attributes.current;
+							case "resource": return this._ref.source_type?.attributes.current;
+							case "uses": {
+								if (this._resource === undefined) {
+									const resourceName = this._ref.source_type?.attributes.current;
+									const resource = this._char().sheet.getResources(resourceName);
+									this._resource = resource || false;
+								}
+								return this._resource?.current;
+							}
+							default: return this._ref[q]?.attributes.current;
+						}
+					},
+					_has: function (q) {
+						switch (q) {
+							case "atk": return false;
+							case "dmg1": return false;
+							case "dmg2": return false;
+							case "pb": return false;
+							case "save": return false;
+							case "range": return false;
+							case "action": return false;
+							case "uses": {
+								if (this._resource) return true;
+								const resourceName = this._ref.source_type?.attributes.current;
+								const resource = !!resourceName && this._char().sheet.getResources(resourceName);
+								if (resource) {
+									this._resource = resource;
+									return true;
+								} else {
+									this._resource = false;
+									return false;
+								}
+							}
+							default: return (
+								this._ref[q]?.attributes.current
+								&& this._ref[q]?.attributes.current !== "0"
+							);
+						}
+					},
+				},
+			},
+			items: {
+				id: "items",
+				utils: {
+					_char: () => this,
+					_get: function (q) {
+						switch (q) {
+							case "name": return this._ref.itemname?.attributes.current;
+							case "description": return this._ref.itemcontent?.attributes.current;
+							case "equipped": return this._ref.equipped?.attributes.current;
+							default: return this._ref[q]?.attributes.current;
+						}
+					},
+					_has: function (q) {
+						switch (q) {
+							case "atk": return false;
+							case "dmg1": return false;
+							case "dmg2": return false;
+							case "pb": return false;
+							case "save": return false;
+							case "range": return false;
+							case "action": return false;
+							case "active": return this._ref.equipped?.attributes.current !== "0"
+							default: return (
+								this._ref[q]?.attributes.current
+								&& this._ref[q]?.attributes.current !== "0"
+							);
+						}
+					},
+					_equip: function (toggle) {
+						const current = this._ref.equipped?.attributes.current !== "0";
+						const changing = toggle === undefined
+							? (current ? "0" : "1")
+							: (toggle ? "1" : "0");
+						this._ref.equipped?.save({current: changing});
+					},
+				},
+			},
+			/*
+			function (param) {
+				const char = d20plus.ba.getSingleChar();
+				const attr = {
+					name: {pc: "atkname", npc: "name"},
+					range: {pc: "atkrange", npc: "attack_range"},
+					hasattack: {pc: "atkflag", npc: "attack_flag", q: {false: ["0"]}},
+					hasdamage: {get: (at) => char.isNpc ? !!at.attack_damage : !!at.dmgbase && at.dmgflag !== "0"},
+					hasdamage2: {get: (at) => char.isNpc ? !!at.attack_damage2 : !!at.dmg2base && at.dmg2flag !== "0"},
+					damagetype: {pc: "dmgtype", npc: "attack_damagetype"},
+					damagetype2: {pc: "dmg2type", npc: "attack_damagetype2"},
+					profbonus: {pc: "atkprofflag", q: {false: ["0"]}},
+				}[param];
+				const val = char.isNpc ? this[attr?.npc] : this[attr?.pc];
+				if (attr.get) return attr.get(this);
+				else if (!attr.q) return val;
+				else return attr.q.true?.includes(val) || (attr.q.false && !attr.q.false.includes(val));
+			},
+			function (param) {
+				const char = d20plus.ba.getSingleChar();
+				const attr = {
+					hasattack: {get: (sp) => !!sp.spellattack && sp.spellattack !== "None"},
+					hasdamage: {get: (sp) => !!sp.spelldamage || !!sp.spelldamage2},
+					hasdamageorhealing: {get: (sp) => !!sp.spelldamage || !!sp.spelldamage2 || !!sp.spellhealing},
+					hassave: {get: (sp) => !!sp.spellsave && sp.spellsave !== ""},
+				}[param];
+				const val = char.isNpc ? this[attr?.npc] : this[attr?.pc];
+				if (attr.get) return attr.get(this);
+				else if (!attr.q) return val;
+				else return attr.q.true?.includes(val) || (attr.q.false && !attr.q.false.includes(val));
+			},
+			*/
+		}
+
+		this.sheet = {
+			get: (q) => {
+				for (let i = 0; i < Object.keys(types).length; i++) {
+					const list = this.sheet.data[types[Object.keys(types)[i]].id];
+					if (list && list[q]) return Object.assign({_id: q}, types[Object.keys(types)[i]].utils || {}, list[q]);
+				}
+				return this.sheet.data.stats?._ref && getStats(q);
+			},
+			getSpells: (lvl) => {
+				const all = this.sheet.data.spells || {};
+				return Object.keys(all).reduce((spls, id) => {
+					if (
+						(lvl && all[id].lvl !== lvl)
+						|| all[id]._ref.innate?.attributes.current
+					) return spls;
+					spls.push(Object.assign({}, types.spells.utils || {}, all[id]));
+					return spls;
+				}, []);
+			},
+			getTraits: () => {
+				const all = Object.assign({},
+					this.sheet.data.traits || {},
+					this.sheet.data.spells || {},
+					(this.isNpc && this.sheet.data.actions) || {},
+				);
+				return Object.keys(all).reduce((trts, id) => {
+					if (all[id].isTrait) {
+						trts.push(Object.assign({}, types.traits.utils || {}, all[id]));
+					} else if (all[id]._ref.innate?.attributes.current) {
+						trts.push(Object.assign({}, types.spells.utils || {}, all[id]));
+					} else if (this.isNpc
+							&& all[id]._ref.attack_flag
+							&& all[id]._ref.attack_flag.attributes.current !== "on") {
+						trts.push(Object.assign({}, types.actions.utils || {}, all[id]));
+					}
+					return trts;
+				}, []);
+			},
+			getAttacks: () => {
+				const all = this.isNpc
+					? this.sheet.data.actions || {}
+					: this.sheet.data.attacks || {};
+				const utils = this.isNpc
+					? types.actions.utils || {}
+					: types.attacks.utils || {};
+				return Object.keys(all).reduce((atks, id) => {
+					if (
+						(this.isNpc && all[id]._ref.attack_flag?.attributes.current === "on")
+						|| (!this.isNpc && !all[id].spellid)
+					) atks.push(Object.assign({}, utils || {}, all[id]));
+					return atks;
+				}, []);
+			},
+			getItems: () => {
+				const all = this.isNpc
+					? {}
+					: this.sheet.data.items || {};
+				const utils = types.items.utils || {};
+				return Object.keys(all).reduce((atks, id) => {
+					if (
+						(this.isNpc && all[id].attack_flag === "on")
+						|| (!this.isNpc && !all[id].spellid)
+					) atks.push(Object.assign({}, utils || {}, all[id]));
+					return atks;
+				}, []);
+			},
+			getResources: (name) => {
+				const resources = {};
+				[["default", {}]].concat(Object.entries(this.sheet.data.resources || {})).forEach(([id, r]) => {
+					const isDefault = id === "default";
+					const pair = isDefault ? ["other", "class"] : ["left", "right"];
+					pair.forEach(n => {
+						const pointer = isDefault ? `${n}_resource` : `resource_${n}`;
+						const stack = isDefault ? this.sheet.data.stats._ref : r._ref;
+						const name = stack[`${pointer}_name`]?.attributes.current;
+						const num = String(stack[pointer]?.attributes.current);
+						const pb = !!stack[`${pointer}_use_pb`]?.attributes.current
+							&& stack[`${pointer}_use_pb`].attributes.current !== "0";
+						if (num !== undefined && name) {
+							resources[name] = {
+								_ref: {
+									name: stack[`${pointer}_name`],
+									resource: stack[pointer],
+									pb: stack[`${pointer}_use_pb`],
+								},
+								name: name,
+								current: num,
+								type: isDefault ? "resource" : "repeated",
+								side: n,
+								max: pb ? this.sheet.get("pb") : stack[pointer].attributes.max,
+							};
+						}
+					});
+				});
+				return name ? resources[name] : resources;
+			},
+			getRollModifier: (r) => {
+				const r20q = /.*@{(?<attr>[^}]*)}.*/g;
+				return r?.split("+").reduce((res, attr) => {
+					return res + (Number(attr.replace(r20q, (...s) => this.sheet.get(s.last().attr))) || 0);
+				}, 0) || 0;
+			},
+			fetch: () => {
+				// d20plus.ut.log("Fetching character", this.sheet.fetched, this._ref.attribs.models.length)
+				if (this.sheet.fetched !== this._ref.attribs.models.length) {
+					this.sheet.fetched = this._ref.attribs.models.length;
+					fetchAttribs();
+				}
+			},
+			data: {
+				stats: {},
+				npcStats: {},
+				spellslots: {},
+			},
+			spellSlots: {
+				current: (lvl) => {
+					return this.sheet.data.spellslots
+					&& (this.sheet.data.spellslots[lvl]?._ref.expended?.attributes.current
+					|| this.sheet.data.spellslots[lvl]?._ref.total?.attributes.current
+					|| 0);
+				},
+				expended: (lvl) => {
+					const calc = this.sheet.data.spellslots && (
+						(this.sheet.data.spellslots[lvl]?._ref.total?.attributes.current || 0)
+						- (this.sheet.data.spellslots[lvl]?._ref.expended?.attributes.current || 0));
+					return calc >= 0 ? calc : 0;
+				},
+				max: (lvl) => {
+					return this.sheet.data.spellslots
+						&& (this.sheet.data.spellslots[lvl]?._ref.total?.attributes.current || 0);
+				},
+				expend: (lvl) => {
+					void 0;
+				},
+			},
+			fetched: 0,
+		};
+
+		this.ready = async () => {
+			return new Promise(resolve => {
+				let inProgress = 0;
+				const wait = setInterval(() => {
+					const statsFetched = Object.keys(this.sheet.data.stats).length > 1;
+					inProgress++;
+					if (statsFetched) resolve(true);
+					if (statsFetched || inProgress > 120) {
+						resolve(false);
+						clearInterval(wait);
+					}
+				}, 30);
+			});
+		}
+
+		this.refresh = () => {
+			if (d20plus.ba.current.singleChar?.character?.id !== this.id) return;
+			this.sheet.fetch();
+			this.sheet.data.stats?._ref && d20plus.ba.menu.refresh();
+		};
+
+		const init = async () => {
+			const gotToken = !ref.attribs;
+			if (gotToken && !ref.character && !ref._model?.character) return;
+
+			this._ref = ref._model?.character || ref.character || ref;
+			this.refLastToken = gotToken && (ref._model || ref);
+			this.id = this._ref.id;
+
+			await d20plus.ut.fetchCharAttribs(this._ref, true);
+			d20plus.ut.injectCode(
+				this._ref.attribs._callbacks.change.next,
+				"callback",
+				(callback, p) => {
+					callback(...p);
+					setTimeout(this.refresh, 100);
+				},
+			);
+
+			d20plus.ba.characters.push(this);
+			this.sheet.fetch();
+			this.refresh();
+		}
+
+		init();
+	}
+
+	d20plus.ba.tokens.Connector = function (ref) {
+		const getHP = (max) => {
+			return !max
+				? this._ref.attributes[`bar${this.hp.bar}_value`]
+				: this._ref.attributes[`bar${this.hp.bar}_max`];
+		};
+
+		this.hp = {
+			checkMode: () => {
+				this.hp.connected = false;
+				this.hp.bar = Number(d20plus.cfg.getOrDefault("chat", "dmgTokenBar"));
+				for (let i = 1; i < 4; i++) {
+					const attr = this._ref.attributes[`bar${i}_link`];
+					if (attr && this.character?.sheet.data.stats?._ref?.hp.id === attr) {
+						this.hp.connected = true;
+						this.hp.bar = i;
+					}
+				}
+			},
+			reduce: () => {
+				void 0;
+			},
+		}
+
+		this.refresh = () => {
+			if (!d20plus.ba.current.charTokens?.find(t => this.id === t.id)) return;
+			// d20plus.ut.log("Fetching token", this.get("name"), this.character.sheet.fetched, this.character._ref.attribs.models.length)
+			this.hp.checkMode();
+			d20plus.ba.menu.refresh();
+		}
+
+		this.select = () => {
+			d20.engine.select(this._object);
+		}
+
+		this.find = () => {
+			d20.engine.centerOnPoint(this._ref?.attributes?.left || 0, this._ref?.attributes?.top || 0);
+			// d20.token_editor.removeRadialMenu();
+		}
+
+		this.get = (q) => {
+			switch (q) {
+				case "image": return this._ref.attributes.imgsrc;
+				case "npc": return this.character?.isNpc;
+				case "hp": return getHP();
+				case "hp_max": return getHP("max");
+				case "name": return this._ref.attributes.name || "";
+				case "char_name": return this._ref.character.attributes.name || "";
+				case "npc_name": return this.character?.sheet.get("name") || "";
+				case "spells": return this.character?.sheet.getSpells();
+				case "attacks": return this.character?.sheet.getAttacks();
+				case "items": return this.character?.sheet.getItems();
+				case "traits": return this.character?.sheet.getTraits();
+				default: return this.character?.sheet.get(q);
+			}
+		}
+
+		this.ready = async () => {
+			return new Promise(resolve => {
+				let inProgress = 0;
+				const wait = setInterval(() => {
+					const statsFetched = Object.keys(this.character?.sheet?.data.stats || {}).length > 1;
+					inProgress++;
+					if (statsFetched) resolve(true);
+					if (statsFetched || inProgress > 120) {
+						resolve(false);
+						clearInterval(wait);
+					}
+				}, 30);
+			});
+		}
+
+		const init = async () => {
+			if ((ref?._model?.attributes || ref?.attributes)?.type !== "image") return;
+			if (!(ref?._model?.character || ref?.character)?.id) return;
+			this._ref = ref._model || ref;
+			this._object = ref._model
+				? ref
+				: d20.engine.canvas.getObjects()?.find(t => t._model?.id === this._ref.id);
+			this.id = this._ref.id;
+
+			const char = d20plus.ba.characters.get(this._ref.character.id);
+			this.character = char || await new d20plus.ba.characters.Connector(this._ref);
+			this.mods = {
+				general: {},
+				stats: {},
+				skills: {},
+				attacks: {},
+				spells: {filter: true},
+				items: {filter: true},
+				traits: {filter: true},
+			};
+
+			d20plus.ba.tokens.push(this);
+			this.refresh();
+		}
+
+		init();
+	}
+
+	d20plus.ba.initCharacters = () => {
+		const get = function (ref) {
+			return Object.isObject(ref)
+				? this.find(it => it.id === ref.id
+					|| it.id === ref._model?.id
+					|| it.id === ref.character?.id
+					|| it.id === ref._model?.character?.id)
+				: this.find(it => it.id === ref);
+		}
+
+		const ready = function (ref) {
+			const isToken = !!this.getCurrent;
+			if ((isToken && !ref?.id
+					&& !ref._model.id
+					&& !ref.character
+					&& !ref._model?.character)
+				|| (!isToken && !ref?.id
+					&& !ref.attribs)) return;
+
+			const existing = this.get(ref.id || this._model?.id);
+			const created = existing || new this.Connector(ref);
+
+			existing?.refresh();
+			return existing || created;
+		}
+
+		d20plus.ba.tokens.get = get;
+		d20plus.ba.characters.get = get;
+
+		d20plus.ba.tokens.ready = ready;
+		d20plus.ba.characters.ready = ready;
+
+		d20plus.ba.tokens.getCurrent = () => {
+			return d20plus.ba.tokens.get(d20plus.ba.current.singleChar?.id);
+		}
+
+		d20plus.ba.tokens.focusCurrent = () => {
+			const token = d20plus.ba.tokens.getCurrent();
+			d20.engine.unselect();
+			token?.find();
+			token?.select();
+		}
+
+	}
+
+	window.d20debug = {
+		qattr: (q) => {
+			d20plus.ba.characters.forEach(ch => d20plus.ut.log(ch.name.tk, ch.sheet.get(q)));
+			d20plus.ut.log(`Quering ${q}: ${d20plus
+				.ba.characters
+				.reduce((r, ch) => `${r}\n${ch.name.ch}:\t ${ch.sheet.get(q)}`, "")
+			}`);
+		},
+	}
+}
+
+SCRIPT_EXTENSIONS.push(baseBACharacters);
+
+/**
+ * BetterActions roll templates — HTML and Roll20 macro strings for attacks, saves,
+ * skills, and spells displayed in the BA panel.
+ * Originally in: js/base/base-ba-rolltemplates.js
+ */
+
+function baseBARollTemplates () {
+	d20plus.ba = d20plus.ba || {};
+
+	const targetTag = `@{target|token_id}`;
+	const targetName = `@{target|token_name}`;
+	const normalizeStyle = `color: inherit;text-decoration: none;cursor: auto;`;
+
+	const getRollMode = () => {
+		const adv = d20plus.ba.$dom.menu.find(".ba-list .mods:visible .advantage input").prop("checked");
+		const dis = d20plus.ba.$dom.menu.find(".ba-list .mods:visible .disadvantage input").prop("checked");
+		return adv ? "advantage" : dis ? "disadvantage" : "normal";
+	}
+
+	const getWMode = () => {
+		const togm = d20plus.ba.$dom.menu.find(".ba-list .mods:visible .togm input").prop("checked");
+		return togm ? "/w gm " : "";
+	}
+
+	const getTemplatePart = ([tag, val, props], subtree) => {
+		if ((!tag && !subtree) || props === false || props?.q === false) return "";
+		if (Array.isArray(val)) val = val.reduce((s, v) => s + getTemplatePart([null].concat(v), true), "");
+		else val = props?.css ? `[${val || " "}]("style="${normalizeStyle}${props.css}")` : val;
+		const left = props?.left || (props?.lcss ? `[ ]("style="${props?.lcss}")` : "");
+		const right = props?.right || (props?.rcss ? `[ ]("style="${props?.rcss}")` : "");
+		return `${tag ? `${tag}=` : ""}${left}${val}${right}`;
+	}
+
+	const getTemplateVar = (v) => {
+		if (v.q === false || (!v.tag && !v.isSubStr) || (!v.val && v.q === undefined)) return "";
+		if (Array.isArray(v.val)) {
+			const getSubVal = (s, v) => s + getTemplateVar(Object.assign(v, {isSubStr: true}));
+			const subVal = v.val.reduce(getSubVal, "");
+			v.val = v.css ? `[${subVal}]("style="${normalizeStyle}${v.css}")` : subVal;
+		} else {
+			if (v.css) v.val = (v.val || " ").replaceAll("]", "&#93;");
+			v.val = v.css ? `[${v.val}]("style="${normalizeStyle}${v.css}")` : v.val;
+		}
+		return `${v.tag ? `${v.tag}=` : ""}${v.val}`;
+	}
+
+	/* eslint-disable object-property-newline */
+	const buildAbilityTemplate = (v) => {
+		const tmplModel = [
+			{tag: v.rMode,	val: `1`},
+			{tag: `rname`,	val: v.title, css: `color:${v._isNpc ? "#9a384f" : "#607429"};`},
+			{tag: `name`,	val: `${v.subTitle || ""} (${v.mod || 0})`},
+			{tag: `type`,	val: v.attrName, css: `display:inline-block;width:50%;font-style: normal;margin: 2px 0px;vertical-align: middle;text-align: right;padding-right: 5px;line-height: 14px;letter-spacing: -1px;`},
+			{tag: `r1`,	val: [
+				{val: ` `, css: `display: inline-block;margin-left:-8px;`},
+				{val: `[[${v.r1}${v.dc ? `[chk${v.dc}]` : ""}]]`},
+			]},
+			{tag: `r2`,	val: [
+				{val: `[[${v.r2 || v.r1}${v.dc ? `[chk${v.dc}]` : ""}]]`},
+				{val: ` `, css: `display: inline-block;margin-right:-10px;`},
+			], q: v.rMode !== "normal"},
+		].map(getTemplateVar).filter(s => !!s).join("}} {{");
+		return `&{template:npc} ${v.hidden} {{${tmplModel}}}`;
+	}
+
+	const buildAttackTemplate = (v) => {
+		v.targetId = v._onSelf ? v._this.id : v.targetId;
+		const tmplModel = [
+			{tag: `attack`,	 val: "1"},
+			{tag: `crit`,	 val: "1"},
+			{tag: `damage`,	 val: "1"},
+			{tag: v.rMode,	 val: "1", q: !!v.atk1},
+			{tag: `range`,	 val: v.charName, css: `color:${v._isNpc ? "#9a384f" : "#607429"};${!v.atk1 || v.rMode === "" ? "margin-top: 12px;" : ""}font-weight:bold;display: inline-block;font-family: 'Times New Roman', Times;font-style: normal;font-variant: small-caps;font-size: 14px;`},
+			{tag: `rname`,	 val: v.title, css: `font-size: 13px;line-height: 16px;`},
+			{tag: `charname`, val: [
+				{val: v.subTitle, q: !!v.subTitle},
+				{val: ` `, q: !!v.targetName || !!v.saveAttr, css: `display: block;padding-bottom: 3px;`},
+				{val: [
+					{val: `^{on-hit:-u}`, css: `font-style: normal;display: block;`},
+					{val: `^{save} **^{difficulty-class-abv}${v.dc} ^{${v.saveAttr?.slice(0, 3)}-u}**`, css: `font-style: normal;display: block;`},
+				], q: !!v.saveAttr},
+				{val: [
+					{val: `^{target:} ${v.targetName}`},
+					{val: ` (${v.distance})`, q: !!v.distance},
+				], q: !!v.targetName},
+				{val: ` `, css: `display: block;padding-bottom: 8px;`},
+			]},
+			{tag: `mod`, val: [
+				{val: v.atkMod, q: v.rMode !== "" && !!v.atkMod},
+				{val: v.mod, q: !!v.mod},
+				{val: "⚕", q: !!v._isSpell, css: `color:#3737ff;font-weight:bold;`},
+			]},
+			{tag: `dmg1flag`, val: "1"},
+			{tag: `dmg1type`, val: v.dmg1type},
+			{tag: `dmg1`,	val: `[[${v.dmg1roll || 0}[${v.dmg1tag}${v.targetId}]]]`},
+			{tag: `crit1`,	val: `[[${v.crit1roll || 0}[${v.dmg1tag}${v.targetId}]]]`},
+			{tag: `dmg2flag`, val: "1", q: !!v.dmg2on},
+			{tag: `dmg2type`, val: v.dmg2type},
+			{tag: `dmg2`,	val: `[[${v.dmg2roll || 0}[${v.dmg2tag}${v.targetId}]]]`, q: !!v.dmg2on},
+			{tag: `crit2`,	val: `[[${v.crit2roll || 0}[${v.dmg2tag}${v.targetId}]]]`, q: !!v.dmg2on},
+			{tag: `r1`,		val: `[[${v.atk1}[atk${btoa(v.targetAc || "")}]]]`, q: !!v.atk1},
+			{tag: `r2`,		val: `[[${v.atk2 || v.atk1}[atk${btoa(v.targetAc || "")}]]]`, q: v.rMode !== "normal"},
+		].map(getTemplateVar).filter(s => !!s).join("}} {{");
+		return `&{template:atkdmg} ${v.hidden || ""} {{${tmplModel}}}`;
+	}
+
+	const buildCastTemplate = (v) => {
+		const tmplModel = [
+			{tag: `attack`,	 val: "1"},
+			{tag: `damage`,	 val: "1"},
+			{tag: `mod`,	 val: "⚕", css: `color:#3737ff;font-weight:bold;`},
+			{tag: `range`,	 val: v.charName, css: `color:${v._isNpc ? "#9a384f" : "#607429"};margin-top: 12px;font-weight:bold;display: inline-block;font-family: 'Times New Roman', Times;font-style: normal;font-variant: small-caps;font-size: 14px;`},
+			{tag: `rname`,	 val: v.title, css: `font-size: 13px;line-height: 16px;`},
+			{tag: `charname`, val: [
+				{val: v.subTitle, css: `display:inline-block;`},
+				{val: [
+					{val: ` `, css: `display: block;padding-bottom: 7px;`},
+					{val: `^{difficulty-class-abv}${v.dc} ^{${v.saveAttr?.slice(0, 3)}-u}`, css: `display: block;font-weight:bold;font-size:13px;`},
+					{val: [
+						{val: `^{target:} ${v.targetName}`},
+						{val: ` (${v.distance})`, q: !!v.distance},
+					], q: !!v.targetName, css: `display: block;`},
+					{val: `^{save}`, css: `display: block;`},
+					{val: ` `, css: `display: block;padding-bottom: 7px;`},
+				]},
+			]},
+			// {tag: `mod`,	 val: v.atkMod},
+			{tag: `dmg1type`,	val: [
+				{val: `^{damage:-u}%NEWLINE%^{failures-u}`, css: "font-size:8px;line-height:8px;display:block;padding:4px 0px;"},
+				{val: v.dmg1type ? `${v.dmg1type || ""} ${v.dmg2type || ""}` : "", q: !!v.dmg1type || !!v.dmg2type, css: `display: block;padding-bottom: 7px;width: 180px;font-style: normal;`},
+			]},
+			{tag: `dmg2type`,	val: `^{damage:-u}%NEWLINE%^{successes-u}`, css: "font-size:8px;line-height:8px;display:block;padding:4px 0px;"},
+			{tag: `dmg1flag`,	val: "1"},
+			{tag: `dmg2flag`,	val: "1"},
+			{tag: "dmg1", val: v.dmgOnFail},
+			{tag: "dmg2", val: v.dmgOnSuccess},
+		].map(getTemplateVar).filter(s => !!s).join("}} {{");
+		v.hidden = v.hidden || `[[ floor([[${v.dmg1roll}${v.dmg1type ? `[${v.dmg1type}]` : ""} ${v.dmg2roll ? `+ ${v.dmg2roll}${v.dmg2type ? `[${v.dmg2type}]` : ""}` : ""}[dmg${v.targetId}]]]/2) [dmg${v.targetId}] ]]`;
+		return `&{template:atkdmg} ${v.hidden || ""} {{${tmplModel}}}`;
+	}
+
+	const buildActionTemplate = (v) => {
+		const tmplModel = [
+			// {tag: v.rMode,	val: "1", q: !!v.dmg1on},
+			// {tag: `attack`,	val: "1", q: !!v.dmg1on},
+			{tag: `mod`,	 val: "⚕", css: `color:#3737ff;font-weight:bold;`},
+			{tag: `rname`,	 val: [
+				{val: v.charName, css: `color:${v._isNpc ? "#9a384f" : "#607429"};margin-top: 12px;font-weight:bold;display:block;font-family: 'Times New Roman', Times;font-style: normal;font-variant: small-caps;font-size: 14px;`},
+				{val: v.title, css: `font-size: 13px;line-height: 16px;`},
+			]},
+			{tag: `charname`, val: [
+				{val: v.subTitle, css: `display:inline-block;`},
+				{val: [
+					{val: ` `, css: `display: block;padding-bottom: 7px;`},
+					{val: `^{difficulty-class-abv}${v.dc} ^{${v.saveAttr?.slice(0, 3)}-u}`, q: !!v.saveAttr, css: `display: block;font-weight:bold;font-size:13px;`},
+					{val: [
+						{val: `^{target:} ${v.targetName}`},
+						{val: ` (${v.distance})`, q: !!v.distance},
+					], q: !!v.targetName, css: `display: block;`},
+					{val: `^{save}`, q: !!v.saveAttr, css: `display: block;`},
+					{val: ` `, css: `display: block;padding-bottom: 7px;`},
+				]},
+			]},
+		].map(getTemplateVar).filter(s => !!s).join("}} {{");
+		return `&{template:simple} ${v.hidden || ""} {{${tmplModel}}}`;
+	}
+
+	const buildDescriptionTemplate = (v) => {
+		const tmplModel = [
+			{tag: `name`,	val: v.title},
+			{tag: `source`,	val: [
+				{val: v.charName},
+				{val: v.subTitle},
+			]},
+			{tag: `description`, val: v.description, css: `display:block; overflow-y:auto; max-height:250px`},
+		].map(getTemplateVar).filter(s => !!s).join("}} {{");
+		return `&{template:traits} {{${tmplModel}}}`;
+	}
+
+	const getDescriptionTemplate = (token, id, type) => {
+		const char = d20plus.ba.getSingleChar(token);
+		const cat = char[type] || [];
+		const obj = cat[id];
+		if (!obj) return;
+		if (type === "spells") d20.textchat.doChatInput(`&{template:traits} {{name=${obj.spellname}}} {{source=${obj.spellschool || ""}}} {{description=${obj.spelldescription}}}`);
+		else if (type === "attacks") d20.textchat.doChatInput(`&{template:traits} {{name=${obj.atkname}}} {{source=${obj.spellschool || ""}}} {{description=${obj.atkdamagetype || ""}}}`);
+	}
+	/* eslint-enable object-property-newline */
+
+	const outputTemplate = (values) => {
+		const templateModel = {
+			ability: buildAbilityTemplate,
+			attack: buildAttackTemplate,
+			cast: buildCastTemplate,
+			action: buildActionTemplate,
+			description: buildDescriptionTemplate,
+		}[values?._modelType];
+
+		const template = templateModel && templateModel(values);
+		if (!template) return d20plus.ba.rollError(); d20plus.ut.log(values);
+
+		d20.textchat.doChatInput(`${getWMode()}${template}`);
+		if (values._expend) d20plus.engine.expendResources(values._expend);
+	}
+
+	const buildRollModel = (r) => {
+		const critrange = r.critrange && Number(r.critrange) !== 20 ? `cs>${r.critrange}` : "";
+		const base = !r.base ? ""
+			: r.base.toLowerCase().includes("d") ? r.base : `1d${r.base}${critrange}`;
+		const mods = r.mods?.reduce((s, m) => {
+			if (!m) return s;
+			const attr = m[1] ? `[${m[1]}]` : "";
+			const raw = String(m[0] || "0").split("+").map(d => {
+				if (!d) return "";
+				d = d.trim();
+				if (d[0] === "-" || (s === "" && !r.base) || d === "") return `${d}`;
+				else return `+${d}`;
+			}).join("");
+			return `${s} ${raw}${attr}`;
+		}, "")
+		const dmg = r.type ? `[${r.type}${r.target || "@{target|token_id"}]` : "";
+		return `${base}${mods}${dmg}`;
+	}
+
+	const buildDisplayMod = (r) => {
+		const base = !r.base || r.base === "20" ? ""
+			: r.base.toLowerCase().includes("d") ? "" : `D${r.base} `;
+		const mods = r.mods?.reduce((s, m) => {
+			if (!m) return s;
+			return s + (Number(m[0]) || 0);
+		}, 0) || 0; d20plus.ut.log("Building modifier", mods, r)
+		const sign = mods < 0 || !r.base ? "" : "+";
+		return `${base}${sign}${mods}`;
+	}
+
+	const getAbilityVals = (q) => { // spec, attr, dc
+		const [attr, dcTmp] = String(q.flags).split("|");
+		const dc = q.dc || dcTmp;
+		const spec = q.id;
+
+		const abbr = attr.slice(0, 3).toUpperCase();
+		const attrBase = attr.replaceAll(" ", "_").replaceAll("-", "_");
+		const attrId = spec === "save" ? `${attrBase}_save` : `${attrBase}_mod`;
+		const attrMod = q.token.get(attrId);
+
+		const roll = {
+			base: attr !== "hit dice" ? `20` : `${q.token.get("hitdietype")}`,
+			// type: spec === "hit dice" ? `heal` : null,
+			// target: spec === "hit dice" ? token.id : null,
+			mods: [
+				[attrMod, abbr],
+				attr === "initiative" ? [` `, `init${q.token.id}`] : null,
+				spec === "ability" && !q.token.get("npc") ? [`${q.token.get("jack_bonus")}`, "JACK"] : null,
+			],
+		}
+
+		if (attr === "hit dice") roll.mods[0] = [q.token.get("constitution_mod"), "CON"];
+		if (attr === "concentration") roll.mods[0] = [q.token.get("constitution_save"), "CON"];
+
+		const tmplVals = {
+			_this: q.token,
+			_thisId: q.token.character.id,
+			_isNpc: q.token.get("npc"),
+			_modelType: !["hit dice", "fall"].includes(attr) ? "ability" : "attack",
+			_onSelf: true,
+			dc,
+			rMode: getRollMode(),
+			title: attr !== "hit dice" ? q.token.get("name") : `^{hit-dice-u}`,
+			subTitle: `^{${spec === "ability" ? "abilities" : ["skill", "save", "roll"].includes(spec) ? spec : attr}}`,
+			attrName: `^{${spec === "save" ? `${attrBase}-save` : (["death save", "hit dice"].includes(attr) ? attr.split(" ").concat("u").join("-") : attrBase)}}`,
+			mod: buildDisplayMod(roll),
+			r1: buildRollModel(roll), // +$[[0]]`,
+			// r2: `[[${buildRollModel(roll)}]]`, // +$[[0]]`,
+
+			dmg1on: true,
+			dmg1tag: "heal",
+			dmg1type: `^{hp}`,
+			dmg1roll: buildRollModel(roll),
+			charName: q.token.get("name"),
+			targetId: q.token.id,
+		}
+
+		return tmplVals;
+	};
+
+	const getAttackVals = (q) => {
+		const atk = q.token.get(q.id);
+		const dmg = atk._get("rollbase_crit")?.match(/{{dmg1=\[\[(?<dmg1>[^}]*)\]\]}}(?:.*?){{dmg2=\[\[(?<dmg2>[^}]*)\]\]}}(?:.*?){{crit1=\[\[(?<crit1>[^}]*)\]\]}}(?:.*?){{crit2=\[\[(?<crit2>[^}]*)\]\]}}/)?.groups || {};
+		const atkattr = atk._get("attr");
+		const isNpc = q.token.get("npc");
+
+		const atkRoll = {
+			base: `20`,
+			critrange: atk._get("atkcritrange") || q.token.get("default_critical_range") || "20",
+			mods: [
+				isNpc ? [atk._get("attack_tohit"), "MOD"] : undefined,
+				!isNpc ? [atk._get("atkmod"), "MOD"] : undefined,
+				!isNpc ? [atk._get("atkmagic"), "MB"] : undefined,
+				atkattr ? [q.token.get(atkattr), atkattr?.slice(0, 3).toUpperCase()] : undefined,
+				atk._has("pb") && !isNpc ? [q.token.get("pb"), "PB"] : undefined,
+			],
+		}
+
+		const tmplVals = {
+			_this: q.token,
+			_thisId: q.token.character.id,
+			_isNpc: isNpc,
+			_onSelf: atk._get("range")?.includes("[S]"),
+			_targeted: atk._has("atk") || atk._has("dmg1") || atk._has("dmg2") || atk._has("save"),
+			_modelType: atk._has("atk") ? "attack" : atk._has("save") && atk._has("dmg1") ? "cast" : "action",
+			_expend: atk._get("ammo") ? {type: "item", name: atk._get("ammo"), charID: q.token.character.id} : undefined,
+
+			title: atk._get("name") || "^{attack-u}",
+			subTitle: [atk._get("range")?.replace(/\[\w\]/g, "").replaceAll("]", "&#93;"), i18n(atk._get("attack_type")?.toLowerCase(), "")]
+				.reduce((t, v) => v && (!t || `${t}, ${v}`.length < 27) ? `${t}${v && t ? ", " : ""}${v}` : t, ""),
+			charName: q.token.get("name"),
+			description: atk._get("description"),
+
+			dmg2on:	atk._has("dmg2"),
+			dmg1tag:	atk._get("dmg1type")?.includes("Healing") ? "heal" : "dmg",
+			dmg2tag:	atk._get("dmg2type")?.includes("Healing") ? "heal" : "dmg",
+			dmg1type:	atk._get("dmg1type") || "",
+			dmg2type:	atk._get("dmg2type") || "",
+			dmg1roll:	atk._get("attack_damage") || dmg.dmg1 || 0,
+			dmg2roll:	atk._get("attack_damage2") || dmg.dmg2 || 0,
+			rMode: getRollMode(),
+			crit1roll:	atk._get("attack_crit") || dmg.crit1 || 0,
+			crit2roll:	atk._get("attack_crit2") || dmg.crit2 || 0,
+			atk1: buildRollModel(atkRoll),
+			atkMod:	buildDisplayMod(atkRoll),
+			saveAttr: atk._get("saveattr")?.toLowerCase() || "",
+			dc: q.token.character.sheet.getRollModifier(atk._get("savedc")),
+		}
+		return tmplVals;
+	}
+
+	const getSpellVals = (q) => { // id, flags
+		const expendCfg = d20plus.cfg.getOrDefault("chat", "autoExpend");
+		const lvls = String(q.flags).split(",");
+		const spell = q.token.get(q.id);
+		const spell_ability = spell._get("spell_ability");
+		const spellAbility = spell_ability && spell_ability?.length > 2
+			? (spell_ability !== "spell" ? spell_ability : q.token.get("spellcasting_ability"))?.replace(/@{(.*?)(_mod|)}(\+|)/, "$1") || ""
+			: "";
+		const subTitle = [spell.spellrange, spell.spellduration, spell.spelltarget, i18n(spell.spellattack?.toLowerCase(), "")]
+			.reduce((t, v) => v && (!t || `${t}, ${v}`.length < 27) ? `${t}${v && t ? ", " : ""}${v}` : t, "");
+		const onSelf = spell.spellrange?.includes("[S]") || spell.spelltarget?.includes("Self");
+		const spelldmgmod = spell._get("spelldmgmod") === "Yes" ? q.token.get(`${spellAbility}_mod`) || 0 : "";
+
+		const expend = (spell.lvl === undefined || !!spell._get("innate"))
+			? (spell._has("uses") ? {type: spell._resource.type, res: spell._resource.side, name: spell._resource.name, charID: q.token.character.id} : undefined)
+			: (spell.lvl !== "cantrip" ? {type: "spell", lvl: spell.lvl, charID: q.token.character.id} : undefined);
+
+		const atkRoll = {
+			base: `20`,
+			// type: `atk`,
+			// target: targetTag,
+			critrange: q.token.get("default_critical_range") || "20",
+			mods: [
+				spell_ability === "spell" && [q.token.get("spell_attack_bonus"), "SPELL"], // `@{${char.id}|spell_attack_mod}[MOD]+${spellAbility}@{${char.id}|pb}[PB]`
+				spell_ability !== "spell" && [q.token.get("spell_attack_mod"), "MOD"],
+				spell_ability !== "spell" && [q.token.get(`${spellAbility}_mod`), spellAbility.slice(0, 3).toUpperCase()],
+				spell_ability !== "spell" && [q.token.get("pb"), "PB"],
+			],
+		}
+
+		const upcast = lvls.reduce((vars, lvl) => {
+			lvl = Number(lvl);
+			if (!lvl) return vars;
+			const splvl = spell.lvl !== "cantrip" ? Number(spell.lvl) : 0;
+			const base = spell._get("spelldamage") ? spell._get("spelldamage") : (spell._get("spellhealing") && !spell._get("spellsave") ? spell._get("spellhealing") : "");
+			const diff = lvl - splvl;
+			const mult = diff * (spell._get("spellhldie") || 1);
+			const addBonus = spell._get("spellhlbonus") && !isNaN(spell._get("spellhlbonus")) ? `+${Number(spell._get("spellhlbonus"))}` : "";
+			const addDice = spell._get("spellhldietype") ? `${mult}${spell._get("spellhldietype")}${addBonus}` : "";
+
+			vars[lvl] = {
+				dmg1roll: base ? buildRollModel({base, mods: [[spelldmgmod], [addDice, `LVL${lvl}`]]}) : "",
+				crit1roll: base ? buildRollModel({base, mods: [[`${mult}${spell._get("spellhldietype")}`, `LVL${lvl}`]]}) : "",
+			}
+			return vars;
+		}, []);
+
+		const tmplVals = {
+			_this: q.token,
+			_thisId: q.token.character.id,
+			_isNpc: q.token.get("npc"),
+			_isSpell: spell._get("spell_ability") === "spell",
+			_upcast: upcast,
+			_save: spell._get("spellsave")?.toLowerCase() || false,
+			_expend: expend,
+			_onSelf: spell._get("spellrange")?.includes("[S]") || spell._get("spelltarget") === "self",
+			_targeted: !!spell._has("atk") || !!spell._has("dmgorheal") || !!spell._has("save"),
+			_modelType: spell._has("atk") || (!spell._has("save") && spell._has("dmgorheal")) ? "attack" : (spell._has("save") && spell._has("dmg") ? "cast" : "action"),
+
+			rMode: spell._has("atk") ? getRollMode() : /* spell._getVar("hassave") || !!spell.spelldamage2 ? "always" : */ "",
+			charName: q.token.get("name"),
+			title:	spell._get("name"),
+			subTitle,
+
+			dmg1on: !!spell._get("spelldamage") || !!spell._get("spellhealing"),
+			dmg2on: !!spell._get("spelldamage2"),
+			dmg1tag:	spell._get("spelldamage") || spell._get("spelldamage2") ? "dmg" : spell._get("spellhealing") ? "heal" : "",
+			dmg2tag:	spell._get("spelldamage2") ? "dmg" : spell._get("spelldamage") && spell._get("spellhealing") ? "heal" : "",
+			dmg1type:	spell._get("spelldamagetype") || (spell._get("spellhealing") ? "healing" : ""),
+			dmg2type:	spell._get("spelldamagetype2") || (spell._get("spelldamage") && spell._get("spellhealing") ? "healing" : ""),
+			dmg1roll:	spell._get("spelldamage") ? buildRollModel({base: spell._get("spelldamage"), mods: [[spelldmgmod]]})
+				: spell._get("spellhealing") && !spell._get("spellsave") ? buildRollModel({base: spell._get("spellhealing"), mods: [[spelldmgmod]]}) : "",
+			dmg2roll:	spell._get("spelldamage2") ? buildRollModel({base: spell._get("spelldamage2"), mods: [[spelldmgmod]]})
+				: spell._get("spelldamage") && spell._get("spellhealing") && !spell._get("spellsave") ? buildRollModel({base: spell._get("spellhealing"), mods: [[spelldmgmod]]}) : "",
+
+			crit1roll:	spell._get("spelldamage"),
+			crit2roll:	spell._get("spelldamage2"),
+			atk1: buildRollModel(atkRoll),
+			atkMod:	buildDisplayMod(atkRoll),
+			description: spell._get("description"),
+			hldescription: spell._get("spellathigherlevels"),
+
+			dc: spell._get("spell_ability") !== "spell"
+				? buildDisplayMod({mods: [[8], [q.token.get("spell_dc_mod")], [q.token.get(`${spellAbility}_mod`)], [q.token.get("pb")]]})
+				: (q.token.get("spell_save_dc") || "10"),
+			saveAttr: spell._get("spellsave")?.toLowerCase() || "",
+			dmgOnFail: `$[[0]]`,
+			dmgOnSuccess: spell.lvl === "cantrip" ? "[[0]]" : `$[[1]]`,
+		}
+		return tmplVals;
+	}
+
+	const switchTargeting = (mode) => {
+		const on = mode === "on";
+		d20plus.mod.setMode(on ? "targeting" : "select");
+		d20.engine.canvas.hoverCursor = on ? "crosshair" : "move";
+		d20plus.ba.$dom.r20targetingNote[on ? "show" : "hide"]();
+		$("#babylonCanvas")[on ? "addClass" : "removeClass"]("targeting");
+	}
+
+	d20plus.ba.getTarget = async (vals, target) => {
+		if (target === false) { // user Closed targeting dialog
+			switchTargeting("off");
+			return d20.engine.nextTargetCallback = false;
+		} else if (!target) {
+			// d20plus.ut.log("START TARGETING", vals);
+			switchTargeting("on");
+			d20.engine.nextTargetCallback = (t) => { d20plus.ba.getTarget(vals, t); };
+		} else if (vals._aoe) {
+			// console.log(target);
+		} else {
+			if (!target._model?.character) return d20plus.ut.sendHackerChat("Target the token that represents a PC or NPC", true);
+			const targetToken = d20plus.ba.tokens.ready(target);
+			const distance = d20plus.ut.getTokensDistanceText(target._model, vals._this._ref);
+			await targetToken.ready();
+			await targetToken.character.sheet.fetch();
+
+			// const targetChar = await d20plus.ba.fetchChar(target._model);
+			// const thisToken = d20plus.ut.getTokenById(d20plus.ba.chars[vals._thisId].lastTokenId);
+
+			d20plus.ut.log("Getting target", vals);
+			switchTargeting("off");
+			d20.engine.nextTargetCallback = false;
+
+			if (vals._save) {
+				// d20plus.ba.currentToken = target._model;
+				// d20plus.ba.singleSelected = target._model;
+				outputTemplate(getAbilityVals({ // "save", vals._save, vals.dc
+					id: "save",					// spec, attr, dc
+					flags: vals._save,
+					dc: vals.dc,
+					token: targetToken,
+				}));
+			}
+
+			vals.targetId = target._model.id;
+			vals.targetName = target._model.attributes.name;
+			vals.targetAc = targetToken.get("ac"); // targetChar.isNpc ? targetChar.npcStats.ac : targetChar.stats.ac;
+			vals.distance = distance;
+			setTimeout(i => { outputTemplate(vals) }, 500);
+			// d20plus.ut.log("END TARGETING", vals);
+		}
+	}
+
+	d20plus.ba.getConcentrationDC = (vals) => {
+		const $dc = $(`
+			<div>
+				Enter incoming damage
+				<input type="number" style="width:45px;">
+			</div>
+		`).dialog({
+			title: "Concentration roll",
+			autoopen: true,
+			close: () => { $dc.off(); $dc.dialog("destroy").remove() },
+			buttons: {
+				"Cancel": () => { $dc.off(); $dc.dialog("destroy").remove() },
+				"Roll": () => {
+					const $input = $dc.find("input");
+					const dmg = $input.val();
+					if (!isNaN(dmg)) {
+						vals.dc = Math.max(10, Math.floor(dmg / 2));
+						outputTemplate(vals);
+					}
+					$dc.off(); $dc.dialog("destroy").remove();
+				},
+			},
+		})
+	}
+
+	d20plus.ba.getFallHeight = (vals) => {
+		const $fd = $(`
+			<div>
+				Enter fall height, ft.
+				<input type="number" style="width:45px;">
+			</div>
+		`).dialog({
+			title: "Fall damage",
+			autoopen: true,
+			close: () => { $fd.off(); $fd.dialog("destroy").remove() },
+			buttons: {
+				"Cancel": () => { $fd.off(); $fd.dialog("destroy").remove() },
+				"Roll": () => {
+					const $input = $fd.find("input");
+					const height = $input.val();
+					if (!isNaN(height)) {
+						const dmgRoll = Math.min(Math.abs(Math.floor(height / 10)), 20);
+						vals.dmg1roll = `${dmgRoll}d6[dmg${vals._thisId}]`;
+						vals.title = "Fall";
+						vals.subTitle = "Fall damage";
+						vals.dmg1tag = "dmg";
+						vals.dmg1type = `bludgeoning`;
+						vals.mod = `${height} ft.`;
+						outputTemplate(vals);
+					}
+					$fd.off(); $fd.dialog("destroy").remove();
+				},
+			},
+		})
+	}
+
+	d20plus.ba.getUpcastSpell = (vals, flags) => {
+		const lvls = String(flags).split(",");
+		const options = lvls.reduce((html, lvl) => {
+			const name = lvl === "0" ? "As ritual" : `Level ${lvl}`;
+			return `${html}<option value="${lvl}">${name}</option>`;
+		}, "")
+		const $uc = $(`
+			<div>
+				<h3>${vals.title}</h3>
+				${vals.hldescription ? `<p>${vals.hldescription}</p>` : ""}
+				Select spell slot to expend:
+				<select style="width:90px;">${options}</select>
+			</div>
+		`).dialog({
+			title: "Upcast spell",
+			autoopen: true,
+			close: () => { $fd.off(); $uc.dialog("destroy").remove() },
+			buttons: {
+				"Cancel": () => { $uc.off(); $uc.dialog("destroy").remove() },
+				"Roll": () => {
+					const $input = $uc.find("select");
+					const level = $input.val();
+					if (level === "0") {
+						vals._expend = false;
+					} else {
+						vals._expend.lvl = level;
+						if (vals._upcast && vals._upcast[level]?.dmg1roll) {
+							vals.dmg1roll = vals._upcast[level]?.dmg1roll;
+							if (vals._upcast[level]?.crit1roll) vals.crit1roll = vals._upcast[level]?.crit1roll;
+						}
+					}
+					if (vals._targeted && !vals._onSelf) d20plus.ba.getTarget(vals);
+					else outputTemplate(vals);
+					$uc.off(); $uc.dialog("destroy").remove();
+				},
+			},
+		})
+	}
+
+	d20plus.ba.makeRoll = (q) => { // action, spec, flags
+		const getTmplVals = {
+			roll: getAbilityVals,
+			attack: getAttackVals,
+			cast: getSpellVals,
+			upcast: getSpellVals,
+		}[q.action];
+
+		const tmplVals = getTmplVals && getTmplVals(q); // spec, flags
+		if (!tmplVals) return d20plus.ba.rollError();
+		else if (q.flags === "concentration") d20plus.ba.getConcentrationDC(tmplVals);
+		else if (q.flags === "fall") d20plus.ba.getFallHeight(tmplVals);
+		else if (q.action === "upcast") d20plus.ba.getUpcastSpell(tmplVals, q.flags);
+		else if (tmplVals._targeted && !tmplVals._onSelf) d20plus.ba.getTarget(tmplVals);
+		else outputTemplate(tmplVals);
+	}
+
+	d20plus.ba.makeInfo = (q) => {
+		const getTmplVals = {
+			spell: getSpellVals,
+			attack: getAttackVals,
+		}[q.action];
+
+		const tmplVals = getTmplVals && getTmplVals(q);
+		if (!tmplVals) return d20plus.ba.rollError();
+		tmplVals._modelType = "description";
+		tmplVals._expend = false; d20plus.ut.log("Outputting template", tmplVals);
+		outputTemplate(tmplVals);
+	}
+}
+
+SCRIPT_EXTENSIONS.push(baseBARollTemplates);
+
+
+/**
+ * BetterActions — right-click action panel for tokens showing attacks, saves, skills,
+ * and spells pulled from the character sheet, with initiative tracker integration.
+ * Entry point is initBetterActions(), disabled in both bootstraps.
+ *
+ * Need to check what is useful to have back and what not.
+ * TODO: Test in Jumpgate; sheet attribute access and token model may have changed.
+ * Originally in: js/base/base-ba.js
+ */
+
+function baseBetterActions () {
+	d20plus.ba = d20plus.ba || {};
+
+	const peopleIcon = "https://img.icons8.com/ios-glyphs/30/multicultural-people.png";
+	const tabs = ["general", "stats", "skills", "attacks", "traits", "spells", "items", "animations"];
+	const abilities = ["strength", "dexterity", "constitution", "intelligence", "wisdom", "charisma"];
+	let skills = "acrobatics,animal_handling,arcana,athletics,deception,history,insight,intimidation,investigation,medicine,nature,perception,performance,persuasion,religion,sleight_of_hand,stealth,survival";
+
+	const buildAnimations = () => {
+		Object.keys(d20plus.anim.animatorTool?._anims || {}).forEach(i => {
+			d20plus.ba.tree.anims.push({
+				name: d20plus.anim.animatorTool._anims[i].name
+					.toSentenceCase()
+					.replace("_", " "),
+				action: "animation",
+				spec: i,
+			});
+		})
+	}
+
+	const buildGroup = (name, subtree) => {
+		subtree && d20plus.ba.tree.rolls.push({
+			name,
+			type: "head",
+			items: subtree,
+		});
+		return subtree;
+	}
+
+	const buildAbilities = () => {
+		const subtree = abilities.map(ab => {
+			const id = ab.replaceAll("-", "_");
+			return {
+				name: i18n(id, ab.toSentenceCase()),
+				type: `selector`,
+				items: [{
+					name: "Roll plain check",
+					icon: "Check",
+					action: "roll",
+					spec: "ability",
+					flags: ab,
+				}, {
+					name: "Save",
+					icon: "Save",
+					action: "roll",
+					spec: "save",
+					flags: ab,
+				}],
+			}
+		});
+		return buildGroup("Abilities", subtree);
+	}
+
+	const buildSkills = () => {
+		const token = d20plus.ba.tokens.getCurrent();
+		return buildGroup("Skills", skills.map(sk => {
+			const id = sk.replaceAll("-", "_");
+			const prof = token
+				? (((!token.character.isNpc && token.get(`${id}_prof`) && token.get(`${id}_prof`) !== "0")
+					|| (token.character.isNpc && token.get(`${id}_base`)))
+					? "active"
+					: "inactive")
+				: "";
+			return {
+				name: i18n(id, sk.toSentenceCase().replaceAll("_", " ")),
+				action: "roll",
+				spec: "skill",
+				type: prof,
+				flags: sk,
+			};
+		}));
+	}
+
+	const buildSpellVariants = (spell, token) => {
+		const items = [];
+		const ritual = spell?._has("ritual");
+		const lvl = Number(spell.lvl);
+		const upcast = !isNaN(spell.lvl);
+		ritual && items.push(0);
+		upcast && [...Array(9 - lvl)].map((k, i) => {
+			const upLvl = i + lvl + 1;
+			const hasSlots = token.get("npc") || token.character.sheet.spellSlots.max(upLvl);
+			hasSlots && items.push(upLvl);
+		});
+		return items.length ? items.join(",") : null;
+	}
+
+	const buildSpellSlots = (char, lvl) => {
+		if (char.spellSlots.max(`${lvl}`)) {
+			const has = Number(char.spellSlots.current(`${lvl}`)) || 0;
+			const total = Number(char.spellSlots.max(`${lvl}`)) || 0;
+			if (char.spellSlots.max(`${lvl}`) <= 4 && has >= 0) {
+				return [...Array(total)].reduce((k, s, i) => {
+					return i <= has - 1 ? `${k}⬤` : `${k}◎`;
+				}, "");
+			} else return `${has}/${char.spellSlots.max(`${lvl}`)}`;
+		}
+	}
+
+	const buildSpells = () => {
+		const subtree = [];
+		const token = d20plus.ba.tokens.getCurrent();
+		const shouldPrepare = ["Cleric", "Druid", "Paladin", "Wizard"].includes(token?.get("class"));
+		if (!token) return false;
+		for (let i = 0; i <= 9; i++) {
+			const lvl = i || "cantrip";
+			const spells = token.character?.sheet.getSpells(`${lvl}`);
+			const items = spells.map(spell => {
+				const isAttack = spell._has("atk");
+				const hasVariants = (spell.spellathigherlevels
+					|| spell.spellritual)
+					&& i !== "cantrip";
+				const variants = i !== "cantrip" ? buildSpellVariants(spell, token) : null;
+				const unprepared = (!i && " ") || (spell._has("active") ? " active" : " inactive");
+				return {
+					name: spell._get("name"),
+					type: `spellaction selector${unprepared} ${variants ? "variable" : ""}`,
+					items: [{
+						name: "Show description",
+						icon: "🕮",
+						action: "spelldescription",
+						spec: spell._id,
+					}, {
+						name: "Cast spell",
+						icon: isAttack ? "⚔" : "⚕",
+						action: "cast",
+						spec: spell._id,
+					}].concat(variants ? {
+						name: "Cast at different level",
+						icon: "↪",
+						action: "upcast",
+						spec: spell._id,
+						flags: variants,
+					} : []),
+				}
+			});
+			items.length && subtree.push({
+				resource: buildSpellSlots(token.character?.sheet, lvl),
+				name: !i ? "Cantrips" : `Level ${lvl}`,
+				type: "head",
+				items,
+			});
+			!items.length && token.character?.sheet.spellSlots?.max(`${lvl}`) && subtree.push({
+				resource: buildSpellSlots(token.character?.sheet, lvl),
+				name: `Level ${lvl}`,
+				type: "head",
+			})
+		}
+		return buildGroup("Spells", subtree);
+	}
+
+	const buildAttacks = () => {
+		const token = d20plus.ba.tokens.getCurrent();
+
+		return buildGroup("Attacks", token?.get("attacks").map(at => {
+			const rangeField = at._get("range");
+			const isCast = !at._has("atk");
+			const isRanged = at._has("range");
+			const isVersatile = !isCast && rangeField?.includes("[V]");
+			const isOffhandable = !isCast && rangeField?.includes("[O]");
+			const types = [
+				isCast ? " cast" : "",
+				isRanged ? " ranged" : "",
+				isOffhandable ? " offhand" : "",
+				isVersatile ? " versatile" : "",
+			].join("");
+			return {
+				name: at._get("name"),
+				type: `atkaction selector${types}`,
+				items: [{
+					name: "Show description",
+					icon: "🕮",
+					action: "attackdescription",
+					spec: at._id,
+				}, {
+					name: "Attack",
+					icon: isCast ? "⚕" : isRanged ? "➹" : isVersatile ? "🗡🖑🖑" : "🗡",
+					action: "attack",
+					spec: at._id,
+				}].concat(isOffhandable ? {
+					name: "Attack with offhand",
+					icon: "⚔",
+					action: "attack",
+					spec: at._id,
+					flags: "O",
+				} : []).concat(isVersatile ? {
+					name: "Attack with single hand (versatile)",
+					icon: `🗡🖑`,
+					action: "attack",
+					spec: at._id,
+					flags: "V",
+				} : []),
+			}
+		}));
+	}
+
+	const buildTraits = () => {
+		const token = d20plus.ba.tokens.getCurrent();
+
+		return buildGroup("Attacks", token?.get("traits").map(tr => {
+			const canBeUsed = tr._has("uses") || tr._has("action") || !isNaN(tr.lvl);
+			const usable = canBeUsed ? "active" : "inactive";
+			return {
+				name: tr._get("name"),
+				type: `spellaction selector ${usable}`,
+				items: [{
+					name: "Show description",
+					icon: "🕮",
+					action: "spelldescription",
+					spec: tr._id,
+				}].concat(canBeUsed ? {
+					name: "Use trait",
+					icon: "⚕",
+					action: "cast",
+					spec: tr._id,
+				} : []),
+			};
+		}));
+	}
+
+	const buildItems = () => {
+		const token = d20plus.ba.tokens.getCurrent();
+
+		return buildGroup("Items", token?.get("items").map(it => {
+			const equipped = it._has("active") ? "active" : "inactive";
+			return {
+				name: it._get("name"),
+				type: `spellaction selector ${equipped}`,
+				items: [{
+					name: "Show description",
+					icon: "🕮",
+					action: "spelldescription",
+					spec: it._id,
+				}].concat(!it._id ? { // wrong condition
+					name: "Use trait",
+					icon: "⚕",
+					action: "cast",
+					spec: it._id,
+				} : []),
+			};
+		}));
+	}
+
+	const addCommonRolls = () => {
+		d20plus.ba.tree.rolls.push(
+			{name: "Initiative", action: "roll", spec: "roll", flags: "initiative"},
+			{name: "Concentration", action: "roll", spec: "roll", flags: "concentration"},
+			{name: "Fall damage", action: "roll", spec: "roll", flags: "fall"},
+		);
+		if (!d20plus.ba.current.singleChar
+			|| d20plus.ba.tokens.getCurrent()?.get("npc")) return;
+		d20plus.ba.tree.rolls = d20plus.ba.tree.rolls.concat([
+			{name: "Death save", action: "roll", spec: "roll", flags: "death save|10"},
+			{name: "Hit dice", action: "roll", spec: "roll", flags: "hit dice"},
+		]);
+		return d20plus.ba.tree.rolls.filter(roll => roll.action === "roll");
+	}
+
+	const buildTag = (title, txt, close) => {
+		if (txt !== undefined && txt !== "") {
+			title = title.last() !== ":" && !close ? `${title}:` : title;
+			return close ? `<span><b>${title}</b>&nbsp;${txt}&nbsp;<b>${close}</b></span>`
+				: `<span><strong>${title}</strong>&nbsp;${txt}</span>`;
+		} else return "";
+	}
+
+	const buildModsHtml = (tab) => {
+		const token = d20plus.ba.tokens.get(d20plus.ba.current.singleChar?.id);
+		const mods = [
+			{label: "ADV", id: "advantage", title: "Toggle advantage"},
+			{label: "DIS", id: "disadvantage", title: "Toggle disadvantage"},
+			{label: "GM", id: "togm", title: "Send to GM only"},
+			{label: "&lt;l", id: "filter", title: "Filter items", except: ["general", "stats"]},
+		];
+		if (token?.mods[tab].filter) d20plus.ba.$dom.lists[tab].addClass("filtered");
+		else d20plus.ba.$dom.lists[tab].removeClass("filtered");
+		return `<li class="mods ${tab}">${mods.reduce((res, mod) => {
+			if (mod.except?.includes(tab)) return res;
+			const checked = token?.mods[tab][mod.id] ? ` checked="on"` : "";
+			return `${res}<label class="${mod.id}" title="${mod.title}">
+				<input type="checkbox"${checked}><span>${mod.label}</span>
+			</label>`;
+		}, "")}</li>`;
+	}
+
+	const buildHtml = (tree, mod) => {
+		tree = tree || d20plus.ba.tree.rolls;
+		return tree.reduce((html, it) => {
+			if (it.items) {
+				if (!it.items.length) return html;
+				return `${html}
+				<li class="hasSub ${it.type}">
+					<span${it.name?.length > 14 ? ` title="${it.name}"` : ""}>
+						${it.resource ? `<i>${it.resource}</i>` : ""}${it.icon || it.name}
+					</span>
+					<ul class="submenu">
+						${buildHtml(it.items)}
+					</ul>
+				</li>`;
+			} else {
+				const dataAttribs = `data-action="${it.action}" data-spec="${it.spec}"${it.flags ? ` data-flags="${it.flags}"` : ""}`;
+				const typeAttribs = it.type ? `class="${it.type}" ` : "";
+				return `${html}<li ${typeAttribs}${dataAttribs}${it.icon || it.name?.length > 15 ? ` title="${it.name || ""}"` : ""}>
+					${it.resource ? `<span><i>${it.resource}</i>` : ""}
+					${it.icon || it.name}${it.resource ? `</span>` : ""}
+				</li>`;
+			}
+		}, mod ? buildModsHtml(mod) : "");
+	}
+
+	const buildStatsHtml = () => {
+		const token = d20plus.ba.tokens.getCurrent();
+		if (!token || !token.character?.sheet.data.stats) return;
+
+		const baseStats = (token.get("npc") ? [
+			buildTag("HP:", `${token.get("hp")}&nbsp;${buildTag("/", token.get("hp_max"), " ")}`),
+			buildTag("(", token.get("hpformula"), ")"),
+			"<br>",
+			buildTag("AC:", token.get("ac")),
+			buildTag("", token.get("actype"), ""),
+			buildTag("CR:", token.get("challenge")),
+			buildTag("Speed", token.get("speed")),
+		] : [
+			buildTag("HP:", `${token.get("hp")}&nbsp;${buildTag("/", token.get("hp_max"), " ")}`),
+			buildTag("AC:", token.get("ac")),
+			buildTag("PB", token.get("pb")),
+			buildTag("Speed", token.get("speed")),
+		]).concat([
+			buildTag("Initiative", token.get("initiative_bonus")),
+			buildTag("Passive Perception", token.get("passive_perception")),
+		]).join(" ");
+
+		const baseAbilities = abilities.map(a => {
+			const mod = token.get(`${a}_mod`);
+			return buildTag(`${a.slice(0, 3).toUpperCase()}:`, `${token.get(a) || ""}${buildTag(" (", mod, ")")}`);
+		}).join(" ");
+		const spellStats = token.get("spells").length ? `<li>${[
+			buildTag("Caster Level", token.get(`caster_level`)),
+			buildTag("Spell Save DC", token.get(`spell_save_dc`)),
+			buildTag("Spell Attack Bonus", token.get(`spell_attack_bonus`)),
+		].join(" ")}</li>` : "";
+
+		const classDetails = token.get("class_display")
+			?.split(" ").map(c => isNaN(c) && c ? i18n(c.toLowerCase(), c) : c)
+			.join(" ") || "";
+
+		const charDetails = token.get("npc") ? [
+			buildTag("Speaks:", token.get("languages")),
+			buildTag("Senses:", token.get("senses")),
+			buildTag("Vulnerable to:", token.get("vulnerabilities")),
+			buildTag("Resists:", token.get("resistances")),
+			buildTag("Immune to:", token.get("condition_immunities")),
+			buildTag("Immunities:", token.get("immunities")),
+		].join(" ") : ["cp", "sp", "ep", "gp", "pp"].map(c => {
+			return buildTag(`${c.toUpperCase()}:`, token.get(c) || "0");
+		}).join(" ");
+
+		return `
+			<li><span>${token.get("npc") ? token.get("type") : `${token.get("race_display")}, ${classDetails}`}</span></li>
+			<li>${baseStats}</li><li>${baseAbilities}</li>${spellStats}
+			${charDetails ? `<li>${charDetails}</li>` : ""}
+		`;
+	}
+
+	const buildBasicRollsHtml = () => {
+		const stats = d20plus.ba.current.singleChar ? buildStatsHtml() : `
+			<li style="width: 220px;">Group selected:</li>
+			${d20plus.ba.current.charTokens?.reduce((list, t) => `${list}<li>${t.attributes.name}</li>`, "")}
+		`;
+		["general", "stats", "skills"].forEach((tab, i) => {
+			d20plus.ba.$dom.tabs[tab].toggle(true);
+		});
+		d20plus.ba.$dom.infos.all.filter(":not([data-pane=animations])").html(stats);
+		d20plus.ba.$dom.lists.general.html(buildHtml(addCommonRolls(), "general"));
+		d20plus.ba.$dom.lists.stats.html(buildHtml(buildAbilities(), "stats"));
+		d20plus.ba.$dom.lists.skills.html(buildHtml(buildSkills(), "skills"));
+	}
+
+	const buildAdvRollsHtml = () => {
+		[
+			{id: "attacks", callback: buildAttacks},
+			{id: "traits", callback: buildTraits},
+			{id: "spells", callback: buildSpells},
+			{id: "items", callback: buildItems},
+		].forEach(tab => {
+			const list = tab.callback();
+			list?.length && d20plus.ba.$dom.tabs[tab.id].toggle(true);
+			d20plus.ba.$dom.lists[tab.id].html(buildHtml(list, tab.id));
+			const active = d20plus.ba.$dom.lists[tab.id].find(".active").length;
+			const inactive = d20plus.ba.$dom.lists[tab.id].find(".inactive").length;
+			if (active && inactive) d20plus.ba.$dom.lists[tab.id].addClass("uneven");
+			else d20plus.ba.$dom.lists[tab.id].removeClass("uneven");
+		})
+	}
+
+	const getAmConfig = () => {
+		const cfg = d20plus.cfg.getOrDefault("token", "showTokenMenu");
+		d20plus.ba.enabled = cfg !== "none";
+		d20plus.ba.enabledCharMenu = cfg.includes("char");
+		d20plus.ba.enabledAnimation = cfg.includes("anim");
+		return d20plus.ba.enabled;
+	}
+
+	const amExecute = async (action, spec, flags) => {
+		const appliedTo = action !== "animation"
+			? d20plus.ba.current.charTokens
+			: d20plus.ba.current.imgTokens;
+		appliedTo.forEach(t => {
+			const b20Model = d20plus.ba.tokens.get(t.id || t._model.id);
+			if (action === "animation") {
+				d20plus.anim.animator.startAnimation(b20Model._object, spec);
+			} else if (["spelldescription", "attackdescription"].includes(action)) {
+				d20plus.ba.makeInfo({
+					token: b20Model,
+					action: action === "spelldescription" ? "spell" : "attack",
+					id: spec,
+				});
+			} else {
+				d20plus.ba.makeRoll({
+					token: b20Model,
+					action,
+					id: spec,
+					flags,
+				});
+			}
+		});
+	}
+
+	const amDo = (action) => {
+		const amCharId = d20plus.ba.tokens.getCurrent()?.character.id;
+		if (action === "opensheet") d20plus.ba.tokens.getCurrent().character._ref.view.showDialog();
+		else if (action === "openchar") void 0;
+		else if (action === "findtoken") d20plus.ba.tokens.focusCurrent();
+		else if (action === "close") d20plus.ba.$dom.menu.toggle(false);
+		else if (action === "collapsew") d20plus.ba.$dom.menu.toggleClass("wcollapsed");
+		else if (action === "expandh") d20plus.ba.$dom.menu.toggleClass("hexpanded");
+		else if (action === "speakas") {
+			const $speagingas = $("#speakingas");
+			const [type, speakAsId] = $speagingas.val().split("|");
+			if (speakAsId === amCharId) $speagingas.val(["player", d20_player_id].join("|"));
+			else $speagingas.val(["character", amCharId].join("|"));
+		}
+	}
+
+	const amShow = async () => {
+		if (d20plus.ba.executing) return;
+		d20plus.ba.tree = {rolls: [], stats: [], anims: []};
+		tabs.forEach((tab, i) => {
+			d20plus.ba.$dom.tabs[tab].toggle(false);
+		});
+		d20plus.ba.$dom.title.img.attr("src", peopleIcon);
+		d20plus.ba.$dom.title.img.removeAttr("title");
+		d20plus.ba.$dom.title.img.css({filter: "contrast(0.1)", cursor: "unset"});
+		if (d20plus.ba.current.hasChars) {
+			buildBasicRollsHtml();
+			if (d20plus.ba.current.singleChar) {
+				const token = d20plus.ba.tokens.getCurrent();
+				if (token) {
+					d20plus.ut.log("Drawing menu for", token.get("name"));
+					buildAdvRollsHtml();
+					d20plus.ba.$dom.title.name.text(token.get("name") || "Token");
+					d20plus.ba.$dom.title.img.attr("src", token.get("image"));
+					d20plus.ba.$dom.title.img.attr("title", token.get("name"));
+					d20plus.ba.$dom.title.img.css({filter: "unset", cursor: "pointer"});
+				}
+			} else {
+				d20plus.ba.$dom.title.name.text("Group");
+			}
+		}
+		if (d20plus.ba.current.hasImages) {
+			buildAnimations();
+			d20plus.ba.$dom.lists.animations.html(buildHtml(d20plus.ba.tree.anims));
+			if (d20plus.ba.tree.anims.length) d20plus.ba.$dom.tabs.animations.toggle(true);
+		}
+		d20plus.ba.$dom.menu.find(".ba-tabs li.active:visible").length
+			|| d20plus.ba.$dom.menu.find(".ba-tabs li:visible").get(0)?.click();
+	}
+
+	const amEnterPortal = () => {
+		const actor = d20plus.ba.current.lastSelectedToken;
+		const mover = d20.engine.selected()[0]?._model;
+		const token = d20plus.ba.tokens.get(actor?.id);
+
+		d20plus.ba.current.lastSelectedToken = false;
+		d20.engine.unselect();
+
+		const adjacent = (actor
+			&& Math.abs(mover.attributes.top - actor.attributes.top) <= (actor.attributes.height + mover.attributes.height / 2)
+			&& Math.abs(mover.attributes.left - actor.attributes.left) <= (actor.attributes.width + mover.attributes.width / 2)
+		);
+
+		if (adjacent) {
+			const receiver = d20plus.ut.getTokenById(mover.attributes.custom_portal);
+			if (receiver) {
+				const layer = actor.attributes.layer;
+				actor.save({
+					top: receiver.attributes.top,
+					left: receiver.attributes.left,
+					layer: is_gm ? "gmlayer" : "objects",
+				});
+				d20.engine.centerOnPoint(receiver.attributes.left || 0, receiver.attributes.top || 0);
+				setTimeout(() => {
+					// d20.engine.unselect();
+					actor.save({layer});
+					// token?.find();
+					setTimeout(() => token?.select(), 600);
+				}, 600);
+			}
+		}
+
+		setTimeout(() => {
+			d20.engine.unselect();
+		}, 400);
+	}
+
+	const amShowPortalConnection = () => {
+		const entry = d20.engine.selected()[0]?._model;
+		const exit = d20plus.ut.getTokenById(entry.attributes.custom_portal);
+		const author = d20.Campaign.players.models.find(p => p.id !== d20_player_id)?.id;
+
+		if (!exit || !author) return;
+		d20plus.ba.current.showingPortals = author;
+
+		d20.engine.receiveMeasureUpdate({
+			"x": entry.attributes.left,
+			"y": entry.attributes.top,
+			"to_x": exit.attributes.left,
+			"to_y": exit.attributes.top,
+			"player": author,
+			"pageid": d20.Campaign.activePage()?.id,
+			"currentLayer": "gmlayer",
+			"waypoints": [],
+			"sticky": 0,
+			"flags": 0,
+			"hide": false,
+			"action": "line",
+			"color": "#c9c9c9",
+			"type": "measuring",
+			"time": Number(new Date()),
+		});
+	};
+
+	const amResetPortalConnection = () => {
+		d20.engine.receiveEndMeasure({player: d20plus.ba.current.showingPortals});
+		d20plus.ba.current.showingPortals = false;
+	}
+
+	d20plus.ba.menu = {
+		refresh: () => {
+			amShow();
+		},
+		fetchCharLegacy: (...params) => {
+			prepareChar(...params);
+		},
+	}
+
+	d20plus.ba.rollError = () => {
+		d20plus.ut.sendHackerChat("Unrecognized error applying menu command", true);
+	}
+
+	d20plus.ba.alterHP = (alter) => {
+		const barID = Number(d20plus.cfg.getOrDefault("chat", "dmgTokenBar"));
+		const bar = {
+			val: `bar${barID}_value`,
+			link: `bar${barID}_link`,
+			max: `bar${barID}_max`,
+		};
+		const calcHP = (token) => {
+			if (!token?.get) return false;
+			const current = token.get(bar.val);
+			const max = token.get(bar.max);
+			if (isNaN(max) || isNaN(current) || current === "") return false;
+			const hp = {old: current, new: current - alter.dmg};
+			if (hp.new < 0) hp.new = 0;
+			if (max !== "") {
+				if (hp.new > max) hp.new = max;
+				if (hp.new <= -max) hp.dead = true;
+				if (hp.old <= 0 && hp.new > 0) hp.alive = true;
+			}
+			return hp;
+		}
+		const playerName = d20plus.ut.getPlayerNameById(d20_player_id);
+		const author = `${playerName} applied ${alter.dmg} damage`;
+		const transport = {type: "automation", author};
+		const targets = alter.targets;
+		d20.engine.unselect();
+		targets.forEach(async token => {
+			if (typeof token === "string") token = d20plus.ut.getTokenById(token);
+			else if (token.model) token = token.model;
+			const hp = calcHP(token);
+			if (!hp) return d20plus.ut.sendHackerChat("You have to select proper token bar in the settings", true);
+			if (!token.currentPlayerControls()) return;
+			if (alter.restore !== undefined) hp.new = alter.restore;
+			const barLinked = token.get(bar.link);
+			const tokenName = token.get("name");
+			if (barLinked) {
+				if (!token.character?.currentPlayerControls()) return;
+				const charID = token.character?.id;
+				const fetched = await d20plus.ut.fetchCharAttribs(token.character);
+				if (fetched && charID) {
+					const attrib = token.character.attribs.get(barLinked);
+					const charName = token.character.get("name");
+					attrib.save({current: hp.new});
+					attrib.syncTokenBars();
+					hp.msg = `/w "${charName}" ${tokenName} from ${hp.old} to ${hp.new} HP`;
+					if (alter.restore !== undefined) hp.msg = `/w "${charName}" ${tokenName} HP back to ${hp.new}`;
+				}
+			} else {
+				token.save({[bar.val]: hp.new});
+				hp.msg = `/w gm ${tokenName} from ${hp.old} to ${hp.new} HP`;
+				if (alter.restore !== undefined) hp.msg = `/w gm ${tokenName} HP back to ${hp.new}`;
+			}
+			if (hp.msg) {
+				hp.undo = {type: "hp", dmg: alter.dmg, restore: hp.old, targets: [token.id]};
+				if (alter.restore === undefined) hp.transport = Object.assign({undo: hp.undo}, transport);
+				else transport.author = `${playerName} restored HP to ${alter.restore}`;
+				d20.textchat.doChatInput(hp.msg, undefined, hp.transport || transport);
+				if (hp.dead) d20.textchat.doChatInput(`${tokenName} is instantly dead`, undefined, transport);
+				else if (hp.alive) d20.textchat.doChatInput(`${tokenName} is conscious again`, undefined, transport);
+				else if (hp.new === 0) d20.textchat.doChatInput(`${tokenName} falls unconscious`, undefined, transport);
+			}
+		})
+	}
+
+	d20plus.ba.addTurn = (tokenId, init) => {
+		const token = d20plus.ut.getTokenById(tokenId);
+		const pageId = token?.collection.page.id;
+		const tracker = d20.Campaign.initiativewindow;
+		const actor = {_pageid: pageId, id: tokenId, pr: init, custom: ""};
+
+		const needsOpening = !tracker.windowopen;
+		needsOpening && tracker.openWindow();
+		needsOpening && tracker.model.save();
+		// for some reason we need to pretend the turn tracker was opened long ago (2s seems enough)
+		// otherwise the tokens won't show on the list until the next token is added
+		setTimeout(() => {
+			let trackerIt = d20.Campaign.currentOrderArray
+				.find(it => it._pageid === pageId && it.id === tokenId);
+			if (!trackerIt) {
+				d20.Campaign.currentOrderArray.push(actor);
+				trackerIt = d20.Campaign.currentOrderArray.last();
+			}
+			trackerIt.pr = init;
+			tracker.model.save({turnorder: JSON.stringify(d20.Campaign.currentOrderArray)});
+		}, needsOpening ? 2000 : 0);
+	}
+
+	d20plus.ba.initBetterActions = () => {
+		const $createMenu = $(d20plus.html.bActionsMenu);
+		d20plus.ba.initCharacters();
+		skills = i18n("skills-list", skills).split(",");
+
+		d20plus.ba.$dom = {
+			panel: $createMenu,
+			menu: $createMenu.find(".ba-menu"),
+			tabs: {all: $createMenu.find(`[data-tab]`)},
+			lists: {all: $createMenu.find(`[data-list]`)},
+			infos: {all: $createMenu.find(`[data-pane]`)},
+			title: {name: $createMenu.find(`.ba-name`), img: $createMenu.find(`.ba-token img`)},
+		};
+
+		tabs.forEach((data, i) => {
+			d20plus.ba.$dom.tabs[data] = d20plus.ba.$dom.menu.find(`[data-tab=${data}]`);
+			d20plus.ba.$dom.lists[data] = d20plus.ba.$dom.menu.find(`[data-list=${data}]`);
+			d20plus.ba.$dom.infos[data] = d20plus.ba.$dom.menu.find(`[data-pane=${data}]`);
+		});
+
+		d20plus.ba.$dom.r20targetingNote = $("#targetinginstructions");
+		d20plus.ba.$dom.r20toolbar = $("#secondary-toolbar");
+		d20plus.ba.$dom.r20tokenActions = d20plus.ba.$dom.r20toolbar.find(".mode.tokenactions");
+		d20plus.ba.$dom.infos["context"] = d20plus.ba.$dom.menu.find(`[data-pane=context]`);
+		$("body").append($createMenu);
+
+		if (getAmConfig()) {
+			const controlledChar = d20.Campaign
+				.activePage().thegraphics.models
+				.find(t => !!t.character && t.character.currentPlayerControls());
+			if (controlledChar) {
+				d20plus.ba.current = {
+					charTokens: [controlledChar],
+					imgTokens: [controlledChar],
+					id: d20plus.ut.generateRowId(),
+					singleChar: controlledChar,
+					hasChars: true,
+					hasImages: is_gm
+						&& d20plus.ba.enabledAnimation
+						&& Object.keys(d20plus.anim.animatorTool?._anims || {}).length,
+				};
+				(async () => {
+					d20plus.ba.tokens.ready(controlledChar);
+					// amShow();
+				})();
+			}
+		}
+
+		$("body").on("shape_selected", "#editor", async evt => {
+			if (!getAmConfig()) return;
+			const selected = d20.engine.selected();
+
+			if (d20plus.ba.current?.showingPortals) amResetPortalConnection();
+
+			if (selected.length === 1
+				&& selected[0]._model?.attributes.custom_portal
+				&& (d20plus.ba.current?.lastSelectedToken || !is_gm)) {
+				amEnterPortal();
+				return;
+			} else if (selected.length === 1
+				&& selected[0]._model?.attributes.custom_portal
+				&& !d20plus.ba.current?.lastSelectedToken
+				&& is_gm) {
+				amShowPortalConnection();
+				return;
+			}
+
+			d20plus.ba.current = {
+				charTokens: selected
+					.filter(it => it._model?.character)
+					.map(it => it._model),
+				imgTokens: selected
+					.filter(it => it.type === "image"),
+				id: d20plus.ut.generateRowId(),
+			};
+			d20plus.ba.current.singleChar = d20plus.ba.current.charTokens.length > 1
+				? false
+				: d20plus.ba.current.charTokens[0] || false;
+			d20plus.ba.current.hasChars = d20plus.ba.enabledCharMenu
+				&& d20plus.ba.current.charTokens.length > 0;
+			d20plus.ba.current.hasImages = is_gm
+				&& d20plus.ba.enabledAnimation
+				&& d20plus.ba.current.imgTokens.length > 0
+				&& Object.keys(d20plus.anim.animatorTool?._anims || {}).length;
+
+			if (d20plus.ba.current.hasChars) {
+				d20plus.ba.current.charTokens.forEach(async t => {
+					const token = d20plus.ba.tokens.ready(t);
+				});
+			} else if (d20plus.ba.current.hasImages) {
+				amShow();
+			}
+
+			d20plus.ba.current.lastSelectedToken = d20plus.ba.current.singleChar;
+		}).on("nothing_selected", "#editor", evt => {
+			amResetPortalConnection();
+			d20plus.ba.current.lastSelectedToken = false;
+		});
+
+		$createMenu.on("click", "[data-action], [data-spec]", evt => {
+			const $clicked = $(evt.currentTarget);
+			const action = $clicked.data("action");
+			const spec = $clicked.data("spec");
+			const flags = $clicked.data("flags");
+			if (spec && action) amExecute(action, spec, flags);
+			// else if (action && mod) amSet(mod);
+			else if (!spec && action) amDo(action);
+		}).on("click", "[data-tab]", evt => {
+			const $clicked = $(evt.currentTarget);
+			const tab = $clicked.data("tab");
+			d20plus.ba.$dom.tabs.all.removeClass("active");
+			d20plus.ba.$dom.lists.all.removeClass("active");
+			d20plus.ba.$dom.infos.all.removeClass("active");
+			$clicked.addClass("active");
+			d20plus.ba.$dom.lists[tab].addClass("active");
+			d20plus.ba.$dom.infos[tab].addClass("active");
+		}).on("click", ".mods label span", evt => {
+			const type = $(evt.target).closest("label").attr("class");
+			const tab = $(evt.target).closest("[data-list]").data("list");
+			if (d20plus.ba.current.singleChar) {
+				const token = d20plus.ba.tokens.get(d20plus.ba.current.singleChar?.id);
+				token.mods[tab][type] = !$(evt.target).prev().prop("checked");
+				if (type === "filter") {
+					if (token.mods[tab][type]) d20plus.ba.$dom.lists[tab].addClass("filtered");
+					else d20plus.ba.$dom.lists[tab].removeClass("filtered");
+				}
+			}
+		}).on("click", ".page-button.large", evt => {
+			d20plus.ba.$dom.menu.toggle();
+		}).on("mouseover", ".spellaction, .atkaction", (evt) => {
+			const $entry = $(evt.currentTarget);
+			const id = $entry.find("[data-spec]").data("spec");
+			const token = d20plus.ba.tokens.getCurrent();
+			const ability = token.get(id);
+			const name = ability._get("name");
+			const description = ability._get("description")?.replaceAll("\n", "<br>");
+
+			if (!description) {
+				const tab = $entry.closest("[data-list]").data("list");
+				d20plus.ba.$dom.infos.all.removeClass("active");
+				d20plus.ba.$dom.infos[tab]?.addClass("active");
+				return;
+			}
+
+			const html = `
+				<li><strong>${name}</strong></li>
+				<li style="font-size:11px;font-family:sans-serif">${description}</li>
+			`;
+
+			d20plus.ba.$dom.infos.all.removeClass("active");
+			d20plus.ba.$dom.infos.context.addClass("active");
+			d20plus.ba.$dom.infos.context.html(html);
+		});
+
+		$("#toolbar-collapse-handle").on("click", (evt) => {
+			const barCollapsed = $(evt.currentTarget).hasClass("collapse-handle-collapsed");
+			d20plus.ba.$dom.panel.toggleClass("master-toolbar-collapsed", barCollapsed);
+		})
+	}
+}
+
+SCRIPT_EXTENSIONS.push(baseBetterActions);
+
+
 const betteR20Core = function () {
 	// Page fully loaded and visible
 	d20plus.Init = async () => {
