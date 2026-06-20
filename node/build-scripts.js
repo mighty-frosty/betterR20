@@ -284,7 +284,6 @@ const SCRIPTS = {
 		"base/tools/base-tool-urlfix",
 		"base/base-art",
 		"base/base-art-browse",
-        "base-tool-autobackup",
 		"overwrites/base",
 		"templates/template-roll20-token-editor",
 		"templates/template-roll20-page-settings",
