@@ -26313,23 +26313,25 @@ d20plus.weather.addWeather = () => {
             case "Blood Rain":
                 IMAGES["Custom"] = null;
                 return IMAGES[imageName];
-            case "Custom (see below)":
+            case "Custom (see below)": {
+                const customSrc = page.get("bR20cfg_weatherTypeCustom1");
+                if (!customSrc) return null;
                 if (!IMAGES["Custom"] || (
-                    (IMAGES["Custom"].src !== page.get("bR20cfg_weatherTypeCustom1") && IMAGES["Custom"]._errorSrc == null)
-                    || (IMAGES["Custom"]._errorSrc != null && IMAGES["Custom"]._errorSrc !== page.get("bR20cfg_weatherTypeCustom1")))
+                    (IMAGES["Custom"].src !== customSrc && IMAGES["Custom"]._errorSrc === null)
+                    || (IMAGES["Custom"]._errorSrc !== null && IMAGES["Custom"]._errorSrc !== customSrc))
                 ) {
                     IMAGES["Custom"] = new Image();
                     IMAGES["Custom"]._errorSrc = null;
                     IMAGES["Custom"].onerror = () => {
-                        if (IMAGES["Custom"]._errorSrc == null) {
-                            IMAGES["Custom"]._errorSrc = page.get("bR20cfg_weatherTypeCustom1");
+                        if (IMAGES["Custom"]._errorSrc === null) {
+                            IMAGES["Custom"]._errorSrc = customSrc;
                             d20plus.ut.error(`Custom weather image "${IMAGES["Custom"].src}" failed to load!`);
-                            IMAGES["Custom"].src = IMAGES["Rain"].src;
                         }
                     };
-                    IMAGES["Custom"].src = page.get("bR20cfg_weatherTypeCustom1");
+                    IMAGES["Custom"].src = customSrc;
                 }
                 return IMAGES["Custom"];
+            }
             default:
                 IMAGES["Custom"] = null;
                 return null;
