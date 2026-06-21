@@ -119,9 +119,9 @@ d20plus.weather.addWeather = () => {
                     IMAGES["Custom"].onerror = () => {
                         if (IMAGES["Custom"]._errorSrc == null) {
                             IMAGES["Custom"]._errorSrc = page.get("bR20cfg_weatherTypeCustom1");
-                            alert(`Custom weather image "${IMAGES["Custom"].src}" failed to load!`);
+                            d20plus.ut.error(`Custom weather image "${IMAGES["Custom"].src}" failed to load!`);
+                            IMAGES["Custom"].src = IMAGES["Rain"].src;
                         }
-                        IMAGES["Custom"].src = IMAGES["Rain"].src;
                     };
                     IMAGES["Custom"].src = page.get("bR20cfg_weatherTypeCustom1");
                 }
