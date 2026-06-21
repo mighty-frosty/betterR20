@@ -8,6 +8,8 @@
  * Originally in: js/5etools/5etools-main.js
  */
 
+function initBindGraphics () {
+
 d20plus.bindGraphics = function (page) {
 	d20plus.ut.log("Bind Graphics");
 	try {
@@ -115,3 +117,7 @@ d20plus.bindGraphics = function (page) {
 		console.log("PAGE", page);
 	}
 };
+
+} // end initBindGraphics
+
+SCRIPT_EXTENSIONS.push(initBindGraphics);

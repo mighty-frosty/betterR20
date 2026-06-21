@@ -16,6 +16,8 @@
  * Originally in: js/base/base-ui.js
  */
 
+function initUiLayers () {
+
 // Local helpers — only usable from addQuickUiGm's event handlers.
 
 // Switches the active editing layer to a betterR20 extra layer and updates toolbar state.
@@ -160,3 +162,7 @@ d20plus.ui.layerVisibilityIcon = (layer, state) => {
 	const $layerIcon = d20plus.ui.$secondaryPanel?.find(`[data-layer=${layer}]`);
 	$layerIcon?.toggleClass("layer-off", !state);
 }
+
+} // end initUiLayers
+
+SCRIPT_EXTENSIONS.push(initUiLayers);

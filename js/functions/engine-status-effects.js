@@ -21,6 +21,8 @@
 
 // --- from js/base/base-engine.js ---
 
+function initEngineStatusEffects () {
+
 // Clears injected 5etools status CSS and removes all 5etools_ prefixed markers
 // from Roll20's token editor marker registry (used when reloading status effects).
 d20plus.engine._removeStatusEffectEntries = () => {
@@ -271,3 +273,7 @@ d20plus.mod.mouseEnterMarkerMenu = function () {
 			}
 		})
 };
+
+} // end initEngineStatusEffects
+
+SCRIPT_EXTENSIONS.push(initEngineStatusEffects);

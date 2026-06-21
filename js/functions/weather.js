@@ -1,13 +1,10 @@
 /**
  * WHAT THIS DOES:
  * Adds an animated weather overlay to the Roll20 map.
- * This should need engine layers and ui layers to be restored to be working again. (sigh)
- * A separate <canvas> element is injected on top of Roll20's canvas and driven by requestAnimationFrame
+ * A separate <canvas> element is injected on top of Roll20's canvas and driven by requestAnimationFrame.
  * Settings are stored as per-page custom properties (bR20cfg_weatherType1 etc.).
- *
- * Likely broken by Roll20 changes to the canvas
- * container structure or setCanvasSize internals that this function wraps.
  */
+function initWeatherFunctions () {
 d20plus.weather.addWeather = () => {
     const $readyCheck = $("#editor-wrapper .canvas-container");
     if (!d20.engine || !$readyCheck.length || !$readyCheck.width() || !$readyCheck.height()) {
@@ -593,3 +590,6 @@ d20plus.weather.addWeather = () => {
 
     requestAnimationFrame(drawFrame);
 };
+}
+
+SCRIPT_EXTENSIONS.push(initWeatherFunctions);

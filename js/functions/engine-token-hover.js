@@ -11,6 +11,8 @@
  * Originally in: js/base/base-engine.js
  */
 
+function initEngineTokenHover () {
+
 // Holds the current hover state: { pt, text, id } or null when not hovering.
 d20plus.engine._tokenHover = null;
 
@@ -64,3 +66,7 @@ d20plus.engine.addTokenHover = () => {
 		}
 	})
 };
+
+} // end initEngineTokenHover
+
+SCRIPT_EXTENSIONS.push(initEngineTokenHover);

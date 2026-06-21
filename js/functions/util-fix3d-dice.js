@@ -7,6 +7,8 @@
  * Originally in: js/base/base-util.js
  */
 
+function initUtilFix3dDice () {
+
 d20plus.ut.fix3dDice = () => {
 	Object.defineProperty(Array.prototype, "filter", {
 		enumerable: false,
@@ -18,3 +20,7 @@ d20plus.ut.fix3dDice = () => {
 		value: Array.prototype.map,
 	});
 };
+
+} // end initUtilFix3dDice
+
+SCRIPT_EXTENSIONS.push(initUtilFix3dDice);

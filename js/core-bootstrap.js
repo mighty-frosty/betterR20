@@ -13,7 +13,7 @@ const betteR20Core = function () {
 			if (window.is_gm) {
 				d20plus.engine.enhancePageSelector();
 				d20plus.engine.enhanceVuePageThumbnail();
-				d20plus.engine.enhanceVuePageWeather();
+				d20plus.weather.enhanceVuePageWeather();
 			}
 			await d20plus.js.pAddScripts();
 			await d20plus.qpi.pInitMockApi();

@@ -18,6 +18,8 @@
  * Originally in: js/base/base-engine.js
  */
 
+function initEngineLayers () {
+
 // Checks page settings and syncs visibility icons for the extra layers.
 d20plus.engine.layersIsMarkedAsHidden = (layer) => {
 	const page = d20.Campaign.activePage();
@@ -93,3 +95,7 @@ d20plus.engine.checkPageSettings = () => {
 		d20plus.engine.layersVisibilityCheck();
 	}
 }
+
+} // end initEngineLayers
+
+SCRIPT_EXTENSIONS.push(initEngineLayers);
