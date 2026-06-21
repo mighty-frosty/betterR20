@@ -14971,88 +14971,6 @@ function d20plusEngine () {
 		inject();
 	};
 
-	// Roll20's Page Settings dialog is a Vue component (see enhanceVuePageThumbnail above) with
-	// its own internal tab state we can't register a tab into. Instead, clone a native tab button
-	// to look the part, and manually show/hide our content vs. whatever Vue is currently rendering.
-	d20plus.engine.enhanceVuePageWeather = () => {
-		const TAB_TESTID = "pageSettings-tab-weather";
-		const CONTENT_CLASS = "b20-weather-tab-content";
-		let isActive = false;
-
-		const getTabsRow = () => $(`.section.tabs`).first();
-		const getWrapper = ($tabsRow) => $tabsRow.next(`.wrapper`);
-
-		const applyVisibility = ($wrapper) => {
-			$wrapper.children().each((i, el) => {
-				el.style.display = el.classList.contains(CONTENT_CLASS) === isActive ? "" : "none";
-			});
-		};
-
-		const deactivate = () => {
-			if (!isActive) return;
-			isActive = false;
-			const $tabsRow = getTabsRow();
-			$tabsRow.find(`[data-testid="${TAB_TESTID}"] .grimoire-tab__button`).removeClass("selected");
-			applyVisibility(getWrapper($tabsRow));
-		};
-
-		const activate = () => {
-			isActive = true;
-			const $tabsRow = getTabsRow();
-			$tabsRow.find(`.grimoire-tab__button`).removeClass("selected");
-			$tabsRow.find(`[data-testid="${TAB_TESTID}"] .grimoire-tab__button`).addClass("selected");
-			applyVisibility(getWrapper($tabsRow));
-		};
-
-		const inject = () => {
-			const $tabsRow = getTabsRow();
-			if (!$tabsRow.length) return;
-
-			if (!$tabsRow.find(`[data-testid="${TAB_TESTID}"]`).length) {
-				const $newTab = $tabsRow.find(`.grimoire-tab`).first().clone();
-				$newTab.attr("data-testid", TAB_TESTID);
-				$newTab.find(`.grimoire-tab__label`).text("Weather");
-				$newTab.find(`.grimoire-tab__button`).removeClass("selected");
-				$newTab.on("click", (evt) => {
-					evt.stopPropagation();
-					activate();
-				});
-				$tabsRow.append($newTab);
-			}
-			// clicking a native tab hands control back to Vue
-			$tabsRow.find(`.grimoire-tab`).not(`[data-testid="${TAB_TESTID}"]`)
-				.off("click.b20weather").on("click.b20weather", deactivate);
-
-			const $wrapper = getWrapper($tabsRow);
-			if ($wrapper.length && !$wrapper.children(`.${CONTENT_CLASS}`).length) {
-				const page = d20.Campaign.activePage();
-				const $content = $(d20plus.html.pageSettingsWeather).addClass(CONTENT_CLASS).appendTo($wrapper);
-				d20plus.engine._preservePageCustomOptions(page);
-				d20plus.engine._populatePageCustomOptions(page, $content);
-				// _populatePageCustomOptions sets a raw onchange on .weather selects for the old
-				// dialog, calling _updatePageCustomOptions() with no args; clear it so it doesn't
-				// crash trying to resolve a page via the (here, unset) legacy _lastSettingsPageId
-				$content.find("select").prop("onchange", null);
-				// live-update the numeric readout next to each slider while dragging, rather than
-				// only on the old delegated "click" handler (which misses drag-without-click)
-				$content.on("input", "input[type=range]", (evt) => {
-					const {currentTarget: target} = evt;
-					if (target.name) $content.find(`.${target.name}`).val(target.value);
-				});
-				$content.on("change keyup", "input, select", () => {
-					d20plus.engine._updatePageCustomOptions(page, $content);
-					d20plus.engine._savePageCustomOptions(page);
-					page.save();
-				});
-			}
-
-			if ($wrapper.length) applyVisibility($wrapper);
-		};
-
-		new MutationObserver(inject).observe(document.body, {childList: true, subtree: true});
-		inject();
-	};
-
 	d20plus.engine.enhanceMacros = (openedMacroId) => {
 		const $dialog = $(`.dialog[data-macroid=${openedMacroId}]`);
 		if (!openedMacroId || !$dialog[0]) return;
@@ -15943,6 +15861,9 @@ function baseMenu () {
 		function addBetter20ToolsToMenu() {
 			const contextMenu = document.querySelector('.context-menu');
 			if (!contextMenu) return;
+
+			// Check if already added
+			// if (contextMenu.querySelector('.better20-tools-button')) return;
 
 			if (!window.is_gm) return;
 
@@ -16955,6 +16876,87 @@ SCRIPT_EXTENSIONS.push(baseMenu);
 		"weatherEffect1": "None",
 	};
 
+	// Roll20's Page Settings dialog is a Vue component (see enhanceVuePageThumbnail above) with
+	// its own internal tab state we can't register a tab into. Instead, clone a native tab button
+	// to look the part, and manually show/hide our content vs. whatever Vue is currently rendering.
+	d20plus.weather.enhanceVuePageWeather = () => {
+		const TAB_TESTID = "pageSettings-tab-weather";
+		const CONTENT_CLASS = "b20-weather-tab-content";
+		let isActive = false;
+
+		const getTabsRow = () => $(`.section.tabs`).first();
+		const getWrapper = ($tabsRow) => $tabsRow.next(`.wrapper`);
+
+		const applyVisibility = ($wrapper) => {
+			$wrapper.children().each((i, el) => {
+				el.style.display = el.classList.contains(CONTENT_CLASS) === isActive ? "" : "none";
+			});
+		};
+
+		const deactivate = () => {
+			if (!isActive) return;
+			isActive = false;
+			const $tabsRow = getTabsRow();
+			$tabsRow.find(`[data-testid="${TAB_TESTID}"] .grimoire-tab__button`).removeClass("selected");
+			applyVisibility(getWrapper($tabsRow));
+		};
+
+		const activate = () => {
+			isActive = true;
+			const $tabsRow = getTabsRow();
+			$tabsRow.find(`.grimoire-tab__button`).removeClass("selected");
+			$tabsRow.find(`[data-testid="${TAB_TESTID}"] .grimoire-tab__button`).addClass("selected");
+			applyVisibility(getWrapper($tabsRow));
+		};
+
+		const inject = () => {
+			const $tabsRow = getTabsRow();
+			if (!$tabsRow.length) return;
+
+			if (!$tabsRow.find(`[data-testid="${TAB_TESTID}"]`).length) {
+				const $newTab = $tabsRow.find(`.grimoire-tab`).first().clone();
+				$newTab.attr("data-testid", TAB_TESTID);
+				$newTab.find(`.grimoire-tab__label`).text("Weather");
+				$newTab.find(`.grimoire-tab__button`).removeClass("selected");
+				$newTab.on("click", (evt) => {
+					evt.stopPropagation();
+					activate();
+				});
+				$tabsRow.append($newTab);
+			}
+			// clicking a native tab hands control back to Vue
+			$tabsRow.find(`.grimoire-tab`).not(`[data-testid="${TAB_TESTID}"]`)
+				.off("click.b20weather").on("click.b20weather", deactivate);
+
+			const $wrapper = getWrapper($tabsRow);
+			if ($wrapper.length && !$wrapper.children(`.${CONTENT_CLASS}`).length) {
+				const page = d20.Campaign.activePage();
+				const $content = $(d20plus.html.pageSettingsWeather).addClass(CONTENT_CLASS).appendTo($wrapper);
+				d20plus.engine._preservePageCustomOptions(page);
+				d20plus.engine._populatePageCustomOptions(page, $content);
+				// _populatePageCustomOptions sets a raw onchange on .weather selects for the old
+				// dialog, calling _updatePageCustomOptions() with no args; clear it so it doesn't
+				// crash trying to resolve a page via the (here, unset) legacy _lastSettingsPageId
+				$content.find("select").prop("onchange", null);
+				// live-update the numeric readout next to each slider while dragging, rather than
+				// only on the old delegated "click" handler (which misses drag-without-click)
+				$content.on("input", "input[type=range]", (evt) => {
+					const {currentTarget: target} = evt;
+					if (target.name) $content.find(`.${target.name}`).val(target.value);
+				});
+				$content.on("change keyup", "input, select", () => {
+					d20plus.engine._updatePageCustomOptions(page, $content);
+					d20plus.engine._savePageCustomOptions(page);
+					page.save();
+				});
+			}
+
+			if ($wrapper.length) applyVisibility($wrapper);
+		};
+
+		new MutationObserver(inject).observe(document.body, {childList: true, subtree: true});
+		inject();
+	};
 }
 
 SCRIPT_EXTENSIONS.push(baseWeather);
@@ -25592,6 +25594,8 @@ SCRIPT_EXTENSIONS.push(jukeboxWidget);
  * Originally in: js/base/base-engine.js
  */
 
+function initEngineLayers () {
+
 // Checks page settings and syncs visibility icons for the extra layers.
 d20plus.engine.layersIsMarkedAsHidden = (layer) => {
 	const page = d20.Campaign.activePage();
@@ -25668,6 +25672,10 @@ d20plus.engine.checkPageSettings = () => {
 	}
 }
 
+} // end initEngineLayers
+
+SCRIPT_EXTENSIONS.push(initEngineLayers);
+
 
 /**
  * WHAT THIS DOES:
@@ -25691,6 +25699,8 @@ d20plus.engine.checkPageSettings = () => {
  */
 
 // --- from js/base/base-engine.js ---
+
+function initEngineStatusEffects () {
 
 // Clears injected 5etools status CSS and removes all 5etools_ prefixed markers
 // from Roll20's token editor marker registry (used when reloading status effects).
@@ -25943,6 +25953,10 @@ d20plus.mod.mouseEnterMarkerMenu = function () {
 		})
 };
 
+} // end initEngineStatusEffects
+
+SCRIPT_EXTENSIONS.push(initEngineStatusEffects);
+
 
 /**
  * WHAT THIS DOES:
@@ -25956,6 +25970,8 @@ d20plus.mod.mouseEnterMarkerMenu = function () {
  *
  * Originally in: js/base/base-engine.js
  */
+
+function initEngineTokenHover () {
 
 // Holds the current hover state: { pt, text, id } or null when not hovering.
 d20plus.engine._tokenHover = null;
@@ -26011,6 +26027,10 @@ d20plus.engine.addTokenHover = () => {
 	})
 };
 
+} // end initEngineTokenHover
+
+SCRIPT_EXTENSIONS.push(initEngineTokenHover);
+
 
 /**
  * WHAT THIS DOES:
@@ -26029,6 +26049,8 @@ d20plus.engine.addTokenHover = () => {
  *
  * Originally in: js/base/base-ui.js
  */
+
+function initUiLayers () {
 
 // Local helpers — only usable from addQuickUiGm's event handlers.
 
@@ -26175,17 +26197,18 @@ d20plus.ui.layerVisibilityIcon = (layer, state) => {
 	$layerIcon?.toggleClass("layer-off", !state);
 }
 
+} // end initUiLayers
+
+SCRIPT_EXTENSIONS.push(initUiLayers);
+
 
 /**
  * WHAT THIS DOES:
  * Adds an animated weather overlay to the Roll20 map.
- * This should need engine layers and ui layers to be restored to be working again. (sigh)
- * A separate <canvas> element is injected on top of Roll20's canvas and driven by requestAnimationFrame
+ * A separate <canvas> element is injected on top of Roll20's canvas and driven by requestAnimationFrame.
  * Settings are stored as per-page custom properties (bR20cfg_weatherType1 etc.).
- *
- * Likely broken by Roll20 changes to the canvas
- * container structure or setCanvasSize internals that this function wraps.
  */
+function initWeatherFunctions () {
 d20plus.weather.addWeather = () => {
     const $readyCheck = $("#editor-wrapper .canvas-container");
     if (!d20.engine || !$readyCheck.length || !$readyCheck.width() || !$readyCheck.height()) {
@@ -26771,6 +26794,9 @@ d20plus.weather.addWeather = () => {
 
     requestAnimationFrame(drawFrame);
 };
+}
+
+SCRIPT_EXTENSIONS.push(initWeatherFunctions);
 
 /**
  * Makes Array.prototype.filter and .map non-enumerable so 3d dice libraries
@@ -26780,6 +26806,8 @@ d20plus.weather.addWeather = () => {
  * Disabled (FIXME #165) pending a cleaner solution.
  * Originally in: js/base/base-util.js
  */
+
+function initUtilFix3dDice () {
 
 d20plus.ut.fix3dDice = () => {
 	Object.defineProperty(Array.prototype, "filter", {
@@ -26792,6 +26820,10 @@ d20plus.ut.fix3dDice = () => {
 		value: Array.prototype.map,
 	});
 };
+
+} // end initUtilFix3dDice
+
+SCRIPT_EXTENSIONS.push(initUtilFix3dDice);
 
 
 /**
@@ -29022,7 +29054,7 @@ const betteR20Core = function () {
 			if (window.is_gm) {
 				d20plus.engine.enhancePageSelector();
 				d20plus.engine.enhanceVuePageThumbnail();
-				d20plus.engine.enhanceVuePageWeather();
+				d20plus.weather.enhanceVuePageWeather();
 			}
 			await d20plus.js.pAddScripts();
 			await d20plus.qpi.pInitMockApi();
@@ -29167,6 +29199,31 @@ const D20plus = function (version) {
 
 // if we are the topmost frame, inject
 if (window.top === window.self) {
+	// Bridge header.js globals into the page window so the eval'd code can access them.
+	// Without this, sandboxed userscript managers (Tampermonkey, Violentmonkey) keep these
+	// implicit globals in the userscript scope, invisible to unsafeWindow.eval().
+	unsafeWindow.ART_HANDOUT = ART_HANDOUT;
+	unsafeWindow.CONFIG_HANDOUT = CONFIG_HANDOUT;
+	unsafeWindow.B20_NAME = B20_NAME;
+	unsafeWindow.B20_VERSION = B20_VERSION;
+	unsafeWindow.B20_REPO_URL = B20_REPO_URL;
+	unsafeWindow.BASE_SITE_URL = BASE_SITE_URL;
+	unsafeWindow.LINK_BASE_URL = LINK_BASE_URL;
+	unsafeWindow.SITE_JS_URL = SITE_JS_URL;
+	unsafeWindow.DATA_URL = DATA_URL;
+	unsafeWindow.DATA_URL_MODULES = DATA_URL_MODULES;
+	unsafeWindow.DATA_URL_IMG_REPO = DATA_URL_IMG_REPO;
+	unsafeWindow.DATA_URL_ART_REPO = DATA_URL_ART_REPO;
+	unsafeWindow.DATA_URL_PLAYLIST = DATA_URL_PLAYLIST;
+	unsafeWindow.DATA_URL_COMMUNITY_MODULES = DATA_URL_COMMUNITY_MODULES;
+	unsafeWindow.JSON_DATA = JSON_DATA;
+	unsafeWindow.CONFIG_OPTIONS = CONFIG_OPTIONS;
+	unsafeWindow.addConfigOptions = addConfigOptions;
+	unsafeWindow.EXT_LIB_SCRIPTS = EXT_LIB_SCRIPTS;
+	unsafeWindow.EXT_LIB_API_SCRIPTS = EXT_LIB_API_SCRIPTS;
+	unsafeWindow.OBJECT_DEFINE_PROPERTY = OBJECT_DEFINE_PROPERTY;
+	unsafeWindow.ACCOUNT_ORIGINAL_PERMS = ACCOUNT_ORIGINAL_PERMS;
+
 	const strip = (str) => {
 		return `${str.replace(/use strict/, "").substring(str.indexOf("\n") + 1, str.lastIndexOf("\n"))}\n`;
 	};
