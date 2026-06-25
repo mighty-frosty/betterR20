@@ -4,6 +4,9 @@ const SCRIPT_VERSION = process.env.SCRIPT_VERSION || "1.36.1.4-beta";
 const SCRIPT_REPO = process.env.SCRIPT_REPO || "https://github.com/mighty-frosty/betterR20/releases/latest/download/";
 
 const SCRIPT_BETA_DESCRIPTION = `This version contains following changes
+1.36.1.1jj - Weather Configuration
+- Added a working "Weather" tab to the Page Settings dialog, with live slider readouts
+- Re-enabled the Weather rendering engine (rain/snow/fog/lightning/tint), updated to work with Roll20's current canvas engine
 1.36.1.1ji - 2024 Sheet Support (First Release)
 - Added drag & drop import for Spells, Items, Feats, Species/Races, and Classes directly into the new 2024 (Jumpgate) character sheet
 - Convert existing OGL 2014 character sheets to the 2024 sheet format
@@ -166,7 +169,6 @@ const SCRIPTS = {
 		"base/base-art",
 		"base/base-art-browse",
 		"overwrites/base",
-		"overwrites/canvas-handler",
 		"templates/template-roll20-token-editor",
 		"templates/template-roll20-page-settings",
 		"templates/template-roll20-actions-menu",
@@ -185,12 +187,19 @@ const SCRIPTS = {
 		"base/base-chat-languages",
 		"base/base-chat-emoji",
 		"base/base-chat",
-		"base/base-ba-character",
-		"base/base-ba-rolltemplates",
 		"base/base-character-io",
-		"base/base-ba",
 		"base/base-remote-libre",
 		"base/base-jukebox-widget",
+
+		"functions/engine-layers",
+		"functions/engine-status-effects",
+		"functions/engine-token-hover",
+		"functions/ui-layers",
+		"functions/weather",
+		"functions/util-fix3d-dice",
+		"functions/better-actions-characters",
+		"functions/better-actions-rolltemplates",
+		"functions/better-actions",
 
 		"core-bootstrap",
 
@@ -214,7 +223,6 @@ const SCRIPTS = {
 		"base/base-art",
 		"base/base-art-browse",
 		"overwrites/base",
-		"overwrites/canvas-handler",
 		"templates/template-roll20-token-editor",
 		"templates/template-roll20-page-settings",
 		"templates/template-roll20-actions-menu",
@@ -233,12 +241,20 @@ const SCRIPTS = {
 		"base/base-chat-languages",
 		"base/base-chat-emoji",
 		"base/base-chat",
-		"base/base-ba-character",
-		"base/base-ba-rolltemplates",
 		"base/base-character-io",
-		"base/base-ba",
 		"base/base-remote-libre",
 		"base/base-jukebox-widget",
+
+		"functions/engine-layers",
+		"functions/engine-status-effects",
+		"functions/engine-token-hover",
+		"functions/ui-layers",
+		"functions/weather",
+		"functions/util-fix3d-dice",
+		"functions/better-actions-characters",
+		"functions/better-actions-rolltemplates",
+		"functions/better-actions",
+		"functions/5etools-bind-graphics",
 
 		"5etools/5etools-bootstrap",
 		"5etools/5etools-config",
@@ -282,6 +298,7 @@ const SCRIPTS = {
 		"base/base-config",
 		"base/tools/base-tool",
 		"base/tools/base-tool-module",
+        "base/tools/base-tool-autobackup",
 		"base/tools/base-tool-unlock",
 		"base/tools/base-tool-animator",
 		"base/tools/base-tool-table",
@@ -290,7 +307,6 @@ const SCRIPTS = {
 		"base/base-art",
 		"base/base-art-browse",
 		"overwrites/base",
-		"overwrites/canvas-handler",
 		"templates/template-roll20-token-editor",
 		"templates/template-roll20-page-settings",
 		"templates/template-roll20-actions-menu",
@@ -309,11 +325,19 @@ const SCRIPTS = {
 		"base/base-chat-languages",
 		"base/base-chat-emoji",
 		"base/base-chat",
-		"base/base-ba-character",
-		"base/base-ba-rolltemplates",
-		"base/base-ba",
 		"base/base-remote-libre",
 		"base/base-jukebox-widget",
+
+		"functions/engine-layers",
+		"functions/engine-status-effects",
+		"functions/engine-token-hover",
+		"functions/ui-layers",
+		"functions/weather",
+		"functions/util-fix3d-dice",
+		"functions/better-actions-characters",
+		"functions/better-actions-rolltemplates",
+		"functions/better-actions",
+		"functions/5etools-bind-graphics",
 
 		"5etools/5etools-bootstrap",
 		"5etools/5etools-config",
@@ -397,7 +421,7 @@ Object.entries(BUILDS).forEach(([name, data]) => {
 			.replace("%B20_IMG_URL%", data.imgURL)
 			.replace("%B20_REPO_URL%", SCRIPT_REPO),
 		...libJson.map(filePath => wrapLibData(filePath.replace("data2014", "data"), fs.readFileSync(filePath, "utf-8"))),
-		...data.scripts.map(filename => filename === "base/base-util"
+		...data.scripts.map(filename => filename === "base-util"
 			? fs.readFileSync(`${JS_DIR}${filename}.js`, "utf-8").toString().replace("}, 6000);", `
 			d20plus.ut.sendHackerChat(\`
 				<div class="userscript-b20intro">

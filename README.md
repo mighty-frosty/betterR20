@@ -16,8 +16,8 @@ For help, advice, and updates; or to suggest improvements and changes, please [j
 2. Install the Tampermonkey browser extension ([Chrome](https://chrome.google.com/webstore/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo?hl=en)/[Firefox](https://addons.mozilla.org/en-GB/firefox/addon/tampermonkey/)).
 
 3. Install the script:
-   - **Latest release:** click [here](https://github.com/mighty-frosty/betterR20/releases/latest/download/betteR20-5etools.user.js)
-   - **Testing build** (may be unstable): click [here](https://mighty-frosty.github.io/betterR20/betteR20-5etools.user.js)
+   - **Latest release:** click [here](https://github.com/deathstalker471/betterR20/releases/latest/download/betteR20-5etools.user.js)
+   - **Testing build** (may be unstable): click [here](https://deathstalker471.github.io/betterR20/betteR20-5etools.user.js)
 
 4. Open the Roll20 game where you want the stuff imported.
 
@@ -43,7 +43,7 @@ There are a variety of other features added by the script. Some highlights inclu
 
 ## But I Don't Play 5e!
 A version of the script including all the non-5e related features is available:
-- **Latest release:** [here](https://github.com/mighty-frosty/betterR20/releases/latest/download/betteR20-core.user.js)
-- **Testing build:** [here](https://mighty-frosty.github.io/betterR20/betteR20-core.user.js)
+- **Latest release:** [here](https://github.com/deathstalker471/betterR20/releases/latest/download/betteR20-core.user.js)
+- **Testing build:** [here](https://deathstalker471.github.io/betterR20/betteR20-core.user.js)
 
 **Do not use both scripts at the same time, they are mutually incompatible.**

@@ -1,3 +1,9 @@
+/**
+ * BetterActions roll templates — HTML and Roll20 macro strings for attacks, saves,
+ * skills, and spells displayed in the BA panel.
+ * Originally in: js/base/base-ba-rolltemplates.js
+ */
+
 function baseBARollTemplates () {
 	d20plus.ba = d20plus.ba || {};
 

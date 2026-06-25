@@ -54,29 +54,6 @@ function d20plusEngine () {
 		}
 	};
 
-	d20plus.engine._removeStatusEffectEntries = () => {
-		$(`#5etools-status-css`).html("");
-		Object.keys(d20.token_editor.statusmarkers).filter(k => k.startsWith("5etools_")).forEach(k => delete d20.token_editor.statusmarkers[k]);
-	};
-
-	d20plus.engine.enhanceStatusEffects = () => {
-		d20plus.ut.log("Enhance status effects");
-		$(`head`).append(`<style id="5etools-status-css"/>`);
-
-		d20plus.mod.overwriteStatusEffects();
-
-		d20.engine.canvas.off("object:added");
-		d20.engine.canvas.on("object:added", d20plus.mod.overwriteStatusEffects);
-
-		// the holy trinity
-		// d20.engine.canvas.on("object:removed", () => console.log("added"));
-		// d20.engine.canvas.on("object:removed", () => console.log("removed"));
-		// d20.engine.canvas.on("object:modified", () => console.log("modified"));
-
-		$(document).off("mouseenter", ".markermenu");
-		$(document).on("mouseenter", ".markermenu", d20plus.mod.mouseEnterMarkerMenu)
-	};
-
 	d20plus.engine.swapTemplates = () => {
 		const $betaSwitch = $("#new-toolbar-toggle");
 		d20plus.betaFeaturesEnabled = $betaSwitch.prop("checked");
@@ -103,6 +80,7 @@ function d20plusEngine () {
 			</ul>
 			<div class='tab-content'>
 				${d20plus.html.pageSettings}
+				${d20plus.html.pageSettingsWeather}
 			</div>
 		</script>`;
 	};
@@ -606,63 +584,6 @@ function d20plusEngine () {
 			d20.Campaign.activePage().debounced_recordZIndexes()
 	};
 
-	// previously "enhanceSnap"
-	d20plus.engine.enhanceMouseDown = () => {
-		const R = d20plus.overwrites.canvasHandlerDown
-
-		if (FINAL_CANVAS_MOUSEDOWN_LIST.length) {
-			FINAL_CANVAS_MOUSEDOWN = (FINAL_CANVAS_MOUSEDOWN_LIST.find(it => it.on === d20.engine.final_canvas) || {}).listener;
-		}
-
-		if (FINAL_CANVAS_MOUSEDOWN) {
-			d20plus.ut.log("Enhancing hex snap");
-			d20.engine.final_canvas.removeEventListener("mousedown", FINAL_CANVAS_MOUSEDOWN);
-			d20.engine.final_canvas.addEventListener("mousedown", R);
-		}
-
-		// add sub-grid snap
-		d20.engine.snapToIncrement = function(e, t) {
-			t *= Number(d20plus.cfg.getOrDefault("canvas", "gridSnap"));
-			return t * Math.round(e / t);
-		}
-	};
-
-	d20plus.engine.enhanceMouseUp = () => { // P
-
-	};
-
-	// needs to be called after `enhanceMeasureTool()`
-	d20plus.engine.enhanceMouseMove = () => {
-		// add missing vars
-		var i = d20.engine.canvas;
-
-		// Roll20 bug (present as of 2019-5-25) workaround
-		//   when box-selecting + moving tokens, the "object:moving" event throws an exception
-		//   try-catch-ignore this, because it's extremely annoying
-		const cachedFire = i.fire.bind(i);
-		i.fire = function (namespace, opts) {
-			if (namespace === "object:moving") {
-				try {
-					cachedFire(namespace, opts);
-				} catch (e) {}
-			} else {
-				cachedFire(namespace, opts);
-			}
-		};
-
-		const I = d20plus.overwrites.canvasHandlerMove
-
-		if (FINAL_CANVAS_MOUSEMOVE_LIST.length) {
-			FINAL_CANVAS_MOUSEMOVE = (FINAL_CANVAS_MOUSEMOVE_LIST.find(it => it.on === d20.engine.final_canvas) || {}).listener;
-		}
-
-		if (FINAL_CANVAS_MOUSEMOVE) {
-			d20plus.ut.log("Enhancing mouse move");
-			d20.engine.final_canvas.removeEventListener("mousemove", FINAL_CANVAS_MOUSEMOVE);
-			d20.engine.final_canvas.addEventListener("mousemove", I);
-		}
-	};
-
 	/* eslint-enable */
 
 	d20plus.engine.expendResources = async (expend) => {
@@ -800,64 +721,6 @@ function d20plusEngine () {
 		})
 	}
 
-	d20plus.engine.addLineCutterTool = () => {
-		// The code in /overwrites/canvas-handler.js doesn't work
-		const $btnTextTool = $(`.choosetext`);
-
-		const $btnSplitTool = $(`<li class="choosesplitter">✂️ Line Splitter</li>`).click(() => {
-			d20plus.setMode("line_splitter");
-		});
-
-		$btnTextTool.after($btnSplitTool);
-	};
-
-	d20plus.engine._tokenHover = null;
-	d20plus.engine._drawTokenHover = () => {
-		$(`.Vetools-token-hover`).remove();
-		if (!d20plus.engine._tokenHover || !d20plus.engine._tokenHover.text) return;
-
-		const pt = d20plus.engine._tokenHover.pt;
-		const txt = unescape(d20plus.engine._tokenHover.text);
-
-		$(`body`).append(`<div class="Vetools-token-hover" style="top: ${pt.y * d20.engine.canvasZoom}px; left: ${pt.x * d20.engine.canvasZoom}px">${txt}</div>`);
-	};
-	d20plus.engine.addTokenHover = () => {
-		// gm notes on shift-hover
-		const cacheRenderLoop = d20.engine.renderLoop;
-		d20.engine.renderLoop = () => {
-			d20plus.engine._drawTokenHover();
-			cacheRenderLoop();
-		};
-
-		// store data for the rendering function to access
-		d20.engine.canvas.on("mouse:move", (data, ...others) => {
-			// enable hover from GM layer -> token layer
-			let hoverTarget = data.target;
-			if (data.e && window.currentEditingLayer === "gmlayer") {
-				const cache = window.currentEditingLayer;
-				window.currentEditingLayer = "objects";
-				hoverTarget = d20.engine.canvas.findTarget(data.e, null, true);
-				window.currentEditingLayer = cache;
-			}
-
-			if (data.e.shiftKey && hoverTarget && hoverTarget.model) {
-				d20.engine.redrawScreenNextTick();
-				const gmNotes = hoverTarget.model.get("gmnotes");
-				const pt = d20.engine.canvas.getPointer(data.e);
-				pt.x -= d20.engine.currentCanvasOffset[0];
-				pt.y -= d20.engine.currentCanvasOffset[1];
-				d20plus.engine._tokenHover = {
-					pt: pt,
-					text: gmNotes,
-					id: hoverTarget.model.id,
-				};
-			} else {
-				if (d20plus.engine._tokenHover) d20.engine.redrawScreenNextTick();
-				d20plus.engine._tokenHover = null;
-			}
-		})
-	};
-
 	d20plus.engine.enhanceMarkdown = () => {
 		const OUT_STRIKE = "<span style='text-decoration: line-through'>$1</span>";
 
@@ -954,52 +817,6 @@ function d20plusEngine () {
 			}, 35);
 		})
 	};
-
-	d20plus.engine.layersIsMarkedAsHidden = (layer) => {
-		const page = d20.Campaign.activePage();
-		return page?.get(`bR20cfg_hidden`)?.search(layer) > -1;
-	}
-
-	d20plus.engine.layersVisibilityCheck = () => {
-		const layers = ["floors", "background", "foreground", "roofs"];
-		layers.forEach((layer) => {
-			const isHidden = d20.engine.canvas._objects.some((o) => {
-				if (o.model) return o.model.get("layer") === `hidden_${layer}`;
-			}) || d20plus.engine.layersIsMarkedAsHidden(layer);
-			d20plus.engine.layerVisibilityOff(layer, isHidden, true);
-		});
-	}
-
-	d20plus.engine.layersToggle = (layer) => {
-		const page = d20.Campaign.activePage();
-		if (!page.get(`bR20cfg_hidden`)) page.set(`bR20cfg_hidden`, "");
-		if (d20plus.engine.layersIsMarkedAsHidden(layer)) {
-			d20plus.engine.layerVisibilityOff(layer, false);
-		} else {
-			d20plus.engine.layerVisibilityOff(layer, true);
-		}
-	};
-
-	d20plus.engine.layerVisibilityOff = (layer, off, force) => {
-		const page = d20.Campaign.activePage();
-		if (off) {
-			if (d20plus.engine.objectsHideUnhide("layer", layer, "layeroff", false) || force) {
-				if (window.currentEditingLayer === layer) d20plus.ui.switchToR20Layer();
-				d20plus.ui.layerVisibilityIcon(layer, false);
-				if (!d20plus.engine.layersIsMarkedAsHidden(layer)) {
-					page.set(`bR20cfg_hidden`, `${page.get(`bR20cfg_hidden`)} ${layer}`);
-					page.save();
-				}
-			}
-		} else {
-			d20plus.engine.objectsHideUnhide("layer", layer, "layeroff", true);
-			d20plus.ui.layerVisibilityIcon(layer, true);
-			if (d20plus.engine.layersIsMarkedAsHidden(layer)) {
-				page.set(`bR20cfg_hidden`, page.get(`bR20cfg_hidden`).replace(` ${layer}`, ""));
-				page.save();
-			}
-		}
-	}
 
 	d20plus.engine._objectsStashProps = (obj, visible) => {
 		[
@@ -1108,29 +925,6 @@ function d20plusEngine () {
 		}))
 	};
 
-	d20plus.engine.addLayers = () => {
-		d20plus.ut.log("Adding layers");
-
-		d20.engine.canvas._renderAll = _.bind(d20plus.mod.renderAll, d20.engine.canvas);
-		d20.engine.canvas.sortTokens = _.bind(d20plus.mod.sortTokens, d20.engine.canvas);
-		d20.engine.canvas.drawAnyLayer = _.bind(d20plus.mod.drawAnyLayer, d20.engine.canvas);
-		d20.engine.canvas.drawTokensWithoutAuras = _.bind(d20plus.mod.drawTokensWithoutAuras, d20.engine.canvas);
-
-		if (window.is_gm) {
-			$(document).on("d20:new_page_fully_loaded", d20plus.engine.checkPageSettings);
-			d20plus.engine.checkPageSettings();
-		}
-	};
-
-	d20plus.engine.checkPageSettings = () => {
-		if (!d20plus.cfg.getOrDefault("canvas", "extraLayerButtons")) return;
-		if (!d20.Campaign.activePage() || !d20.Campaign.activePage().get) {
-			setTimeout(d20plus.engine.checkPageSettings, 50);
-		} else {
-			d20plus.engine.layersVisibilityCheck();
-		}
-	}
-
 	d20plus.engine.removeLinkConfirmation = function () {
 		d20.utils.handleURL = d20plus.mod.handleURL;
 		$(document).off("click", "a").on("click", "a", d20.utils.handleURL);
@@ -1153,29 +947,6 @@ function d20plusEngine () {
 		d20plus.engine._hasPatchedHandleHtmlInput = true;
 	};
 
-	d20plus.engine.repairPrototypeMethods = function () {
-		d20plus.mod.fixHexMethods();
-		d20plus.mod.fixVideoMethods();
-	};
-
-	d20plus.engine.disableFrameRecorder = function () {
-		if (d20.engine.frame_recorder) {
-			d20.engine.frame_recorder.active = false;
-			d20.engine.frame_recorder._active = false;
-		}
-	};
-
-	d20plus.engine.fixPolygonTool = () => {
-		if (!d20plus.newUIDisabled) return; // as of January 2024 newUI is always ON, so the below block is not needed
-		$("#editor-wrapper").on("pointerdown", x => { d20plus.engine.leftClicked = x.which === 1 });
-		$("#editor-wrapper").on("pointerup", x => { d20plus.engine.leftClicked = false });
-		d20plus.ut.injectCode(d20.engine, "finishCurrentPolygon", (finishDrawing, params) => {
-			if (!d20plus.engine.leftClicked) finishDrawing(...params);
-		});
-		d20plus.ut.injectCode(d20.engine, "finishPolygonReveal", (finishRevealing, params) => {
-			if (!d20plus.engine.leftClicked) finishRevealing(...params);
-		});
-	};
 }
 
 SCRIPT_EXTENSIONS.push(d20plusEngine);
