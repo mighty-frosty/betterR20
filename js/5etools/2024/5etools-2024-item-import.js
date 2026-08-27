@@ -1,16 +1,23 @@
 function d20plus2024ItemImport() {
-	const u = d20plus.import2024;
+	const itemCtx = d20plus.import2024;
 
-	d20plus.importer.import2024Item = function (charModel, itemData) {
+	d20plus.importer.import2024Item = async function (charModel, itemData) {
 		const d = itemData.data || {};
 		const vc = itemData.Vetoolscontent || {};
-		const {attr: storeAttr, store: rawStore} = u.getStore(charModel);
+		const releaseLock = await itemCtx.pAcquireStoreLock(charModel);
+		try {
+		// Force-load attribs before reading the store - on a freshly-opened character sheet, Roll20
+		// may not have finished hydrating charModel.attribs yet, which previously made getStore()
+		// silently miss the real store attribute (the actual cause of the race, not just a symptom
+		// to bail out on). Same helper base-chat.js already relies on for this exact class of problem.
+		await d20plus.ut.fetchCharAttribs(charModel);
+		const {attr: storeAttr, store: rawStore} = itemCtx.getStore(charModel);
+		// Bail rather than fabricate a blank scaffold when the store attribute still isn't found
+		// after the fetch above (e.g. a genuinely new character with no store yet) - saving a
+		// scaffold here would overwrite the character's entire real data with just this one item.
+		if (!rawStore) return;
 
-		const store = rawStore ? JSON.parse(JSON.stringify(rawStore)) : {
-			integrants: {integrants: {}},
-			inventory: {equipmentDisplayOrder: "[]", incrementalQuantityEditing: true, otherPossessionsDisplayOrder: "[]"},
-			attacks: {attackDisplayOrder: "[]"},
-		};
+		const store = JSON.parse(JSON.stringify(rawStore));
 		if (!store.integrants) store.integrants = {integrants: {}};
 		if (!store.integrants.integrants) store.integrants.integrants = {};
 		if (!store.inventory) store.inventory = {equipmentDisplayOrder: "[]", incrementalQuantityEditing: true, otherPossessionsDisplayOrder: "[]"};
@@ -19,7 +26,7 @@ function d20plus2024ItemImport() {
 		const bonusMatch = itemData.name.match(/^\+(\d+)/);
 		const magicBonus = bonusMatch ? parseInt(bonusMatch[1], 10) : 0;
 
-		let pos = u.getNextArrayPos(store);
+		let pos = itemCtx.getNextArrayPos(store);
 
 		const parseDice = (str) => {
 			const m = (str || "").match(/(\d+)d(\d+)/i);
@@ -44,11 +51,11 @@ function d20plus2024ItemImport() {
 		const baseAtkType = isRanged ? "Ranged" : "Melee";
 
 		// Item integrant ID needed before building attacks (attacks reference itemId as sourceID/parentID)
-		const {id: itemId, base: itemBase} = u.makeIntegrantBase("Item", pos++);
+		const {id: itemId, base: itemBase} = itemCtx.makeIntegrantBase("Item", pos++);
 
 		const makeAttackPair = (atkName, atkRecordName, dmgName, atkObj, dmgAbility, dmgStr, dmgType) => {
-			const {id: atkId, base: atkBase} = u.makeIntegrantBase("Attack", pos++);
-			const {id: dmgId, base: dmgBase} = u.makeIntegrantBase("Damage", pos++);
+			const {id: atkId, base: atkBase} = itemCtx.makeIntegrantBase("Attack", pos++);
+			const {id: dmgId, base: dmgBase} = itemCtx.makeIntegrantBase("Damage", pos++);
 			const {diceCount, diceSize} = parseDice(dmgStr);
 
 			const dmgIntegrant = {
@@ -207,7 +214,10 @@ function d20plus2024ItemImport() {
 
 		store.integrants.integrants[itemId] = itemIntegrant;
 
-		u.saveStore(charModel, storeAttr, store);
+		itemCtx.saveStore(charModel, storeAttr, store);
+		} finally {
+			releaseLock();
+		}
 	};
 }
 SCRIPT_EXTENSIONS.push(d20plus2024ItemImport);

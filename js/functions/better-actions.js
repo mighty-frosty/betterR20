@@ -1,3 +1,13 @@
+/**
+ * BetterActions — right-click action panel for tokens showing attacks, saves, skills,
+ * and spells pulled from the character sheet, with initiative tracker integration.
+ * Entry point is initBetterActions(), disabled in both bootstraps.
+ *
+ * Need to check what is useful to have back and what not.
+ * TODO: Test in Jumpgate; sheet attribute access and token model may have changed.
+ * Originally in: js/base/base-ba.js
+ */
+
 function baseBetterActions () {
 	d20plus.ba = d20plus.ba || {};
 

@@ -196,6 +196,9 @@ function baseMenu () {
 			const contextMenu = document.querySelector('.context-menu');
 			if (!contextMenu) return;
 
+			// Check if already added
+			// if (contextMenu.querySelector('.better20-tools-button')) return;
+
 			if (!window.is_gm) return;
 
 			// Remove any existing instance before adding fresh one (prevents duplicates)

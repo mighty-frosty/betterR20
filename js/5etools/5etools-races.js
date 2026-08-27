@@ -17,7 +17,7 @@ function d20plusRaces () {
 					toImport.push(...d20plus.races.adoptSubraces(allraces.race, data.subrace, false))
 				}
 				await d20plus.importer.pAddBrew(url);
-				d20plus.importer.showImportList(
+				await d20plus.importer.showImportList(
 					"race",
 					Renderer.race.mergeSubraces(toImport),
 					handoutBuilder,
@@ -58,7 +58,7 @@ function d20plusRaces () {
 	};
 
 	d20plus.races.playerImportBuilder = function (data) {
-		const [notecontents, gmnotes] = d20plus.races._getHandoutData(data);
+		const [, gmnotes] = d20plus.races._getHandoutData(data);
 
 		const importId = d20plus.ut.generateRowId();
 		d20plus.importer.storePlayerImport(importId, JSON.parse(gmnotes));

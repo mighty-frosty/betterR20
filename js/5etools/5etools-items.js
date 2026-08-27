@@ -45,42 +45,40 @@ function d20plusItems () {
 								return itemList.find(it => UrlUtil.URL_TO_HASH_BUILDER[UrlUtil.PG_ITEMS](it) === hash);
 							}
 
-							const out = p.packContents
-								.map(info => {
-									if (typeof info === "string") {
-										return {
-											_typeHtml: "item",
-											count: 1,
-											data: getSubItem(info),
-										}
-									}
+                            p._r20SubItemData = p.packContents
+                                .map(info => {
+                                    if (typeof info === "string") {
+                                        return {
+                                            _typeHtml: "item",
+                                            count: 1,
+                                            data: getSubItem(info),
+                                        }
+                                    }
 
-									if (info.item) {
-										return {
-											_typeHtml: "item",
-											count: info.quantity || 1,
-											data: getSubItem(info.item),
-										}
-									}
+                                    if (info.item) {
+                                        return {
+                                            _typeHtml: "item",
+                                            count: info.quantity || 1,
+                                            data: getSubItem(info.item),
+                                        }
+                                    }
 
-									if (info.special) {
-										return {
-											_typeHtml: "misc",
-											data: {
-												name: info.special,
-												data: {
-													Category: "Items",
-													"Item Type": "Adventuring Gear",
-												},
-											},
-										}
-									}
+                                    if (info.special) {
+                                        return {
+                                            _typeHtml: "misc",
+                                            data: {
+                                                name: info.special,
+                                                data: {
+                                                    Category: "Items",
+                                                    "Item Type": "Adventuring Gear",
+                                                },
+                                            },
+                                        }
+                                    }
 
-									return null;
-								})
-								.filter(Boolean)
-
-							p._r20SubItemData = out;
+                                    return null;
+                                })
+                                .filter(Boolean);
 						}
 					});
 
@@ -105,7 +103,7 @@ function d20plusItems () {
 					(data.itemProperty || []).forEach(p => Renderer.item._addProperty(p));
 					(data.itemType || []).forEach(t => Renderer.item._addType(t));
 					await d20plus.importer.pAddBrew(url);
-					d20plus.importer.showImportList(
+					await d20plus.importer.showImportList(
 						"item",
 						data.item,
 						handoutBuilder,
@@ -160,7 +158,7 @@ function d20plusItems () {
 	};
 
 	d20plus.items.playerImportBuilder = function (data) {
-		const [notecontents, gmnotes] = d20plus.items._getHandoutData(data);
+		const [, gmnotes] = d20plus.items._getHandoutData(data);
 
 		const importId = d20plus.ut.generateRowId();
 		d20plus.importer.storePlayerImport(importId, JSON.parse(gmnotes));
@@ -274,11 +272,6 @@ function d20plusItems () {
 	d20plus.items.parseType = function (type) {
 		const result = Renderer.item.getItemTypeName(type);
 		return result || "n/a";
-	};
-
-	d20plus.items.parseDamageType = function (damagetype) {
-		const result = Parser.dmgTypeToFull(damagetype);
-		return result || false;
 	};
 
 	d20plus.items.parseProperty = function (property) {

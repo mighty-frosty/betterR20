@@ -153,11 +153,11 @@ function d20plusVehicles () {
 		if (url && url.trim()) {
 			DataUtil.loadJSON(url).then(async (data) => {
 				await d20plus.importer.pAddBrew(url);
-				d20plus.importer.showImportList(
-					"vehicle",
-					data.vehicle,
-					d20plus.vehicles.handoutBuilder,
-				);
+				await d20plus.importer.showImportList(
+                    "vehicle",
+                    data.vehicle,
+                    d20plus.vehicles.handoutBuilder,
+                );
 			});
 		}
 	};
@@ -174,7 +174,6 @@ function d20plusVehicles () {
 		if (!d20plus.importer._checkHandleDuplicate(path, overwrite)) return;
 
 		const name = data.name;
-		const source = data.source;
 		d20.Campaign.characters.create(
 			{
 				name: name,

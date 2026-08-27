@@ -169,7 +169,7 @@ function d20plusClass () {
 	d20plus.classes.playerImportBuilder = function (data, _1, _2, _3, _4, options) {
 		options = options || {};
 
-		const [notecontents, gmnotes] = d20plus.classes._getHandoutData(data);
+		const [, gmnotes] = d20plus.classes._getHandoutData(data);
 
 		const importId = d20plus.ut.generateRowId();
 		d20plus.importer.storePlayerImport(importId, JSON.parse(gmnotes));
@@ -428,7 +428,7 @@ function d20plusClass () {
 
 				if (!isSupportedClass && clss.name === "Mystic") {
 					const classResourcesForLevel = clss.classTableGroups[0].rows[maxLevel - 1];
-					const [talentsKnown, disciplinesKnown, psiPoints, psiLimit] = classResourcesForLevel;
+					const [, , psiPoints, psiLimit] = classResourcesForLevel;
 
 					attrs.addOrUpdate("spell_points_name", "PSI");
 					attrs.addOrUpdate("show_spells", "1");
@@ -436,7 +436,6 @@ function d20plusClass () {
 					attrs.addOrUpdate("spell_ability", "INTELLIGENCE");
 					attrs.addOrUpdate("spell_points_limit", psiLimit);
 					attrs.addOrUpdate("spell_points", psiPoints, psiPoints);
-					// talentsKnown, disciplinesKnown;	// unused
 
 					for (let i = 1; i <= 7; i++) {
 						attrs.addOrUpdate(`spell_level_${i}_cost`, i);
@@ -573,7 +572,7 @@ function d20plusClass () {
 	 * @param baseClass Will be defined if importing as part of a class, undefined otherwise.
 	 */
 	d20plus.subclasses.playerImportBuilder = function (data, baseClass) {
-		const [notecontents, gmnotes] = d20plus.subclasses._getHandoutData(data);
+		const [, gmnotes] = d20plus.subclasses._getHandoutData(data);
 
 		const importId = d20plus.ut.generateRowId();
 		d20plus.importer.storePlayerImport(importId, JSON.parse(gmnotes));

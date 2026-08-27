@@ -1,3 +1,9 @@
+/**
+ * BetterActions character/token data — fetches and maps character sheet attributes
+ * to the BA panel's token list.
+ * Originally in: js/base/base-ba-character.js
+ */
+
 function baseBACharacters () {
 	d20plus.ba = d20plus.ba || {};
 
@@ -760,19 +766,6 @@ function baseBACharacters () {
 			token?.select();
 		}
 
-		d20plus.ba.getReady = function (ref) { // legacy
-			const gotToken = !ref.attribs;
-			if (gotToken && !ref.character && !ref._model?.character) return;
-
-			const token = ref._model || ref;
-			const existing = (gotToken ? d20plus.ba.tokens : d20plus.ba.characters).get(token.id);
-			d20plus.ut.log(token, existing); // check why it's called twice !!!!
-			const created = existing || (gotToken
-				? new d20plus.ba.tokens.Connector(token)
-				: new d20plus.ba.characters.Connector(token));
-			existing?.refresh();
-			return existing || created;
-		}
 	}
 
 	window.d20debug = {

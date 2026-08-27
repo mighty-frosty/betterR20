@@ -1,6 +1,53 @@
 function d20plusEngine () {
 	d20plus.engine = {};
 
+	d20plus.engine.patchJqote = () => {
+		// Safe-guard $.jqotenc against undefined/null values which crash templates in newer Roll20 updates
+		const patchJqotenc = (jqObj) => {
+			if (!jqObj) return;
+			try {
+				let jqotencVal = jqObj.jqotenc;
+				Object.defineProperty(jqObj, "jqotenc", {
+					get () {
+						return jqotencVal;
+					},
+					set (val) {
+						if (val && val._isVeWrapped) {
+							jqotencVal = val;
+							return;
+						}
+						if (typeof val === "function") {
+							jqotencVal = function (str) {
+								if (str == null) return "";
+								try {
+									return val.call(this, str);
+								} catch (e) {
+									return String(str).replace(/&(?!\w+;)/g, "&#38;").split("<").join("&#60;").split(">").join("&#62;").split('"').join("&#34;").split("'").join("&#39;");
+								}
+							};
+							jqotencVal._isVeWrapped = true;
+						} else {
+							jqotencVal = val;
+						}
+					},
+					configurable: true,
+					enumerable: true,
+				});
+				if (jqotencVal) {
+					jqObj.jqotenc = jqotencVal;
+				}
+			} catch (e) {
+				// eslint-disable-next-line no-console
+				console.warn("Failed to patch $.jqotenc:", e);
+			}
+		};
+
+		patchJqotenc(globalThis.jQuery);
+		if (globalThis.$ !== globalThis.jQuery) {
+			patchJqotenc(globalThis.$);
+		}
+	};
+
 	d20plus.engine.addProFeatures = () => {
 		d20plus.ut.log("Add Pro features");
 
@@ -54,29 +101,6 @@ function d20plusEngine () {
 		}
 	};
 
-	d20plus.engine._removeStatusEffectEntries = () => {
-		$(`#5etools-status-css`).html("");
-		Object.keys(d20.token_editor.statusmarkers).filter(k => k.startsWith("5etools_")).forEach(k => delete d20.token_editor.statusmarkers[k]);
-	};
-
-	d20plus.engine.enhanceStatusEffects = () => {
-		d20plus.ut.log("Enhance status effects");
-		$(`head`).append(`<style id="5etools-status-css"/>`);
-
-		d20plus.mod.overwriteStatusEffects();
-
-		d20.engine.canvas.off("object:added");
-		d20.engine.canvas.on("object:added", d20plus.mod.overwriteStatusEffects);
-
-		// the holy trinity
-		// d20.engine.canvas.on("object:removed", () => console.log("added"));
-		// d20.engine.canvas.on("object:removed", () => console.log("removed"));
-		// d20.engine.canvas.on("object:modified", () => console.log("modified"));
-
-		$(document).off("mouseenter", ".markermenu");
-		$(document).on("mouseenter", ".markermenu", d20plus.mod.mouseEnterMarkerMenu)
-	};
-
 	d20plus.engine.swapTemplates = () => {
 		const $betaSwitch = $("#new-toolbar-toggle");
 		d20plus.betaFeaturesEnabled = $betaSwitch.prop("checked");
@@ -103,6 +127,7 @@ function d20plusEngine () {
 			</ul>
 			<div class='tab-content'>
 				${d20plus.html.pageSettings}
+				${d20plus.html.pageSettingsWeather}
 			</div>
 		</script>`;
 	};
@@ -196,6 +221,7 @@ function d20plusEngine () {
 	// hook into, so watch for its "Backdrop Color" block and inject our Thumbnail section next to it.
 	d20plus.engine.enhanceVuePageThumbnail = () => {
 		const SECTION_CLASS = "b20-thumbnail-section";
+		const GRIDFIX_CLASS = "b20-gridfix-section";
 
 		if (!document.getElementById("b20-thumbnail-style")) {
 			document.head.insertAdjacentHTML("beforeend", `<style id="b20-thumbnail-style">
@@ -203,8 +229,12 @@ function d20plusEngine () {
 				.${SECTION_CLASS} .b20-thumbnail-row { display: flex; align-items: center; gap: 8px; }
 				.${SECTION_CLASS} .b20-thumbnail-preview { width: 48px; height: 48px; object-fit: cover; border-radius: 4px; background: rgba(128,128,128,.2); flex-shrink: 0; }
 				.${SECTION_CLASS} .b20-thumbnail-url { flex: 1; min-width: 0; padding: 6px 8px; border-radius: 4px; border: 1px solid rgba(128,128,128,.4); box-sizing: border-box; font: inherit; }
-				.${SECTION_CLASS} .b20-thumbnail-btn { padding: 6px 14px; border-radius: 4px; border: 1px solid rgba(128,128,128,.4); background: rgba(128,128,128,.12); color: inherit; cursor: pointer; font: inherit; font-size: 13px; }
-				.${SECTION_CLASS} .b20-thumbnail-btn:hover { background: rgba(128,128,128,.25); }
+				.b20-thumbnail-btn { padding: 6px 14px; border-radius: 4px; border: 1px solid rgba(128,128,128,.4); background: rgba(128,128,128,.12); color: inherit; cursor: pointer; font: inherit; font-size: 13px; }
+				.b20-thumbnail-btn:hover { background: rgba(128,128,128,.25); }
+				.${GRIDFIX_CLASS} .b20-thumbnail-row { display: flex; align-items: center; gap: 8px; }
+				.${GRIDFIX_CLASS} .b20-gridfix-desc { font-size: 12px; opacity: .75; margin: 0; }
+				.${GRIDFIX_CLASS} .b20-gridfix-factor { width: 64px; padding: 6px 8px; border-radius: 4px; border: 1px solid rgba(128,128,128,.4); box-sizing: border-box; font: inherit; }
+				.${GRIDFIX_CLASS} { position: relative; z-index: 10000; }
 			</style>`);
 		}
 
@@ -274,6 +304,99 @@ function d20plusEngine () {
 				$url.val(imgsrc);
 				$preview.attr("src", imgsrc).show();
 				setThumbnail(imgsrc);
+			});
+
+			// Manual grid correction: if the imported grid is coarser than the artwork's real
+			// painted grid (e.g. 4 map squares fit inside 1 Roll20 square), dividing
+			// snapping_increment by the factor N draws N-times-denser grid lines over the SAME
+			// background image and page size (Roll20's own "Cell Width" control: "the number of
+			// cells per 70 pixels... .5 = 35 pixels per cell"). Resizing the page/background
+			// instead (an earlier version of this) grows the page's total footprint and can push
+			// it out of bounds relative to viewport/camera/fog - this way nothing but the grid
+			// line density changes.
+			const $gridFixSection = $(`
+				<div class="section ${GRIDFIX_CLASS}">
+					<h4 class="title large-title">Grid Correction</h4>
+					<p class="b20-gridfix-desc">If map squares don't match the Roll20 grid, enter how many map squares fit across ONE SIDE of a Roll20 square (not the total count) - e.g. enter 2 if you see a 2x2 arrangement of 4 map squares inside one Roll20 square, or 3 for a 3x3 arrangement of 9.</p>
+					<div class="b20-thumbnail-row">
+						<input class="b20-gridfix-factor" type="number" min="1" step="any" value="1">
+						<button type="button" class="b20-thumbnail-btn b20-gridfix-apply">Apply Correction</button>
+						<button type="button" class="b20-thumbnail-btn b20-gridfix-revert">Revert to Stock</button>
+					</div>
+				</div>
+			`);
+			$newSection.after($gridFixSection);
+
+			// scale_number / snapping_increment is invariant across any number of Apply clicks
+			// (both divide by the same factor each time), and always equals the original stock
+			// scale_number since stock snapping_increment is 1. So Revert can recompute stock
+			// directly from current state - no need to persist anything extra on the page (an
+			// earlier version stashed a custom attribute alongside the real ones in one save
+			// call, which may have caused Roll20 to reject the whole save).
+
+			// Roll20 doesn't live-redraw the canvas when page-level grid attributes change, but
+			// it does when a graphic on the page changes. Force a real change event on the
+			// background graphic's `top` (nudge away, then immediately back) so Backbone actually
+			// fires `change` - a true no-op save wouldn't - which triggers a redraw that picks up
+			// the new grid pitch too. Confirmed via console testing this does not corrupt the
+			// graphic (its saved state came back identical/correct afterward).
+			const nudgeRedraw = (activePage) => {
+				const mapGraphics = activePage.thegraphics?.filter(g => g.get("layer") === "map") || [];
+				if (!mapGraphics.length) return;
+				const main = mapGraphics.reduce((a, b) => (a.get("width") * a.get("height") >= b.get("width") * b.get("height")) ? a : b);
+				const top = main.get("top");
+				main.save({top: top + 1});
+				main.save({top});
+			};
+
+			// The Page Settings Vue dialog keeps its own local copy of form values and writes
+			// THAT back over the model when its native Save button is clicked - so a direct
+			// activePage.save() alone gets silently reverted the moment the user hits Save.
+			// Updating the actual <input> elements (via the native value setter, which bypasses
+			// any framework-overridden setter, then dispatching input/change) keeps Vue's own
+			// reactive state in sync, so its Save button persists the corrected value instead.
+			const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+			const setVueInput = (testid, value) => {
+				const input = document.querySelector(`[data-testid="${testid}"] input`);
+				if (!input) return;
+				nativeInputValueSetter.call(input, value);
+				input.dispatchEvent(new Event("input", {bubbles: true}));
+				input.dispatchEvent(new Event("change", {bubbles: true}));
+			};
+
+			$gridFixSection.find(".b20-gridfix-apply").on("click", () => {
+				const factor = parseFloat($gridFixSection.find(".b20-gridfix-factor").val());
+				if (!factor || factor <= 0) return;
+				if (factor === 1) return;
+
+				const activePage = d20.Campaign.activePage();
+				if (!activePage) return;
+
+				const newSnappingIncrement = (activePage.get("snapping_increment") || 1) / factor;
+				const newScaleNumber = activePage.get("scale_number") / factor;
+				activePage.save({
+					snapping_increment: newSnappingIncrement,
+					scale_number: newScaleNumber,
+				});
+				nudgeRedraw(activePage);
+				setVueInput("pageSettings-pd-tab-cellSize", newSnappingIncrement);
+				setVueInput("pageSettings-pd-tab-scale", newScaleNumber);
+			});
+
+			$gridFixSection.find(".b20-gridfix-revert").on("click", () => {
+				const activePage = d20.Campaign.activePage();
+				if (!activePage) return;
+
+				const currentIncrement = activePage.get("snapping_increment") || 1;
+				if (currentIncrement === 1) return;
+				const stockScaleNumber = activePage.get("scale_number") / currentIncrement;
+				activePage.save({
+					snapping_increment: 1,
+					scale_number: stockScaleNumber,
+				});
+				nudgeRedraw(activePage);
+				setVueInput("pageSettings-pd-tab-cellSize", 1);
+				setVueInput("pageSettings-pd-tab-scale", stockScaleNumber);
 			});
 		};
 
@@ -606,63 +729,6 @@ function d20plusEngine () {
 			d20.Campaign.activePage().debounced_recordZIndexes()
 	};
 
-	// previously "enhanceSnap"
-	d20plus.engine.enhanceMouseDown = () => {
-		const R = d20plus.overwrites.canvasHandlerDown
-
-		if (FINAL_CANVAS_MOUSEDOWN_LIST.length) {
-			FINAL_CANVAS_MOUSEDOWN = (FINAL_CANVAS_MOUSEDOWN_LIST.find(it => it.on === d20.engine.final_canvas) || {}).listener;
-		}
-
-		if (FINAL_CANVAS_MOUSEDOWN) {
-			d20plus.ut.log("Enhancing hex snap");
-			d20.engine.final_canvas.removeEventListener("mousedown", FINAL_CANVAS_MOUSEDOWN);
-			d20.engine.final_canvas.addEventListener("mousedown", R);
-		}
-
-		// add sub-grid snap
-		d20.engine.snapToIncrement = function(e, t) {
-			t *= Number(d20plus.cfg.getOrDefault("canvas", "gridSnap"));
-			return t * Math.round(e / t);
-		}
-	};
-
-	d20plus.engine.enhanceMouseUp = () => { // P
-
-	};
-
-	// needs to be called after `enhanceMeasureTool()`
-	d20plus.engine.enhanceMouseMove = () => {
-		// add missing vars
-		var i = d20.engine.canvas;
-
-		// Roll20 bug (present as of 2019-5-25) workaround
-		//   when box-selecting + moving tokens, the "object:moving" event throws an exception
-		//   try-catch-ignore this, because it's extremely annoying
-		const cachedFire = i.fire.bind(i);
-		i.fire = function (namespace, opts) {
-			if (namespace === "object:moving") {
-				try {
-					cachedFire(namespace, opts);
-				} catch (e) {}
-			} else {
-				cachedFire(namespace, opts);
-			}
-		};
-
-		const I = d20plus.overwrites.canvasHandlerMove
-
-		if (FINAL_CANVAS_MOUSEMOVE_LIST.length) {
-			FINAL_CANVAS_MOUSEMOVE = (FINAL_CANVAS_MOUSEMOVE_LIST.find(it => it.on === d20.engine.final_canvas) || {}).listener;
-		}
-
-		if (FINAL_CANVAS_MOUSEMOVE) {
-			d20plus.ut.log("Enhancing mouse move");
-			d20.engine.final_canvas.removeEventListener("mousemove", FINAL_CANVAS_MOUSEMOVE);
-			d20.engine.final_canvas.addEventListener("mousemove", I);
-		}
-	};
-
 	/* eslint-enable */
 
 	d20plus.engine.expendResources = async (expend) => {
@@ -800,64 +866,6 @@ function d20plusEngine () {
 		})
 	}
 
-	d20plus.engine.addLineCutterTool = () => {
-		// The code in /overwrites/canvas-handler.js doesn't work
-		const $btnTextTool = $(`.choosetext`);
-
-		const $btnSplitTool = $(`<li class="choosesplitter">✂️ Line Splitter</li>`).click(() => {
-			d20plus.setMode("line_splitter");
-		});
-
-		$btnTextTool.after($btnSplitTool);
-	};
-
-	d20plus.engine._tokenHover = null;
-	d20plus.engine._drawTokenHover = () => {
-		$(`.Vetools-token-hover`).remove();
-		if (!d20plus.engine._tokenHover || !d20plus.engine._tokenHover.text) return;
-
-		const pt = d20plus.engine._tokenHover.pt;
-		const txt = unescape(d20plus.engine._tokenHover.text);
-
-		$(`body`).append(`<div class="Vetools-token-hover" style="top: ${pt.y * d20.engine.canvasZoom}px; left: ${pt.x * d20.engine.canvasZoom}px">${txt}</div>`);
-	};
-	d20plus.engine.addTokenHover = () => {
-		// gm notes on shift-hover
-		const cacheRenderLoop = d20.engine.renderLoop;
-		d20.engine.renderLoop = () => {
-			d20plus.engine._drawTokenHover();
-			cacheRenderLoop();
-		};
-
-		// store data for the rendering function to access
-		d20.engine.canvas.on("mouse:move", (data, ...others) => {
-			// enable hover from GM layer -> token layer
-			let hoverTarget = data.target;
-			if (data.e && window.currentEditingLayer === "gmlayer") {
-				const cache = window.currentEditingLayer;
-				window.currentEditingLayer = "objects";
-				hoverTarget = d20.engine.canvas.findTarget(data.e, null, true);
-				window.currentEditingLayer = cache;
-			}
-
-			if (data.e.shiftKey && hoverTarget && hoverTarget.model) {
-				d20.engine.redrawScreenNextTick();
-				const gmNotes = hoverTarget.model.get("gmnotes");
-				const pt = d20.engine.canvas.getPointer(data.e);
-				pt.x -= d20.engine.currentCanvasOffset[0];
-				pt.y -= d20.engine.currentCanvasOffset[1];
-				d20plus.engine._tokenHover = {
-					pt: pt,
-					text: gmNotes,
-					id: hoverTarget.model.id,
-				};
-			} else {
-				if (d20plus.engine._tokenHover) d20.engine.redrawScreenNextTick();
-				d20plus.engine._tokenHover = null;
-			}
-		})
-	};
-
 	d20plus.engine.enhanceMarkdown = () => {
 		const OUT_STRIKE = "<span style='text-decoration: line-through'>$1</span>";
 
@@ -954,52 +962,6 @@ function d20plusEngine () {
 			}, 35);
 		})
 	};
-
-	d20plus.engine.layersIsMarkedAsHidden = (layer) => {
-		const page = d20.Campaign.activePage();
-		return page?.get(`bR20cfg_hidden`)?.search(layer) > -1;
-	}
-
-	d20plus.engine.layersVisibilityCheck = () => {
-		const layers = ["floors", "background", "foreground", "roofs"];
-		layers.forEach((layer) => {
-			const isHidden = d20.engine.canvas._objects.some((o) => {
-				if (o.model) return o.model.get("layer") === `hidden_${layer}`;
-			}) || d20plus.engine.layersIsMarkedAsHidden(layer);
-			d20plus.engine.layerVisibilityOff(layer, isHidden, true);
-		});
-	}
-
-	d20plus.engine.layersToggle = (layer) => {
-		const page = d20.Campaign.activePage();
-		if (!page.get(`bR20cfg_hidden`)) page.set(`bR20cfg_hidden`, "");
-		if (d20plus.engine.layersIsMarkedAsHidden(layer)) {
-			d20plus.engine.layerVisibilityOff(layer, false);
-		} else {
-			d20plus.engine.layerVisibilityOff(layer, true);
-		}
-	};
-
-	d20plus.engine.layerVisibilityOff = (layer, off, force) => {
-		const page = d20.Campaign.activePage();
-		if (off) {
-			if (d20plus.engine.objectsHideUnhide("layer", layer, "layeroff", false) || force) {
-				if (window.currentEditingLayer === layer) d20plus.ui.switchToR20Layer();
-				d20plus.ui.layerVisibilityIcon(layer, false);
-				if (!d20plus.engine.layersIsMarkedAsHidden(layer)) {
-					page.set(`bR20cfg_hidden`, `${page.get(`bR20cfg_hidden`)} ${layer}`);
-					page.save();
-				}
-			}
-		} else {
-			d20plus.engine.objectsHideUnhide("layer", layer, "layeroff", true);
-			d20plus.ui.layerVisibilityIcon(layer, true);
-			if (d20plus.engine.layersIsMarkedAsHidden(layer)) {
-				page.set(`bR20cfg_hidden`, page.get(`bR20cfg_hidden`).replace(` ${layer}`, ""));
-				page.save();
-			}
-		}
-	}
 
 	d20plus.engine._objectsStashProps = (obj, visible) => {
 		[
@@ -1108,29 +1070,6 @@ function d20plusEngine () {
 		}))
 	};
 
-	d20plus.engine.addLayers = () => {
-		d20plus.ut.log("Adding layers");
-
-		d20.engine.canvas._renderAll = _.bind(d20plus.mod.renderAll, d20.engine.canvas);
-		d20.engine.canvas.sortTokens = _.bind(d20plus.mod.sortTokens, d20.engine.canvas);
-		d20.engine.canvas.drawAnyLayer = _.bind(d20plus.mod.drawAnyLayer, d20.engine.canvas);
-		d20.engine.canvas.drawTokensWithoutAuras = _.bind(d20plus.mod.drawTokensWithoutAuras, d20.engine.canvas);
-
-		if (window.is_gm) {
-			$(document).on("d20:new_page_fully_loaded", d20plus.engine.checkPageSettings);
-			d20plus.engine.checkPageSettings();
-		}
-	};
-
-	d20plus.engine.checkPageSettings = () => {
-		if (!d20plus.cfg.getOrDefault("canvas", "extraLayerButtons")) return;
-		if (!d20.Campaign.activePage() || !d20.Campaign.activePage().get) {
-			setTimeout(d20plus.engine.checkPageSettings, 50);
-		} else {
-			d20plus.engine.layersVisibilityCheck();
-		}
-	}
-
 	d20plus.engine.removeLinkConfirmation = function () {
 		d20.utils.handleURL = d20plus.mod.handleURL;
 		$(document).off("click", "a").on("click", "a", d20.utils.handleURL);
@@ -1153,29 +1092,6 @@ function d20plusEngine () {
 		d20plus.engine._hasPatchedHandleHtmlInput = true;
 	};
 
-	d20plus.engine.repairPrototypeMethods = function () {
-		d20plus.mod.fixHexMethods();
-		d20plus.mod.fixVideoMethods();
-	};
-
-	d20plus.engine.disableFrameRecorder = function () {
-		if (d20.engine.frame_recorder) {
-			d20.engine.frame_recorder.active = false;
-			d20.engine.frame_recorder._active = false;
-		}
-	};
-
-	d20plus.engine.fixPolygonTool = () => {
-		if (!d20plus.newUIDisabled) return; // as of January 2024 newUI is always ON, so the below block is not needed
-		$("#editor-wrapper").on("pointerdown", x => { d20plus.engine.leftClicked = x.which === 1 });
-		$("#editor-wrapper").on("pointerup", x => { d20plus.engine.leftClicked = false });
-		d20plus.ut.injectCode(d20.engine, "finishCurrentPolygon", (finishDrawing, params) => {
-			if (!d20plus.engine.leftClicked) finishDrawing(...params);
-		});
-		d20plus.ut.injectCode(d20.engine, "finishPolygonReveal", (finishRevealing, params) => {
-			if (!d20plus.engine.leftClicked) finishRevealing(...params);
-		});
-	};
 }
 
 SCRIPT_EXTENSIONS.push(d20plusEngine);

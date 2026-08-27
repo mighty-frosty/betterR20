@@ -13,6 +13,7 @@ const betteR205etools = function () {
 				d20plus.ut.log("Is GM");
 				// d20plus.engine.enhancePageSelector();
 				d20plus.engine.enhanceVuePageThumbnail();
+				d20plus.weather.enhanceVuePageWeather();
 			} else d20plus.ut.log("Not GM. Some functionality will be unavailable.");
 
 			d20plus.setSheet();
@@ -21,6 +22,7 @@ const betteR205etools = function () {
 			await d20plus.js.pAddApiScripts();
 
 			JqueryUtil.initEnhancements();
+			d20plus.engine.patchJqote();
 			await loadHomebrewMetadata();
 
 			// Load config first so custom base URL is available
@@ -49,6 +51,8 @@ const betteR205etools = function () {
 			d20plus.art.initArtFromUrlButtons();
 			if (d20plus.characterIo && d20plus.characterIo.initCharacterJsonButtons) d20plus.characterIo.initCharacterJsonButtons();
 			if (window.is_gm) {
+				if (d20plus.npcConverter && d20plus.npcConverter.initCharacterConverterButtons) d20plus.npcConverter.initCharacterConverterButtons();
+				if (d20plus.npcLevelUp && d20plus.npcLevelUp.initJournalContextButton) d20plus.npcLevelUp.initJournalContextButton();
 				d20plus.journal.addJournalCommands();
 				d20plus.menu.addSelectedTokenCommands();
 				d20plus.art.addCustomArtSearch();
@@ -66,17 +70,10 @@ const betteR205etools = function () {
 			// d20.Campaign.pages.each(d20plus.bindGraphics);
 			// d20.Campaign.activePage().collection.on("add", d20plus.bindGraphics);
 			// d20plus.engine.enhanceStatusEffects();
-			// d20plus.engine.enhanceMouseDown();
-			// d20plus.engine.enhanceMouseMove();
-			// It doesn't work with current version of roll20
-			// d20plus.engine.addLineCutterTool();
 			d20plus.engine.enhancePathWidths();
 			// d20plus.ut.fix3dDice(); // FIXME(165) re-enable when we have a better solution
 			// d20plus.engine.addLayers();
-			// d20plus.weather.addWeather();
-			// d20plus.engine.repairPrototypeMethods();
-			// d20plus.engine.disableFrameRecorder();
-			// d20plus.engine.fixPolygonTool();
+			d20plus.weather.addWeather();
 			// d20plus.ut.fixSidebarLayout();
 			d20plus.chat.enhanceChat();
 			// d20plus.ba.initBetterActions();
@@ -123,6 +120,57 @@ const betteR205etools = function () {
 		IS_VTT = true; // global variable from 5etools' utils.js
 
 		Renderer.get().setBaseUrl(LINK_BASE_URL);
+
+		// Renderer.redirect.pInit() (vendored) fetches from the live 5e.tools site with no
+		// try/catch, which is always CORS-blocked - pre-seed it so the request never fires.
+		Renderer.redirect._P_LOADING_VERSION_REDIRECT_LOOKUP = Promise.resolve({});
+		Renderer.redirect._VERSION_REDIRECT_LOOKUP = {};
+
+		// _DataUtilBrewHelper.getFileUrl() (vendored) builds URLs with no encodeURIComponent,
+		// breaking on homebrew filenames with semicolons/apostrophes/spaces.
+		const brewHelperProto = Object.getPrototypeOf(DataUtil.brew);
+		const origGetFileUrl = brewHelperProto.getFileUrl;
+		brewHelperProto.getFileUrl = function (path, urlRoot) {
+			const encodedPath = path.split("/").map(encodeURIComponent).join("/");
+			return origGetFileUrl.call(this, encodedPath, urlRoot);
+		};
+
+		// DataUtil.pDoMetaMerge() (vendored) has no cycle detection: two homebrew sources
+		// depending on each other (e.g. two books each listing the other as a dependency)
+		// deadlocks it silently. Only gate idents that declare dependencies/includes, so
+		// plain index files loaded concurrently by unrelated siblings aren't falsely flagged.
+		const origPDoMetaMerge = DataUtil.pDoMetaMerge.bind(DataUtil);
+		const activeMerges = new Set();
+		DataUtil.pDoMetaMerge = async function (ident, data, options) {
+			const canCycle = !!(data && data._meta && (data._meta.dependencies || data._meta.includes));
+			if (canCycle) {
+				if (activeMerges.has(ident)) {
+					const err = new Error(`Circular homebrew dependency: "${ident}" requires itself to already be loaded.`);
+					err.isCircularHomebrewDependency = true;
+					throw err;
+				}
+				activeMerges.add(ident);
+			}
+			try {
+				return await origPDoMetaMerge(ident, data, options);
+			} finally {
+				activeMerges.delete(ident);
+			}
+		};
+
+		// A circular dependency is usually declared but never actually used via `_copy`, so skip
+		// it with a warning instead of failing the whole import - anything that genuinely needed
+		// it still surfaces its own "missing copy source" error later.
+		const origPLoadByMeta = DataUtil.pLoadByMeta.bind(DataUtil);
+		DataUtil.pLoadByMeta = async function (prop, source) {
+			try {
+				return await origPLoadByMeta(prop, source);
+			} catch (e) {
+				if (!e.isCircularHomebrewDependency) throw e;
+				d20plus.ut.log(`Skipping "${source}" (${prop}): ${e.message}`);
+				return {[prop]: []};
+			}
+		};
 	}
 };
 

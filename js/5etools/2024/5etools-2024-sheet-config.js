@@ -1,5 +1,5 @@
 function d20plus2024SheetConfig() {
-	const u = d20plus.import2024;
+	const sheetCtx = d20plus.import2024;
 
 	// Add import sheet format config option — __values/__texts populated at setSheet time
 	addConfigOptions("import", {
@@ -25,7 +25,7 @@ function d20plus2024SheetConfig() {
 
 	function getSheetDisplayName(sheetKey, sheetObj) {
 		if (sheetKey === "ogl5e" || sheetKey === "ogl") return "2014 (OGL)";
-		if (u.IS_2024_SHEET.has(sheetKey)) return "2024";
+		if (sheetCtx.IS_2024_SHEET.has(sheetKey)) return "2024";
 		if (sheetKey === "shaped_d20") return "Shaped";
 		if (sheetKey === "DnD5e_Character_Sheet") return "Community";
 		const name = sheetObj?.attributes?.name || sheetKey;
@@ -69,7 +69,7 @@ function d20plus2024SheetConfig() {
 			if (values.length === 1) {
 				CONFIG_OPTIONS["import"]["importSheetFormat"].default = values[0];
 			} else {
-				const prefer2024 = values.find(v => u.IS_2024_SHEET.has(v));
+				const prefer2024 = values.find(v => sheetCtx.IS_2024_SHEET.has(v));
 				CONFIG_OPTIONS["import"]["importSheetFormat"].default = prefer2024 || values[0];
 			}
 
@@ -80,11 +80,11 @@ function d20plus2024SheetConfig() {
 	};
 
 	d20plus.importer.shouldUse2024 = function () {
-		return u.IS_2024_SHEET.has(d20plus.cfg.getOrDefault("import", "importSheetFormat"));
+		return sheetCtx.IS_2024_SHEET.has(d20plus.cfg.getOrDefault("import", "importSheetFormat"));
 	};
 
 	d20plus.importer.is2024Sheet = function (sheetName) {
-		return u.IS_2024_SHEET.has(sheetName);
+		return sheetCtx.IS_2024_SHEET.has(sheetName);
 	};
 }
 SCRIPT_EXTENSIONS.push(d20plus2024SheetConfig);

@@ -50,17 +50,13 @@ function tools5eTool () {
 				const $win = $("#d20plus-json-importer");
 				$win.dialog("open");
 
-				const $win5etools = $(`#d20plus-json-importer-5etools`);
 
 				const $winHelp = $(`#d20plus-json-importer-help`);
-				const $btnHelp = $win.find(`.readme`).off("click").click(() => $winHelp.dialog("open"));
 
-				const $btnImport = $win.find(`[name="import"]`).off("click").prop("disabled", true);
 				const $btnViewCat = $win.find(`[name="view-select-entries"]`).off("click").click(handleLoadedData).prop("disabled", true);
 				const $btnSelAllContent = $win.find(`[name="select-all-entries"]`).off("click").prop("disabled", true);
 
 				const $selDataType = $win.find(`[name="data-type"]`).prop("disabled", true);
-				let genericFolder;
 				let lastLoadedData = null;
 
 				// The main function that's called with the import button gets clicked
@@ -92,18 +88,18 @@ function tools5eTool () {
 					const handoutBuilder = optionsContainer["handoutBuilder"];
 
 					// Similar to the showImportList functions when buttons are pressed
-					d20plus.importer.showImportList(
-						lastDataType,
-						overrideData || lastLoadedData[lastDataType],
-						handoutBuilder,
-						{
-							groupOptions: optionsContainer._groupOptions,
-							listItemBuilder: optionsContainer._listItemBuilder,
-							listIndex: optionsContainer._listCols,
-							listIndexConverter: optionsContainer._listIndexConverter,
-							...extraOptions,
-						},
-					);
+					await d20plus.importer.showImportList(
+                        lastDataType,
+                        overrideData || lastLoadedData[lastDataType],
+                        handoutBuilder,
+                        {
+                            groupOptions: optionsContainer._groupOptions,
+                            listItemBuilder: optionsContainer._listItemBuilder,
+                            listIndex: optionsContainer._listCols,
+                            listIndexConverter: optionsContainer._listIndexConverter,
+                            ...extraOptions,
+                        },
+                    );
 				}
 
 				// Populate the dropdown menu that allows you to choose the category
@@ -182,7 +178,14 @@ function tools5eTool () {
 				const $lst = $win.find(`.list`);
 				let tokenList;
 
-				const dataStack = (await Promise.all(toLoad.map(url => DataUtil.loadJSON(url)))).flat();
+				const dataStack = (await Promise.all(toLoad.map(async url => {
+					try {
+						return await DataUtil.loadJSON(url);
+					} catch (e) {
+						console.warn(`betteR20: Failed to load monster data from ${url} - skipping. Error:`, e.message);
+						return [];
+					}
+				}))).flat();
 
 				$lst.empty();
 				let toShow = [];
@@ -329,7 +332,14 @@ function tools5eTool () {
 
 				const toLoad = Object.keys(monsterDataUrls).map(src => d20plus.monsters.formMonsterUrl(monsterDataUrls[src]));
 
-				const dataStack = (await Promise.all(toLoad.map(async url => DataUtil.loadJSON(url)))).flat();
+				const dataStack = (await Promise.all(toLoad.map(async url => {
+					try {
+						return await DataUtil.loadJSON(url);
+					} catch (e) {
+						console.warn(`betteR20: Failed to load monster data from ${url} - skipping. Error:`, e.message);
+						return [];
+					}
+				}))).flat();
 
 				$lst.empty();
 				let toShow = [];
@@ -382,14 +392,15 @@ function tools5eTool () {
 					const d20Character = d20.Campaign.characters.get(character);
 					if (!d20Character) return alert("Failed to get character data!");
 
-					const getAttrib = (name) => d20Character.attribs.toJSON().find(x => x.name === name);
+					const attribsJSON = d20Character.attribs.toJSON();
+					const getAttrib = (name) => attribsJSON.find(x => x.name === name);
 
 					allSel.filter(it => it).forEach(sel => {
 						sel = $.extend(true, {}, sel);
 
-						sel.wis = (d20Character.attribs.toJSON().find(x => x.name === "wisdom") || {}).current || 10;
-						sel.int = (d20Character.attribs.toJSON().find(x => x.name === "intelligence") || {}).current || 10;
-						sel.cha = (d20Character.attribs.toJSON().find(x => x.name === "charisma") || {}).current || 10;
+						sel.wis = (getAttrib("wisdom") || {}).current || 10;
+						sel.int = (getAttrib("intelligence") || {}).current || 10;
+						sel.cha = (getAttrib("charisma") || {}).current || 10;
 
 						const attribsSkills = {
 							acrobatics_bonus: "acrobatics",

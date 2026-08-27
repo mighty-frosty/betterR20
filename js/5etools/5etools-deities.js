@@ -13,11 +13,11 @@ function d20plusDeities () {
 		if (url && url.trim()) {
 			DataUtil.loadJSON(url).then(async (data) => {
 				await d20plus.importer.pAddBrew(url);
-				d20plus.importer.showImportList(
-					"deity",
-					data.deity,
-					d20plus.deities.handoutBuilder,
-				);
+				await d20plus.importer.showImportList(
+                    "deity",
+                    data.deity,
+                    d20plus.deities.handoutBuilder,
+                );
 			});
 		}
 	};

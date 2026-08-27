@@ -1,9 +1,12 @@
 const fs = require("fs");
 
-const SCRIPT_VERSION = process.env.SCRIPT_VERSION || "1.36.1.3-beta";
-const SCRIPT_REPO = process.env.SCRIPT_REPO || "https://github.com/mighty-frosty/betterR20/releases/latest/download/";
+const SCRIPT_VERSION = process.env.SCRIPT_VERSION || "1.36.1.7-beta";
+const SCRIPT_REPO = process.env.SCRIPT_REPO || "https://github.com/DeathStalker471/betterR20/releases/latest/download/";
 
 const SCRIPT_BETA_DESCRIPTION = `This version contains following changes
+1.36.1.1jj - Weather Configuration
+- Added a working "Weather" tab to the Page Settings dialog, with live slider readouts
+- Re-enabled the Weather rendering engine (rain/snow/fog/lightning/tint), updated to work with Roll20's current canvas engine
 1.36.1.1ji - 2024 Sheet Support (First Release)
 - Added drag & drop import for Spells, Items, Feats, Species/Races, and Classes directly into the new 2024 (Jumpgate) character sheet
 - Convert existing OGL 2014 character sheets to the 2024 sheet format
@@ -26,6 +29,12 @@ const SCRIPT_BETA_DESCRIPTION = `This version contains following changes
 const AUTHORS_CORE = `TheGiddyLimit/Redweller`;
 const AUTHORS_5ETOOLS = `5egmegaanon/astranauta/MrLabRat/TheGiddyLimit/DBAWiseMan/BDeveau/Remuz/Callador Julaan/Erogroth/Stormy/FlayedOne/Cucucc/Cee/oldewyrm/darthbeep/Mertang/Redweller/DeathStalker`;
 
+// The 2024 sheet renders in a genuinely cross-origin iframe (browser Same-Origin Policy blocks
+// the main app.roll20.net script from reaching its DOM at all) - matching this origin too lets
+// the SAME userscript also run its non-top-frame branch (see js/base/base.js) directly inside
+// that iframe. "roll20preflight.net" looks like Roll20's staging/beta domain for the new sheet
+// rather than a guaranteed-stable name, so this may need an additional @match entry added if
+// Roll20 promotes it to a differently-named production domain later.
 const matchString = `
 // @match        https://app.roll20.net/editor
 // @match        https://app.roll20.net/editor#*
@@ -33,6 +42,7 @@ const matchString = `
 // @match        https://app.roll20.net/editor/
 // @match        https://app.roll20.net/editor/#*
 // @match        https://app.roll20.net/editor/?*
+// @match        https://*.roll20preflight.net/*
 `;
 
 // We have to block certain analytics scripts from running. Whenever they and betteR20 are
@@ -58,6 +68,23 @@ ${matchString}
 // @grant        unsafeWindow
 // @run-at       document-start
 ${analyticsBlocking}
+// ==/UserScript==
+`;
+}
+
+function getCharmanHeader () {
+	return `// ==UserScript==
+// @name         betteR20-beta-charactermancer-death-jumpagate-import
+// @namespace    https://5e.tools/
+// @license      MIT (https://opensource.org/licenses/MIT)
+// @version      ${SCRIPT_VERSION}
+// @updateURL    ${SCRIPT_REPO}betteR20-charactermancer.meta.js
+// @downloadURL  ${SCRIPT_REPO}betteR20-charactermancer.user.js
+// @description  Charactermancer for betteR20 (can be disabled independently in Tampermonkey)
+// @author       ${AUTHORS_5ETOOLS}
+${matchString}
+// @grant        unsafeWindow
+// @run-at       document-start
 // ==/UserScript==
 `;
 }
@@ -166,7 +193,6 @@ const SCRIPTS = {
 		"base/base-art",
 		"base/base-art-browse",
 		"overwrites/base",
-		"overwrites/canvas-handler",
 		"templates/template-roll20-token-editor",
 		"templates/template-roll20-page-settings",
 		"templates/template-roll20-actions-menu",
@@ -185,12 +211,19 @@ const SCRIPTS = {
 		"base/base-chat-languages",
 		"base/base-chat-emoji",
 		"base/base-chat",
-		"base/base-ba-character",
-		"base/base-ba-rolltemplates",
 		"base/base-character-io",
-		"base/base-ba",
 		"base/base-remote-libre",
 		"base/base-jukebox-widget",
+
+		"functions/engine-layers",
+		"functions/engine-status-effects",
+		"functions/engine-token-hover",
+		"functions/ui-layers",
+		"functions/weather",
+		"functions/util-fix3d-dice",
+		"functions/better-actions-characters",
+		"functions/better-actions-rolltemplates",
+		"functions/better-actions",
 
 		"core-bootstrap",
 
@@ -214,7 +247,6 @@ const SCRIPTS = {
 		"base/base-art",
 		"base/base-art-browse",
 		"overwrites/base",
-		"overwrites/canvas-handler",
 		"templates/template-roll20-token-editor",
 		"templates/template-roll20-page-settings",
 		"templates/template-roll20-actions-menu",
@@ -233,27 +265,43 @@ const SCRIPTS = {
 		"base/base-chat-languages",
 		"base/base-chat-emoji",
 		"base/base-chat",
-		"base/base-ba-character",
-		"base/base-ba-rolltemplates",
 		"base/base-character-io",
-		"base/base-ba",
 		"base/base-remote-libre",
 		"base/base-jukebox-widget",
+
+		"functions/engine-layers",
+		"functions/engine-status-effects",
+		"functions/engine-token-hover",
+		"functions/ui-layers",
+		"functions/weather",
+		"functions/util-fix3d-dice",
+		"functions/better-actions-characters",
+		"functions/better-actions-rolltemplates",
+		"functions/better-actions",
+		"functions/5etools-bind-graphics",
 
 		"5etools/5etools-bootstrap",
 		"5etools/5etools-config",
 		"5etools/5etools-main",
 		"5etools/5etools-importer",
 		"5etools/5etools-monsters",
+		"5etools/5etools-spell-parsers",
 		"5etools/2024/5etools-2024-utils",
 		"5etools/2024/5etools-2024-sheet-config",
 		"5etools/2024/5etools-2024-ogl-translator",
 		"5etools/2024/5etools-2024-monster-import",
+		"5etools/2024/5etools-2024-npc-sidekick-data",
+		"5etools/2024/5etools-2024-npc-converter",
+		"5etools/2024/5etools-2024-npc-level-up",
 		"5etools/2024/5etools-2024-spell-import",
 		"5etools/2024/5etools-2024-item-import",
 		"5etools/2024/5etools-2024-feat-import",
 		"5etools/2024/5etools-2024-race-import",
 		"5etools/2024/5etools-2024-class-import",
+		"5etools/2024/5etools-2024-subclass-import",
+		"5etools/2024/5etools-2024-background-import",
+		"5etools/2024/5etools-2024-pc-converter",
+		"5etools/2024/5etools-2024-levelup-hijack",
 		"5etools/2024/5etools-2024-router",
 		"5etools/5etools-spells",
 		"5etools/5etools-backgrounds",
@@ -282,6 +330,7 @@ const SCRIPTS = {
 		"base/base-config",
 		"base/tools/base-tool",
 		"base/tools/base-tool-module",
+        "base/tools/base-tool-autobackup",
 		"base/tools/base-tool-unlock",
 		"base/tools/base-tool-animator",
 		"base/tools/base-tool-table",
@@ -290,7 +339,6 @@ const SCRIPTS = {
 		"base/base-art",
 		"base/base-art-browse",
 		"overwrites/base",
-		"overwrites/canvas-handler",
 		"templates/template-roll20-token-editor",
 		"templates/template-roll20-page-settings",
 		"templates/template-roll20-actions-menu",
@@ -309,26 +357,42 @@ const SCRIPTS = {
 		"base/base-chat-languages",
 		"base/base-chat-emoji",
 		"base/base-chat",
-		"base/base-ba-character",
-		"base/base-ba-rolltemplates",
-		"base/base-ba",
 		"base/base-remote-libre",
 		"base/base-jukebox-widget",
+
+		"functions/engine-layers",
+		"functions/engine-status-effects",
+		"functions/engine-token-hover",
+		"functions/ui-layers",
+		"functions/weather",
+		"functions/util-fix3d-dice",
+		"functions/better-actions-characters",
+		"functions/better-actions-rolltemplates",
+		"functions/better-actions",
+		"functions/5etools-bind-graphics",
 
 		"5etools/5etools-bootstrap",
 		"5etools/5etools-config",
 		"5etools/5etools-main",
 		"5etools/5etools-importer",
 		"5etools/5etools-monsters",
+		"5etools/5etools-spell-parsers",
 		"5etools/2024/5etools-2024-utils",
 		"5etools/2024/5etools-2024-sheet-config",
 		"5etools/2024/5etools-2024-ogl-translator",
 		"5etools/2024/5etools-2024-monster-import",
+		"5etools/2024/5etools-2024-npc-sidekick-data",
+		"5etools/2024/5etools-2024-npc-converter",
+		"5etools/2024/5etools-2024-npc-level-up",
 		"5etools/2024/5etools-2024-spell-import",
 		"5etools/2024/5etools-2024-item-import",
 		"5etools/2024/5etools-2024-feat-import",
 		"5etools/2024/5etools-2024-race-import",
 		"5etools/2024/5etools-2024-class-import",
+		"5etools/2024/5etools-2024-subclass-import",
+		"5etools/2024/5etools-2024-background-import",
+		"5etools/2024/5etools-2024-pc-converter",
+		"5etools/2024/5etools-2024-levelup-hijack",
 		"5etools/2024/5etools-2024-router",
 		"5etools/5etools-spells",
 		"5etools/5etools-backgrounds",
@@ -397,7 +461,7 @@ Object.entries(BUILDS).forEach(([name, data]) => {
 			.replace("%B20_IMG_URL%", data.imgURL)
 			.replace("%B20_REPO_URL%", SCRIPT_REPO),
 		...libJson.map(filePath => wrapLibData(filePath.replace("data2014", "data"), fs.readFileSync(filePath, "utf-8"))),
-		...data.scripts.map(filename => filename === "base/base-util"
+		...data.scripts.map(filename => filename === "base-util"
 			? fs.readFileSync(`${JS_DIR}${filename}.js`, "utf-8").toString().replace("}, 6000);", `
 			d20plus.ut.sendHackerChat(\`
 				<div class="userscript-b20intro">
@@ -420,6 +484,31 @@ Object.entries(BUILDS).forEach(([name, data]) => {
 	fs.writeFileSync(filename, fullScript);
 	fs.writeFileSync(metaFilename, header);
 });
+
+// ── Standalone Charactermancer script ────────────────────────────────────────
+// Separate, independently-toggleable userscript (not part of core/5etools/5et2014) -
+// intercepts Roll20's Charactermancer GraphQL API once the main script has loaded.
+// Strip the SCRIPT_EXTENSIONS.push() line - the bootstrap handles injection instead.
+const charmanSrc = fs.readFileSync(`${JS_DIR}5etools/2024/5etools-2024-charactermancer.js`, "utf-8")
+	.replace(/\nSCRIPT_EXTENSIONS\.push\(\w+\);\s*$/, "");
+
+const charmanBootstrap = [
+	"",
+	"(function tryInjectCharactermancer() {",
+	"  if (typeof unsafeWindow.d20plus === \"undefined\" || typeof unsafeWindow.d20plus.spellParsers === \"undefined\") {",
+	"    setTimeout(tryInjectCharactermancer, 100);",
+	"    return;",
+	"  }",
+	"  const strip = (str) => str.replace(/use strict/, \"\").substring(str.indexOf(\"\\n\") + 1, str.lastIndexOf(\"\\n\")) + \"\\n\";",
+	"  unsafeWindow.eval(\"(function() {\\n\" + strip(d20plus2024Charactermancer.toString()) + \"\\n})()\");",
+	`  unsafeWindow.d20plus.charactermancerLoaded = true;`,
+	`  unsafeWindow.d20plus.charactermancerVersion = "${SCRIPT_VERSION}";`,
+	"})();",
+].join("\n");
+
+const charmanHeader = getCharmanHeader();
+fs.writeFileSync(`${BUILD_DIR}/betteR20-charactermancer.user.js`, joinParts(charmanHeader, charmanSrc, charmanBootstrap));
+fs.writeFileSync(`${BUILD_DIR}/betteR20-charactermancer.meta.js`, charmanHeader);
 
 fs.writeFileSync(`${BUILD_DIR}/betteR20-version`, `${SCRIPT_VERSION}`);
 
