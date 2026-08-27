@@ -2,9 +2,9 @@
 // @name         betteR20-beta-core-death-jumpagate-import
 // @namespace    https://5e.tools/
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      1.36.1.4-beta-testing
-// @updateURL    https://mighty-frosty.github.io/betterR20/betteR20-core.meta.js
-// @downloadURL  https://mighty-frosty.github.io/betterR20/betteR20-core.user.js
+// @version      1.36.1.8-beta-testing
+// @updateURL    https://deathstalker471.github.io/betterR20/betteR20-core.meta.js
+// @downloadURL  https://deathstalker471.github.io/betterR20/betteR20-core.user.js
 // @description  Enhance your Roll20 experience
 // @author       TheGiddyLimit/Redweller
 
@@ -14,6 +14,7 @@
 // @match        https://app.roll20.net/editor/
 // @match        https://app.roll20.net/editor/#*
 // @match        https://app.roll20.net/editor/?*
+// @match        https://*.roll20preflight.net/*
 
 // @grant        unsafeWindow
 // @run-at       document-start
@@ -30,8 +31,8 @@ ART_HANDOUT = "betteR20-art";
 CONFIG_HANDOUT = "betteR20-config";
 
 B20_NAME = `core`;
-B20_VERSION = `1.36.1.4-beta-testing`;
-B20_REPO_URL = `https://mighty-frosty.github.io/betterR20/`;
+B20_VERSION = `1.36.1.8-beta-testing`;
+B20_REPO_URL = `https://deathstalker471.github.io/betterR20/`;
 
 // TODO automate to use mirror if main site is unavailable
 BASE_SITE_URL = `https://5e.tools/`; // "https://5e.tools/";
@@ -154,12 +155,22 @@ function baseUtil () {
 
 		const isStreamer = !!d20plus.cfg.get("chat", "streamerChatTag");
 		const scriptName = isStreamer ? "Script" : "betteR20";
+
+		// GitHub's "releases/latest/download/<asset>" URL 302s to an objects.githubusercontent.com
+		// asset that doesn't send Access-Control-Allow-Origin, so the browser blocks it as CORS.
+		// The releases API on api.github.com always sends permissive CORS, so use that instead
+		// whenever B20_REPO_URL points at a GitHub releases download URL.
+		const releaseMatch = /^https:\/\/github\.com\/([^/]+)\/([^/]+)\/releases\/latest\/download\/$/i.exec(B20_REPO_URL);
+		const versionUrl = releaseMatch
+			? `https://api.github.com/repos/${releaseMatch[1]}/${releaseMatch[2]}/releases/latest`
+			: `${B20_REPO_URL}betteR20-version`;
+
 		$.ajax({
-			url: `${B20_REPO_URL}betteR20-version`,
+			url: versionUrl,
 			success: (data) => {
-				if (data) {
+				const avail = releaseMatch ? data?.tag_name?.replace(/^v/i, "") : data;
+				if (avail) {
 					const curr = d20plus.version;
-					const avail = data;
 					const cmp = d20plus.ut.cmpVersions(curr, avail);
 					if (cmp < 0) {
 						setTimeout(() => {
@@ -202,18 +213,22 @@ function baseUtil () {
 		const classname = !legacyStyle ? "userscript-b20intro" : "userscript-hackerintro";
 		const scriptName = isStreamer ? "Script" : d20plus.scriptName;
 		const vttesVersion = window.r20es?.hooks?.welcomeScreen?.config?.previousVersion;
+		const charmanStatus = d20plus.charactermancerLoaded
+			? `Charactermancer ${d20plus.charactermancerVersion || ""} loaded`
+			: "Charactermancer not loaded";
 		const data = [
 			d20plus.scriptName,
 			(vttesVersion && `v${vttesVersion}`) || "not",
 			d20plus.ut.WIKI_URL,
+			charmanStatus,
 		];
-		const welcomeTemplate = (b20v, vttv, faq) => `
+		const welcomeTemplate = (b20v, vttv, faq, charman) => `
 			<div class="${classname}">
 				<img src="" class="userscript-b20img" style="content: unset; width:30px;position: relative;top: 10px;float: right;margin-left:-20px">
 				<h1 style="display: inline-block;line-height: 25px;margin-top: 5px; font-size: 22px;">
-					betteR20 
+					betteR20
 					<span style=" font-size: 13px ; font-weight: normal">by 5etools</span>
-					<p style="font-size: 11px;line-height: 15px;font-family: monospace;color: rgb(32, 194, 14);">VTTES ${vttv} detected<br>${b20v} loaded</p>
+					<p style="font-size: 11px;line-height: 15px;font-family: monospace;color: rgb(32, 194, 14);">VTTES ${vttv} detected<br>${b20v} loaded<br>${charman}</p>
 				</h1>
 				<p>Need help? Visit our <a href="${faq}/index.php/BetteR20_FAQ"><strong>wiki</strong></a> or join our <a href="https://discord.gg/nGvRCDs"><strong>Discord</strong></a>.</p>
 				<span title="You'd think this would be obvious.">
@@ -234,6 +249,9 @@ function baseUtil () {
 			$boringProgress.before(`<span><span>&gt;</span>vtt enhancement suite detected</span>`)
 		} else {
 			d20plus.ut.showHardDickMessage(scriptName);
+		}
+		if (d20plus.charactermancerLoaded) {
+			$boringProgress.before(`<span><span>&gt;</span>charactermancer ${d20plus.charactermancerVersion || ""} loaded</span>`);
 		}
 		d20plus.betaFeaturesEnabled && !isStreamer && d20plus.ut.sendHackerChat(`
 			<div class="userscript-b20intro" style="border: 1px solid; background-color: #582124;">
@@ -3505,6 +3523,7 @@ function baseToolModule () {
 				<div style="border-bottom: 1px solid #ccc; margin-bottom: 3px; padding-bottom: 3px;">
 					<button class="btn" name="load-Vetools">Load from 5etools</button>
 					<button class="btn" name="load-dmsguild">Load from R20 Repo</button>
+					<button class="btn" name="search-homebrew">Search Homebrew</button>
 					<button class="btn" name="load-file">Upload File</button>
 				</div>
 				<div>
@@ -3572,6 +3591,21 @@ function baseToolModule () {
 					<p><button class="btn load">Load Module Data</button></p>
 				</div>
 
+				<div id="d20plus-module-importer-homebrew" title="Search Homebrew">
+					<div id="module-importer-list-homebrew">
+						<input type="search" class="search" placeholder="Search homebrew adventures/books...">
+						<div>
+							<div class="col-8 col">Name</div>
+							<div class="col-2 col" style="text-align: center;">Type</div>
+							<div class="col-2 col" style="text-align: center;">Edition</div>
+						</div>
+						<div class="list" style="transform: translateZ(0); max-height: 480px; overflow-y: auto; overflow-x: hidden; margin-bottom: 10px;">
+						<i>Loading...</i>
+						</div>
+					</div>
+					<p><button class="btn load">Import Selected</button></p>
+				</div>
+
 				<div id="d20plus-module-importer-select-exports-p1" title="Select Categories to Export">
 					<div>
 						<label>Characters <input type="checkbox" class="float-right" name="cb-characters"></label>
@@ -3599,6 +3633,12 @@ function baseToolModule () {
 				resizable: false,
 			});
 			$("#d20plus-module-importer-5etools").dialog({
+				autoOpen: false,
+				resizable: true,
+				width: 800,
+				height: 600,
+			});
+			$("#d20plus-module-importer-homebrew").dialog({
 				autoOpen: false,
 				resizable: true,
 				width: 800,
@@ -3969,10 +4009,9 @@ function baseToolModule () {
 										break;
 									}
 									case "characters": {
-										const charSheetName = (typeof d20plus.importer?.shouldUse2024 === "function" && d20plus.importer.shouldUse2024())
-											? d20plus.cfg.getOrDefault("import", "importSheetFormat")
-											: entry.attributes.charactersheetname;
-										const charAttrs = {...entry.attributes, charactersheetname: charSheetName};
+										// Always honor the configured Import Sheet Format, regardless of which
+										// sheet it resolves to — don't just leave whatever the source entry had.
+										const charAttrs = {...entry.attributes, charactersheetname: d20plus.cfg.getOrDefault("import", "importSheetFormat")};
 
 										// 1. Save the old Character ID before we delete it!
 										const oldCharId = charAttrs.id;
@@ -4212,14 +4251,96 @@ function baseToolModule () {
 				});
 			});
 
-			// Load from file
+			// Load from file - sniff each upload for the 5etools homebrew shape (adventure/
+			// adventureData or book/bookData keys) and route it to the homebrew importer instead
+			// of treating it as a pre-built Roll20-module file.
+			const isHomebrewJson = (d) => !!((d.adventure?.length && d.adventureData?.length) || (d.book?.length && d.bookData?.length));
+
 			const $btnLoadFile = $win.find(`[name="load-file"]`);
 			$btnLoadFile.off("click").click(async () => {
 				const data = await InputUiUtil.pGetUserUploadJson();
 				// Due to the new util functon, need to account for data being an array
 				data.jsons.forEach(d => {
+					if (isHomebrewJson(d)) {
+						d20plus.homebrew.importParsed(d);
+						return;
+					}
 					preprocessModuleData(d);
 					handleLoadedData(d);
+				});
+			});
+
+			// Homebrew: uses the 5etools-mirror "homebrew" repo's generated index (the same data
+			// 5etools.com's own homebrew browser uses) rather than the pre-built Roll20-module
+			// format above - homebrew adventures/books are raw 5etools JSON, so they route through
+			// d20plus.homebrew.importParsed (js/5etools/5etools-adventures.js), which opens the
+			// Adventure Importer's own dialog, not this one's category list.
+			const HOMEBREW_INDEX_BASE = "https://raw.githubusercontent.com/TheGiddyLimit/homebrew/master/_generated";
+			const HOMEBREW_FILE_BASE = "https://raw.githubusercontent.com/TheGiddyLimit/homebrew/master";
+
+			const $winHomebrew = $(`#d20plus-module-importer-homebrew`);
+			const $btnSearchHomebrew = $win.find(`[name="search-homebrew"]`);
+			$btnSearchHomebrew.off("click").click(() => {
+				$winHomebrew.dialog("open");
+				const $lst = $winHomebrew.find(`.list`);
+				const $btnLoad = $winHomebrew.find(`.load`).off("click");
+				$lst.html("<i>Loading...</i>");
+
+				Promise.all([
+					DataUtil.loadJSON(`${HOMEBREW_INDEX_BASE}/index-props.json`),
+					DataUtil.loadJSON(`${HOMEBREW_INDEX_BASE}/index-meta.json`),
+				]).then(([props, meta]) => {
+					const byPath = {};
+					(Object.entries(props.adventure || {})).forEach(([path]) => { byPath[path] = byPath[path] || {path, isAdventure: false, isBook: false}; byPath[path].isAdventure = true; });
+					(Object.entries(props.book || {})).forEach(([path]) => { byPath[path] = byPath[path] || {path, isAdventure: false, isBook: false}; byPath[path].isBook = true; });
+
+					const entries = Object.values(byPath).map(e => {
+						const filename = e.path.slice(e.path.indexOf("/") + 1);
+						const m = meta[filename] || {};
+						const names = m.n || [filename.replace(/\.json$/, "")];
+						return {
+							...e,
+							filename,
+							name: names.join(" / "),
+							edition: m.e === 1 ? "2014+2024" : "2024",
+						};
+					}).sort((a, b) => SortUtil.ascSortLower(a.name, b.name));
+
+					let tmp = "";
+					entries.forEach((t, i) => {
+						tmp += `
+								<label class="import-cb-label" data-listid="${i}">
+									<input type="radio" name="homebrew-select">
+									<span class="name col-8 readable">${t.name}</span>
+									<span class="type col-2 readable" style="text-align: center;">${t.isAdventure && t.isBook ? "Adv/Book" : t.isAdventure ? "Adventure" : "Book"}</span>
+									<span class="edition col-2 readable" style="text-align: center;">${t.edition}</span>
+								</label>
+							`;
+					});
+					$lst.html(tmp);
+					tmp = null;
+
+					const listHomebrew = new List("module-importer-list-homebrew", {valueNames: ["name"]});
+
+					$btnLoad.on("click", () => {
+						const sel = listHomebrew.items
+							.filter(it => $(it.elm).find(`input`).prop("checked"))
+							.map(it => entries[$(it.elm).attr("data-listid")])[0];
+						if (!sel) return;
+
+						$winHomebrew.dialog("close");
+						DataUtil.loadJSON(`${HOMEBREW_FILE_BASE}/${sel.path.split("/").map(encodeURIComponent).join("/")}`)
+							.then(data => d20plus.homebrew.importParsed(data, {displayName: sel.name}))
+							.catch(e => {
+								// eslint-disable-next-line no-console
+								console.error(e);
+								alert(`Failed to load homebrew data! See the console for more information.`);
+							});
+					});
+				}).catch(e => {
+					$lst.html("<i>Failed to load homebrew index.</i>");
+					// eslint-disable-next-line no-console
+					console.error(e);
 				});
 			});
 
@@ -13222,6 +13343,12 @@ function initHTMLroll20EditorsMisc () {
 								<button class='btn character-json-import'>Overwrite JSON</button>
 								<a class='showtip pictos' title='Export or overwrite this character as JSON. Overwriting will replace this sheet&#39;s data.'>?</a>
 							</div>
+							<$ if(!window.d20plus?.import2024?.IS_2024_SHEET?.has(this.get("charactersheetname"))) { $>
+							<div style="margin-top: 8px;">
+								<button class='btn character-npc-convert-2024'>Convert 2014 to 2024 Copy</button>
+								<a class='showtip pictos' title='Create a new Journal character using the 2024 sheet store format (NPC or PC), reusing this 2014 character&#39;s available data.'>?</a>
+							</div>
+							<$ } $>
 							<div class='clear'></div>
 							<$ if(window.is_gm) { $>
 							<hr>
@@ -13248,7 +13375,6 @@ function initHTMLroll20EditorsMisc () {
 							</input>
 						</div>
 					</div>
-					<$ if(!window.ADVANCED_SHEET) { $>
 					<div class='row-fluid'>
 						<div class='span12'>
 							<hr>
@@ -13266,7 +13392,6 @@ function initHTMLroll20EditorsMisc () {
 							<$ } $>
 						</div>
 					</div>
-					<$ } $>
 				</div>
 			</div>
 		</div>
@@ -14713,6 +14838,53 @@ SCRIPT_EXTENSIONS.push(initHTMLPagelightingSettings);
 function d20plusEngine () {
 	d20plus.engine = {};
 
+	d20plus.engine.patchJqote = () => {
+		// Safe-guard $.jqotenc against undefined/null values which crash templates in newer Roll20 updates
+		const patchJqotenc = (jqObj) => {
+			if (!jqObj) return;
+			try {
+				let jqotencVal = jqObj.jqotenc;
+				Object.defineProperty(jqObj, "jqotenc", {
+					get () {
+						return jqotencVal;
+					},
+					set (val) {
+						if (val && val._isVeWrapped) {
+							jqotencVal = val;
+							return;
+						}
+						if (typeof val === "function") {
+							jqotencVal = function (str) {
+								if (str == null) return "";
+								try {
+									return val.call(this, str);
+								} catch (e) {
+									return String(str).replace(/&(?!\w+;)/g, "&#38;").split("<").join("&#60;").split(">").join("&#62;").split('"').join("&#34;").split("'").join("&#39;");
+								}
+							};
+							jqotencVal._isVeWrapped = true;
+						} else {
+							jqotencVal = val;
+						}
+					},
+					configurable: true,
+					enumerable: true,
+				});
+				if (jqotencVal) {
+					jqObj.jqotenc = jqotencVal;
+				}
+			} catch (e) {
+				// eslint-disable-next-line no-console
+				console.warn("Failed to patch $.jqotenc:", e);
+			}
+		};
+
+		patchJqotenc(globalThis.jQuery);
+		if (globalThis.$ !== globalThis.jQuery) {
+			patchJqotenc(globalThis.$);
+		}
+	};
+
 	d20plus.engine.addProFeatures = () => {
 		d20plus.ut.log("Add Pro features");
 
@@ -14886,6 +15058,7 @@ function d20plusEngine () {
 	// hook into, so watch for its "Backdrop Color" block and inject our Thumbnail section next to it.
 	d20plus.engine.enhanceVuePageThumbnail = () => {
 		const SECTION_CLASS = "b20-thumbnail-section";
+		const GRIDFIX_CLASS = "b20-gridfix-section";
 
 		if (!document.getElementById("b20-thumbnail-style")) {
 			document.head.insertAdjacentHTML("beforeend", `<style id="b20-thumbnail-style">
@@ -14893,8 +15066,12 @@ function d20plusEngine () {
 				.${SECTION_CLASS} .b20-thumbnail-row { display: flex; align-items: center; gap: 8px; }
 				.${SECTION_CLASS} .b20-thumbnail-preview { width: 48px; height: 48px; object-fit: cover; border-radius: 4px; background: rgba(128,128,128,.2); flex-shrink: 0; }
 				.${SECTION_CLASS} .b20-thumbnail-url { flex: 1; min-width: 0; padding: 6px 8px; border-radius: 4px; border: 1px solid rgba(128,128,128,.4); box-sizing: border-box; font: inherit; }
-				.${SECTION_CLASS} .b20-thumbnail-btn { padding: 6px 14px; border-radius: 4px; border: 1px solid rgba(128,128,128,.4); background: rgba(128,128,128,.12); color: inherit; cursor: pointer; font: inherit; font-size: 13px; }
-				.${SECTION_CLASS} .b20-thumbnail-btn:hover { background: rgba(128,128,128,.25); }
+				.b20-thumbnail-btn { padding: 6px 14px; border-radius: 4px; border: 1px solid rgba(128,128,128,.4); background: rgba(128,128,128,.12); color: inherit; cursor: pointer; font: inherit; font-size: 13px; }
+				.b20-thumbnail-btn:hover { background: rgba(128,128,128,.25); }
+				.${GRIDFIX_CLASS} .b20-thumbnail-row { display: flex; align-items: center; gap: 8px; }
+				.${GRIDFIX_CLASS} .b20-gridfix-desc { font-size: 12px; opacity: .75; margin: 0; }
+				.${GRIDFIX_CLASS} .b20-gridfix-factor { width: 64px; padding: 6px 8px; border-radius: 4px; border: 1px solid rgba(128,128,128,.4); box-sizing: border-box; font: inherit; }
+				.${GRIDFIX_CLASS} { position: relative; z-index: 10000; }
 			</style>`);
 		}
 
@@ -14964,6 +15141,99 @@ function d20plusEngine () {
 				$url.val(imgsrc);
 				$preview.attr("src", imgsrc).show();
 				setThumbnail(imgsrc);
+			});
+
+			// Manual grid correction: if the imported grid is coarser than the artwork's real
+			// painted grid (e.g. 4 map squares fit inside 1 Roll20 square), dividing
+			// snapping_increment by the factor N draws N-times-denser grid lines over the SAME
+			// background image and page size (Roll20's own "Cell Width" control: "the number of
+			// cells per 70 pixels... .5 = 35 pixels per cell"). Resizing the page/background
+			// instead (an earlier version of this) grows the page's total footprint and can push
+			// it out of bounds relative to viewport/camera/fog - this way nothing but the grid
+			// line density changes.
+			const $gridFixSection = $(`
+				<div class="section ${GRIDFIX_CLASS}">
+					<h4 class="title large-title">Grid Correction</h4>
+					<p class="b20-gridfix-desc">If map squares don't match the Roll20 grid, enter how many map squares fit across ONE SIDE of a Roll20 square (not the total count) - e.g. enter 2 if you see a 2x2 arrangement of 4 map squares inside one Roll20 square, or 3 for a 3x3 arrangement of 9.</p>
+					<div class="b20-thumbnail-row">
+						<input class="b20-gridfix-factor" type="number" min="1" step="any" value="1">
+						<button type="button" class="b20-thumbnail-btn b20-gridfix-apply">Apply Correction</button>
+						<button type="button" class="b20-thumbnail-btn b20-gridfix-revert">Revert to Stock</button>
+					</div>
+				</div>
+			`);
+			$newSection.after($gridFixSection);
+
+			// scale_number / snapping_increment is invariant across any number of Apply clicks
+			// (both divide by the same factor each time), and always equals the original stock
+			// scale_number since stock snapping_increment is 1. So Revert can recompute stock
+			// directly from current state - no need to persist anything extra on the page (an
+			// earlier version stashed a custom attribute alongside the real ones in one save
+			// call, which may have caused Roll20 to reject the whole save).
+
+			// Roll20 doesn't live-redraw the canvas when page-level grid attributes change, but
+			// it does when a graphic on the page changes. Force a real change event on the
+			// background graphic's `top` (nudge away, then immediately back) so Backbone actually
+			// fires `change` - a true no-op save wouldn't - which triggers a redraw that picks up
+			// the new grid pitch too. Confirmed via console testing this does not corrupt the
+			// graphic (its saved state came back identical/correct afterward).
+			const nudgeRedraw = (activePage) => {
+				const mapGraphics = activePage.thegraphics?.filter(g => g.get("layer") === "map") || [];
+				if (!mapGraphics.length) return;
+				const main = mapGraphics.reduce((a, b) => (a.get("width") * a.get("height") >= b.get("width") * b.get("height")) ? a : b);
+				const top = main.get("top");
+				main.save({top: top + 1});
+				main.save({top});
+			};
+
+			// The Page Settings Vue dialog keeps its own local copy of form values and writes
+			// THAT back over the model when its native Save button is clicked - so a direct
+			// activePage.save() alone gets silently reverted the moment the user hits Save.
+			// Updating the actual <input> elements (via the native value setter, which bypasses
+			// any framework-overridden setter, then dispatching input/change) keeps Vue's own
+			// reactive state in sync, so its Save button persists the corrected value instead.
+			const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+			const setVueInput = (testid, value) => {
+				const input = document.querySelector(`[data-testid="${testid}"] input`);
+				if (!input) return;
+				nativeInputValueSetter.call(input, value);
+				input.dispatchEvent(new Event("input", {bubbles: true}));
+				input.dispatchEvent(new Event("change", {bubbles: true}));
+			};
+
+			$gridFixSection.find(".b20-gridfix-apply").on("click", () => {
+				const factor = parseFloat($gridFixSection.find(".b20-gridfix-factor").val());
+				if (!factor || factor <= 0) return;
+				if (factor === 1) return;
+
+				const activePage = d20.Campaign.activePage();
+				if (!activePage) return;
+
+				const newSnappingIncrement = (activePage.get("snapping_increment") || 1) / factor;
+				const newScaleNumber = activePage.get("scale_number") / factor;
+				activePage.save({
+					snapping_increment: newSnappingIncrement,
+					scale_number: newScaleNumber,
+				});
+				nudgeRedraw(activePage);
+				setVueInput("pageSettings-pd-tab-cellSize", newSnappingIncrement);
+				setVueInput("pageSettings-pd-tab-scale", newScaleNumber);
+			});
+
+			$gridFixSection.find(".b20-gridfix-revert").on("click", () => {
+				const activePage = d20.Campaign.activePage();
+				if (!activePage) return;
+
+				const currentIncrement = activePage.get("snapping_increment") || 1;
+				if (currentIncrement === 1) return;
+				const stockScaleNumber = activePage.get("scale_number") / currentIncrement;
+				activePage.save({
+					snapping_increment: 1,
+					scale_number: stockScaleNumber,
+				});
+				nudgeRedraw(activePage);
+				setVueInput("pageSettings-pd-tab-cellSize", 1);
+				setVueInput("pageSettings-pd-tab-scale", stockScaleNumber);
 			});
 		};
 
@@ -25143,17 +25413,47 @@ function baseCharacterIo () {
 		return null;
 	};
 
-	const applyCharacterImport = (character, entry) => {
+	const applyCharacterImport = async (character, entry) => {
+		// entry.attribs is already 2024-format (a "store" attrib) if it was exported from a
+		// 2024-sheet character — only flat (2014-style) attribs can be converted, and only
+		// forward (2014 -> 2024). The target sheet is whatever the Import Sheet Format config
+		// says, same as the Module Importer, not whatever the character happens to be on already.
+		const attribs = Array.isArray(entry.attribs) ? entry.attribs : [];
+		const hasStoreAttr = attribs.some(a => a.name === "store");
+		const targetIs2024 = typeof d20plus.importer?.shouldUse2024 === "function" && d20plus.importer.shouldUse2024();
+		const needsConversion = targetIs2024 && !hasStoreAttr;
+		const isNpc = attribs.some(a => a.name === "npc" && String(a.current) === "1");
+
+		if (needsConversion) {
+			if (isNpc && typeof d20plus.importer?.translateOGLTo2024Store !== "function") return alert(`2024 sheet conversion isn't available.`);
+			if (!isNpc && typeof d20plus.importer?.translatePcOGLTo2024Store !== "function") return alert(`2024 sheet conversion isn't available.`);
+		} else if (!targetIs2024 && hasStoreAttr) {
+			return alert(`This JSON is a 2024-sheet export (store format) — converting that down to a 2014 sheet isn't supported yet. Import Sheet Format is currently set to a 2014 sheet.`);
+		}
+
 		const safeAttributes = {...(entry.attributes || {})};
 		delete safeAttributes.id;
 		delete safeAttributes.inplayerjournals;
 		delete safeAttributes.controlledby;
+		if (typeof d20plus.cfg?.getOrDefault === "function") safeAttributes.charactersheetname = d20plus.cfg.getOrDefault("import", "importSheetFormat");
 		character.set(safeAttributes);
 		character.save();
 
 		character.attribs.reset();
-		if (Array.isArray(entry.attribs)) {
-			const toSave = entry.attribs.map(a => character.attribs.push(a));
+		let pcConversionSummary = null;
+		if (needsConversion && isNpc) {
+			const store2024 = d20plus.importer.translateOGLTo2024Store(attribs);
+			const toSave = [
+				{name: "appState", current: "npc"},
+				{name: "store", current: store2024},
+			].map(a => character.attribs.push(a));
+			toSave.forEach(s => (s.syncedSave ? s.syncedSave() : s.save()));
+		} else if (needsConversion) {
+			// translatePcOGLTo2024Store manages its own character.attribs writes internally (it
+			// interleaves several import2024* store round-trips), so there's nothing more to push here.
+			pcConversionSummary = await d20plus.importer.translatePcOGLTo2024Store(character, attribs);
+		} else if (attribs.length) {
+			const toSave = attribs.map(a => character.attribs.push(a));
 			toSave.forEach(s => (s.syncedSave ? s.syncedSave() : s.save()));
 		}
 
@@ -25169,14 +25469,22 @@ function baseCharacterIo () {
 		});
 
 		if (character.view && character.view.updateSheetValues) character.view.updateSheetValues();
+
+		if (pcConversionSummary) {
+			const failMsg = [
+				pcConversionSummary.itemsFailed.length ? `Items not found: ${pcConversionSummary.itemsFailed.join(", ")}` : "",
+				pcConversionSummary.spellsFailed.length ? `Spells not found: ${pcConversionSummary.spellsFailed.join(", ")}` : "",
+			].filter(Boolean).join("\n");
+			if (failMsg) alert(`2024 conversion finished, but some content couldn't be matched to compendium data:\n\n${failMsg}`);
+		}
 	};
 
 	const importCharacterFromEntry = (entry) => {
 		const safeAttributes = {...(entry.attributes || {})};
 		delete safeAttributes.id;
 		d20.Campaign.characters.create(safeAttributes, {
-			success: (character) => {
-				applyCharacterImport(character, entry);
+			success: async (character) => {
+				await applyCharacterImport(character, entry);
 				alert(`Imported character "${character.get("name")}".`);
 			},
 		});
@@ -25270,7 +25578,7 @@ function baseCharacterIo () {
 					if (!file) return $input.remove();
 
 					const reader = new FileReader();
-					reader.onload = () => {
+					reader.onload = async () => {
 						let payload = null;
 						try {
 							payload = JSON.parse(reader.result);
@@ -25293,7 +25601,7 @@ function baseCharacterIo () {
 							return;
 						}
 
-						applyCharacterImport(character, entry);
+						await applyCharacterImport(character, entry);
 						alert(`Overwrote "${character.get("name")}" with JSON data.`);
 
 						$input.remove();
@@ -29063,6 +29371,7 @@ const betteR20Core = function () {
 			await d20plus.js.pAddApiScripts();
 
 			JqueryUtil.initEnhancements();
+			d20plus.engine.patchJqote();
 
 			if (window.is_gm) await d20plus.cfg.pLoadConfig();
 			else await d20plus.cfg.pLoadPlayerConfig();
@@ -29240,6 +29549,87 @@ if (window.top === window.self) {
 
 	stack += "\n}";
 	unsafeWindow.eval(`(${stack})('${GM_info.script.version}')`);
+} else if (/^https:\/\/[\w-]+(\.[\w-]+)*\.roll20(preflight)?\.net$/.test(window.location.origin)) {
+	// Not the top frame, but this IS the 2024 sheet's own cross-origin iframe
+	// (advanced-sheets*.roll20preflight.net) - the top frame's script has zero DOM access to
+	// it (browser Same-Origin Policy), and this origin has zero access to d20plus/d20.Campaign
+	// in return, so this only unlocks/intercepts Roll20's native "Level Up" button (disabled
+	// whenever it thinks the class/species was set manually, which is true of anything
+	// imported by the top-frame script) and relays clicks back via postMessage - the receiving
+	// end lives in 5etools-2024-levelup-hijack.js.
+	(function () {
+		const BTN_SELECTOR = "button[aria-label=\"Level Up\"]";
+
+		// Roll20 names this iframe "iframe_<characterId>" - readable from inside via
+		// window.name, the one piece of character identity this origin has access to at all.
+		function getCharacterId () {
+			const m = /^iframe_(.+)$/.exec(window.name || "");
+			return m ? m[1] : null;
+		}
+
+		function unlock (btn) {
+			if (btn.hasAttribute("disabled")) btn.removeAttribute("disabled");
+		}
+
+		function scan (root) {
+			if (root.matches && root.matches(BTN_SELECTOR)) unlock(root);
+			if (root.querySelectorAll) root.querySelectorAll(BTN_SELECTOR).forEach(unlock);
+		}
+
+		function rewriteTooltip (header) {
+			header.textContent = "This class was imported by BetteR20 - click to add more levels to it.";
+		}
+
+		function scanTooltips (root) {
+			if (root.matches && root.matches(".poly-tooltip__header")) rewriteTooltip(root);
+			if (root.querySelectorAll) root.querySelectorAll(".poly-tooltip__header").forEach(rewriteTooltip);
+		}
+
+		function init () {
+			if (!document.body) {
+				document.addEventListener("DOMContentLoaded", init, {once: true});
+				return;
+			}
+
+			scan(document.body);
+			scanTooltips(document.body);
+
+			new MutationObserver(mutations => {
+				mutations.forEach(m => {
+					if (m.type === "attributes" && m.target.matches && m.target.matches(BTN_SELECTOR)) {
+						unlock(m.target);
+					}
+					(m.addedNodes || []).forEach(node => {
+						if (node.nodeType !== 1) return;
+						scan(node);
+						scanTooltips(node);
+					});
+				});
+			}).observe(document.body, {
+				childList: true,
+				subtree: true,
+				attributes: true,
+				attributeFilter: ["disabled"],
+			});
+
+			// Capturing-phase so this runs before Roll20's own click handler and can fully
+			// suppress it (stopImmediatePropagation during capture blocks the entire
+			// remaining dispatch).
+			document.addEventListener("click", event => {
+				const btn = event.target.closest && event.target.closest(BTN_SELECTOR);
+				if (!btn) return;
+
+				const characterId = getCharacterId();
+				if (!characterId) return;
+
+				event.preventDefault();
+				event.stopImmediatePropagation();
+				window.parent.postMessage({source: "betterR20-levelup-bridge", characterId}, "https://app.roll20.net");
+			}, true);
+		}
+
+		init();
+	})();
 }
 
 
@@ -29524,6 +29914,11 @@ Parser._greatestCommonDivisor = function (a, b) {
 	return Parser._greatestCommonDivisor(b, Math.floor(a % b));
 };
 Parser.numberToFractional = function (number) {
+	const isMinus = number < 0;
+	number = Math.abs(Number(number.toFixed(6)));
+
+	if (!number) return `${number}`;
+
 	const len = number.toString().length - 2;
 	let denominator = 10 ** len;
 	let numerator = number * denominator;
@@ -29531,7 +29926,7 @@ Parser.numberToFractional = function (number) {
 	numerator = Math.floor(numerator / divisor);
 	denominator = Math.floor(denominator / divisor);
 
-	return denominator === 1 ? String(numerator) : `${Math.floor(numerator)}/${Math.floor(denominator)}`;
+	return `${isMinus ? "-" : ""}${denominator === 1 ? String(numerator) : `${Math.floor(numerator)}/${Math.floor(denominator)}`}`;
 };
 
 Parser.isNumberNearEqual = function (a, b) {
@@ -29550,6 +29945,10 @@ Parser.attFullToAbv = function (full) {
 
 Parser.sizeAbvToFull = function (abv) {
 	return Parser._parse_aToB(Parser.SIZE_ABV_TO_FULL, abv);
+};
+
+Parser.sizeAbvToShort = function (abv) {
+	return Parser._parse_aToB(Parser.SIZE_ABV_TO_SHORT, abv);
 };
 
 Parser.getAbilityModNumber = function (abilityScore) {
@@ -29658,19 +30057,9 @@ Parser.crToXpNumber = function (cr) {
 	return Parser.XP_CHART_ALT[toConvert] ?? null;
 };
 
-Parser.LEVEL_TO_XP_EASY = [0, 25, 50, 75, 125, 250, 300, 350, 450, 550, 600, 800, 1000, 1100, 1250, 1400, 1600, 2000, 2100, 2400, 2800];
-Parser.LEVEL_TO_XP_MEDIUM = [0, 50, 100, 150, 250, 500, 600, 750, 900, 1100, 1200, 1600, 2000, 2200, 2500, 2800, 3200, 3900, 4100, 4900, 5700];
-Parser.LEVEL_TO_XP_HARD = [0, 75, 150, 225, 375, 750, 900, 1100, 1400, 1600, 1900, 2400, 3000, 3400, 3800, 4300, 4800, 5900, 6300, 7300, 8500];
-Parser.LEVEL_TO_XP_DEADLY = [0, 100, 200, 400, 500, 1100, 1400, 1700, 2100, 2400, 2800, 3600, 4500, 5100, 5700, 6400, 7200, 8800, 9500, 10900, 12700];
-Parser.LEVEL_TO_XP_DAILY = [0, 300, 600, 1200, 1700, 3500, 4000, 5000, 6000, 7500, 9000, 10500, 11500, 13500, 15000, 18000, 20000, 25000, 27000, 30000, 40000];
-
 Parser.LEVEL_XP_REQUIRED = [0, 300, 900, 2700, 6500, 14000, 23000, 34000, 48000, 64000, 85000, 100000, 120000, 140000, 165000, 195000, 225000, 265000, 305000, 355000];
 
 Parser.CRS = ["0", "1/8", "1/4", "1/2", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30"];
-
-Parser.levelToXpThreshold = function (level) {
-	return [Parser.LEVEL_TO_XP_EASY[level], Parser.LEVEL_TO_XP_MEDIUM[level], Parser.LEVEL_TO_XP_HARD[level], Parser.LEVEL_TO_XP_DEADLY[level]];
-};
 
 Parser.isValidCr = function (cr) {
 	return Parser.CRS.includes(cr);
@@ -29870,19 +30259,6 @@ Parser.acToFull = function (ac, {renderer = null, isHideFrom = false} = {}) {
 	return stack.trim();
 };
 
-Parser.MONSTER_COUNT_TO_XP_MULTIPLIER = [1, 1.5, 2, 2, 2, 2, 2.5, 2.5, 2.5, 2.5, 3, 3, 3, 3, 4];
-Parser.numMonstersToXpMult = function (num, playerCount = 3) {
-	const baseVal = (() => {
-		if (num >= Parser.MONSTER_COUNT_TO_XP_MULTIPLIER.length) return 4;
-		return Parser.MONSTER_COUNT_TO_XP_MULTIPLIER[num - 1];
-	})();
-
-	if (playerCount < 3) return baseVal >= 3 ? baseVal + 1 : baseVal + 0.5;
-	else if (playerCount > 5) {
-		return baseVal === 4 ? 3 : baseVal - 0.5;
-	} else return baseVal;
-};
-
 Parser.armorFullToAbv = function (armor) {
 	return Parser._parse_bToA(Parser.ARMOR_ABV_TO_FULL, armor);
 };
@@ -29958,14 +30334,14 @@ Parser.sourceJsonToDate = function (source) {
 
 Parser.sourceJsonToSourceClassname = function (source, {sourceJson = null} = {}) {
 	sourceJson ||= Parser.sourceJsonToJson(source);
-	return `source__${sourceJson.replace(/[^A-Za-z0-9-_]/g, "_")}`;
+	return `ve-source__${sourceJson.replace(/[^A-Za-z0-9-_]/g, "_")}`;
 };
 
 Parser.sourceJsonToMarkerHtml = function (source, {isList = false, isStatsName = false, isAddBrackets = false, additionalStyles = ""} = {}) {
 	source = Parser._getSourceStringFromSource(source);
 	// TODO(Future) consider enabling this
-	// if (SourceUtil.isPartneredSourceWotc(source)) return `<span class="help-subtle ve-source-marker ${isList ? `ve-source-marker--list` : ""} ${isStatsName ? `ve-source-marker--stats-name` : ""} ve-source-marker--partnered ${additionalStyles}" title="D&amp;D Partnered Source">${isList ? "" : "["}✦${isList ? "" : "]"}</span>`;
-	if (SourceUtil.isLegacySourceWotc(source)) return `<span class="help-subtle ve-source-marker ${isList ? `ve-source-marker--list` : ""} ${isStatsName ? `ve-source-marker--stats-name` : ""} ve-source-marker--legacy ${additionalStyles}" title="Legacy Source">${isAddBrackets ? "[" : ""}ʟ${isAddBrackets ? "]" : ""}</span>`;
+	// if (SourceUtil.isPartneredSourceWotc(source)) return `<span class="ve-help-subtle ve-source-marker ${isList ? `ve-source-marker--list` : ""} ${isStatsName ? `ve-source-marker--stats-name` : ""} ve-source-marker--partnered ${additionalStyles}" title="D&amp;D Partnered Source">${isList ? "" : "["}✦${isList ? "" : "]"}</span>`;
+	if (SourceUtil.isLegacySourceWotc(source)) return `<span class="ve-help-subtle ve-source-marker ${isList ? `ve-source-marker--list` : ""} ${isStatsName ? `ve-source-marker--stats-name` : ""} ve-source-marker--legacy ${additionalStyles}" title="Legacy Source">${isAddBrackets ? "[" : ""}ʟ${isAddBrackets ? "]" : ""}</span>`;
 	return "";
 };
 
@@ -30022,7 +30398,7 @@ Parser._moneyToFull = function (it, prop, propMult, opts = {isShortForm: false, 
 	if (it[prop] == null && it[propMult] == null) return "";
 	if (it[prop] != null) {
 		const {coin, mult} = Parser.getCurrencyAndMultiplier(it[prop], it.currencyConversion);
-		return `${(it[prop] * mult).toLocaleStringVe()}${opts.isSmallUnits ? `<span class="small ml-1">${coin}</span>` : ` ${coin}`}`;
+		return `${(it[prop] * mult).toLocaleStringVe()}${opts.isSmallUnits ? `<span class="small ve-ml-1">${coin}</span>` : ` ${coin}`}`;
 	} else if (it[propMult] != null) return opts.isShortForm ? `×${it[propMult]}` : `base value ×${it[propMult]}`;
 	return "";
 };
@@ -30808,7 +31184,7 @@ Parser.spRangeTypeToIcon = function (range) {
 
 Parser.spRangeToShortHtml = function (range) {
 	switch (range.type) {
-		case Parser.RNG_SPECIAL: return `<span class="fas fa-fw ${Parser.spRangeTypeToIcon(range.type)} help-subtle" title="Special"></span>`;
+		case Parser.RNG_SPECIAL: return `<span class="fas fa-fw ${Parser.spRangeTypeToIcon(range.type)} ve-help-subtle" title="Special"></span>`;
 		case Parser.RNG_POINT: return Parser.spRangeToShortHtml._renderPoint(range);
 		case Parser.RNG_LINE:
 		case Parser.RNG_CUBE:
@@ -30829,7 +31205,7 @@ Parser.spRangeToShortHtml._renderPoint = function (range) {
 		case Parser.RNG_UNLIMITED:
 		case Parser.RNG_UNLIMITED_SAME_PLANE:
 		case Parser.RNG_SPECIAL:
-		case Parser.RNG_TOUCH: return `<span class="fas fa-fw ${Parser.spRangeTypeToIcon(dist.type)} help-subtle" title="${Parser.spRangeTypeToFull(dist.type)}"></span>`;
+		case Parser.RNG_TOUCH: return `<span class="fas fa-fw ${Parser.spRangeTypeToIcon(dist.type)} ve-help-subtle" title="${Parser.spRangeTypeToFull(dist.type)}"></span>`;
 		case Parser.UNT_INCHES:
 		case Parser.UNT_FEET:
 		case Parser.UNT_YARDS:
@@ -30840,10 +31216,10 @@ Parser.spRangeToShortHtml._renderPoint = function (range) {
 };
 Parser.spRangeToShortHtml._renderArea = function (range) {
 	const size = range.distance;
-	return `<span class="fas fa-fw ${Parser.spRangeTypeToIcon(Parser.RNG_SELF)} help-subtle" title="Self"></span> ${size.amount}<span class="ve-small">-${Parser.getSingletonUnit(size.type, true)}</span> ${Parser.spRangeToShortHtml._getAreaStyleString(range)}`;
+	return `<span class="fas fa-fw ${Parser.spRangeTypeToIcon(Parser.RNG_SELF)} ve-help-subtle" title="Self"></span> ${size.amount}<span class="ve-small">-${Parser.getSingletonUnit(size.type, true)}</span> ${Parser.spRangeToShortHtml._getAreaStyleString(range)}`;
 };
 Parser.spRangeToShortHtml._getAreaStyleString = function (range) {
-	return `<span class="fas fa-fw ${Parser.spRangeTypeToIcon(range.type)} help-subtle" title="${Parser.spRangeTypeToFull(range.type)}"></span>`;
+	return `<span class="fas fa-fw ${Parser.spRangeTypeToIcon(range.type)} ve-help-subtle" title="${Parser.spRangeTypeToFull(range.type)}"></span>`;
 };
 
 Parser.spRangeToFull = function (range, {styleHint, isDisplaySelfArea = false} = {}) {
@@ -31049,7 +31425,7 @@ Parser._spSubclassItem = function ({fromSubclass, isTextOnly = false, isIncludeS
 	const ptClass = `<span title="Source: ${Parser.sourceJsonToFull(c.source)}${c.definedInSource ? ` From a class spell list defined in: ${Parser.sourceJsonToFull(c.definedInSource)}` : ""}">${Renderer.get().render(`{@class ${c.name}|${c.source}}`)}</span>`;
 	const ptSource = isIncludeSource ? ` (${Parser.sourceJsonToAbv(sc.source)})` : "";
 
-	return `<span class="italic" title="Source: ${Parser.sourceJsonToFull(fromSubclass.subclass.source)}">${Renderer.get().render(`{@class ${c.name}|${c.source}|${text}|${sc.shortName}|${sc.source}}`)}</span>${isIncludeSource ? ptSource : ""} ${ptClass}`;
+	return `<span class="ve-italic" title="Source: ${Parser.sourceJsonToFull(fromSubclass.subclass.source)}">${Renderer.get().render(`{@class ${c.name}|${c.source}|${text}|${sc.shortName}|${sc.source}}`)}</span>${isIncludeSource ? ptSource : ""} ${ptClass}`;
 };
 
 Parser.SPELL_ATTACK_TYPE_TO_FULL = {};
@@ -31073,6 +31449,7 @@ Parser.SPELL_AREA_TYPE_TO_FULL = {
 	"L": "Line",
 	"H": "Hemisphere",
 	"W": "Wall",
+	"E": "Emanation",
 };
 Parser.spAreaTypeToFull = function (type) {
 	return Parser._parse_aToB(Parser.SPELL_AREA_TYPE_TO_FULL, type);
@@ -31155,7 +31532,7 @@ Parser.monTypeToFullObj = function (type) {
 
 	const tagMetas = Parser.monTypeToFullObj._getTagMetas(type.tags);
 	if (tagMetas.length) {
-		out.tags.push(...tagMetas.map(({filterTag}) => filterTag));
+		out.tags.push(...tagMetas.flatMap(({filterTags}) => filterTags));
 		const ptTags = ` (${tagMetas.map(({displayTag}) => displayTag).join(", ")})`;
 		out.asText += ptTags;
 		out.asTextShort += ptTags;
@@ -31170,7 +31547,7 @@ Parser.monTypeToFullObj = function (type) {
 
 		const tagMetas = Parser.monTypeToFullObj._getTagMetas(type.sidekickTags);
 		if (tagMetas.length) {
-			out.tagsSidekick.push(...tagMetas.map(({filterTag}) => filterTag));
+			out.tagsSidekick.push(...tagMetas.flatMap(({filterTags}) => filterTags));
 			if (!type.sidekickHidden) out.asTextSidekick += ` (${tagMetas.map(({displayTag}) => displayTag).join(", ")})`;
 		}
 	}
@@ -31184,15 +31561,30 @@ Parser.monTypeToFullObj._getTagMetas = (tags) => {
 		? tags.map(tag => {
 			if (typeof tag === "string") { // handles e.g. "Fiend (Devil)"
 				return {
-					filterTag: tag.toLowerCase(),
+					filterTags: [tag.toLowerCase()],
 					displayTag: tag.toTitleCase(),
 				};
-			} else { // handles e.g. "Humanoid (Chondathan Human)"
+			}
+
+			// handles e.g. drow -> "Humanoid (Elf)"
+			if (tag.prefixHidden) {
 				return {
-					filterTag: tag.tag.toLowerCase(),
-					displayTag: `${tag.prefix} ${tag.tag}`.toTitleCase(),
+					filterTags: [
+						tag.tag.toLowerCase(),
+						`${tag.prefix} ${tag.tag}`.toLowerCase(),
+					],
+					displayTag: tag.tag.toTitleCase(),
 				};
 			}
+
+			// handles e.g. "Humanoid (Chondathan Human)"
+			return {
+				filterTags: [
+					tag.tag.toLowerCase(),
+					`${tag.prefix} ${tag.tag}`.toLowerCase(),
+				],
+				displayTag: `${tag.prefix} ${tag.tag}`.toTitleCase(),
+			};
 		})
 		: [];
 };
@@ -31213,28 +31605,33 @@ Parser._getFullImmRes_isSimpleTerm = val => {
 	return prop == null;
 };
 
-Parser._getFullImmRes_getNextProp = obj => obj.immune ? "immune" : obj.resist ? "resist" : obj.vulnerable ? "vulnerable" : null;
+Parser._getFullImmRes_getNextProp = obj => ["immune", "resist", "vulnerable", "conditionImmune"].find(prop => prop in obj) || null;
 
-Parser._getFullImmRes_getRenderedString = (str, {isPlainText = false, isTitleCase = false} = {}) => {
+Parser._getFullImmRes_getRenderedString = (str, {isPlainText = false, isEntry = false, isTitleCase = false, fnGetModString} = {}) => {
 	if (isTitleCase) str = str.toTitleCase();
-	return isPlainText ? Renderer.stripTags(`${str}`) : Renderer.get().render(`${str}`);
+	if (isPlainText) return Renderer.stripTags(`${str}`);
+	if (fnGetModString) str = fnGetModString(str);
+	if (isEntry) return str;
+	return Renderer.get().render(`${str}`);
 };
 
-Parser._getFullImmRes_getRenderedObject = (obj, {isPlainText = false, isTitleCase = false} = {}) => {
+Parser._getFullImmRes_getRenderedObject = (obj, {isPlainText = false, isEntry = false, isTitleCase = false, mode} = {}) => {
 	const stack = [];
 
 	if (obj.preNote) stack.push(Parser._getFullImmRes_getRenderedString(obj.preNote, {isPlainText}));
 
 	const prop = Parser._getFullImmRes_getNextProp(obj);
-	if (prop) stack.push(Parser._getFullImmRes_getRenderedArray(obj[prop], {isPlainText, isTitleCase, isGroup: true}));
+	if (prop) stack.push(Parser._getFullImmRes_getRenderedArray(obj[prop], {isPlainText, isEntry, isTitleCase, isGroup: true, mode}));
 
 	if (obj.note) stack.push(Parser._getFullImmRes_getRenderedString(obj.note, {isPlainText}));
 
 	return stack.join(" ");
 };
 
-Parser._getFullImmRes_getRenderedArray = (values, {isPlainText = false, isTitleCase = false, isGroup = false} = {}) => {
-	if (values.length === Parser.DMG_TYPES.length && CollectionUtil.deepEquals(Parser.DMG_TYPES, values)) {
+Parser._getFullImmRes_getRenderedArray = (values, {isPlainText = false, isEntry = false, isTitleCase = false, isGroup = false, mode} = {}) => {
+	if (isPlainText && isEntry) throw new Error(`Options "isPlainText" and "isEntry" are mutually exclusive!`);
+
+	if (mode === "damageType" && values.length === Parser.DMG_TYPES.length && CollectionUtil.deepEquals(Parser.DMG_TYPES, values)) {
 		return "all damage"[isTitleCase ? "toTitleCase" : "toString"]();
 	}
 
@@ -31245,8 +31642,8 @@ Parser._getFullImmRes_getRenderedArray = (values, {isPlainText = false, isTitleC
 			const rendCur = isSimpleCur
 				? val.special
 					? Parser._getFullImmRes_getRenderedString(val.special, {isPlainText, isTitleCase: false})
-					: Parser._getFullImmRes_getRenderedString(val, {isPlainText, isTitleCase})
-				: Parser._getFullImmRes_getRenderedObject(val, {isPlainText, isTitleCase});
+					: Parser._getFullImmRes_getRenderedString(val, {isPlainText, isEntry, isTitleCase, fnGetModString: mode === "condition" ? str => `{@condition ${str}}` : null})
+				: Parser._getFullImmRes_getRenderedObject(val, {isPlainText, isEntry, isTitleCase, mode});
 
 			if (i === arr.length - 1) return rendCur;
 
@@ -31262,32 +31659,17 @@ Parser._getFullImmRes_getRenderedArray = (values, {isPlainText = false, isTitleC
 
 Parser.getFullImmRes = function (values, {isPlainText = false, isTitleCase = false} = {}) {
 	if (!values?.length) return "";
-	return Parser._getFullImmRes_getRenderedArray(values, {isPlainText, isTitleCase});
+	return Parser._getFullImmRes_getRenderedArray(values, {isPlainText, isTitleCase, mode: "damageType"});
+};
+
+Parser.getFullCondImm = function (values, {isPlainText = false, isEntry = false, isTitleCase = false} = {}) {
+	if (isPlainText && isEntry) throw new Error(`Options "isPlainText" and "isEntry" are mutually exclusive!`);
+
+	if (!values?.length) return "";
+	return Parser._getFullImmRes_getRenderedArray(values, {isPlainText, isTitleCase, isEntry, mode: "condition"});
 };
 
 /* -------------------------------------------- */
-
-Parser.getFullCondImm = function (condImm, {isPlainText = false, isEntry = false, isTitleCase = false} = {}) {
-	if (isPlainText && isEntry) throw new Error(`Options "isPlainText" and "isEntry" are mutually exclusive!`);
-
-	if (!condImm?.length) return "";
-
-	const render = condition => {
-		if (isTitleCase) condition = condition.toTitleCase();
-		if (isPlainText) return condition;
-		const ent = `{@condition ${condition}}`;
-		if (isEntry) return ent;
-		return Renderer.get().render(ent);
-	};
-
-	return condImm
-		.map(it => {
-			if (it.special) return Renderer.get().render(it.special);
-			if (it.conditionImmune) return `${it.preNote ? `${it.preNote} ` : ""}${it.conditionImmune.map(render).join(", ")}${it.note ? ` ${it.note}` : ""}`;
-			return render(it);
-		})
-		.sort(SortUtil.ascSortLower).join(", ");
-};
 
 Parser.MON_SENSE_TAG_TO_FULL = {
 	"B": "blindsight",
@@ -31592,6 +31974,7 @@ Parser.prereqPatronToShort = function (patron) {
 
 Parser.FEAT_CATEGORY_TO_FULL = {
 	"D": "Dragonmark",
+	"DG": "Dark Gift",
 	"G": "General",
 	"O": "Origin",
 	"FS": "Fighting Style",
@@ -31649,6 +32032,7 @@ Parser.CHAR_OPTIONAL_FEATURE_TYPE_TO_FULL = {
 	"DG": "Dark Gift",
 	"RF:B": "Replacement Feature: Background",
 	"CS": "Character Secret", // Specific to IDRotF (rules on page 14)
+	"PTH": "Path",
 };
 
 Parser.charCreationOptionTypeToFull = function (type) {
@@ -31727,8 +32111,8 @@ Parser.weightToFull = function (lbs, isSmallUnit) {
 	const tons = Math.floor(lbs / 2000);
 	lbs = lbs - (2000 * tons);
 	return [
-		tons ? `${tons}${isSmallUnit ? `<span class="ve-small ml-1">` : " "}ton${tons === 1 ? "" : "s"}${isSmallUnit ? `</span>` : ""}` : null,
-		lbs ? `${lbs}${isSmallUnit ? `<span class="ve-small ml-1">` : " "}lb.${isSmallUnit ? `</span>` : ""}` : null,
+		tons ? `${tons}${isSmallUnit ? `<span class="ve-small ve-ml-1">` : " "}ton${tons === 1 ? "" : "s"}${isSmallUnit ? `</span>` : ""}` : null,
+		lbs ? `${lbs}${isSmallUnit ? `<span class="ve-small ve-ml-1">` : " "}lb.${isSmallUnit ? `</span>` : ""}` : null,
 	].filter(Boolean).join(", ");
 };
 
@@ -31769,8 +32153,8 @@ Parser.CAT_ID_VEHICLE = 31;
 Parser.CAT_ID_PACT_BOON = 32;
 Parser.CAT_ID_ELEMENTAL_DISCIPLINE = 33;
 Parser.CAT_ID_ARTIFICER_INFUSION = 34;
-Parser.CAT_ID_SHIP_UPGRADE = 35;
-Parser.CAT_ID_INFERNAL_WAR_MACHINE_UPGRADE = 36;
+Parser.CAT_ID_VEHICLE_UPGRADE_SHIP = 35;
+Parser.CAT_ID_VEHICLE_UPGRADE_INFERNAL_WAR_MACHINE = 36;
 Parser.CAT_ID_ONOMANCY_RESONANT = 37;
 Parser.CAT_ID_RUNE_KNIGHT_RUNE = 37;
 Parser.CAT_ID_ALCHEMICAL_FORMULA = 38;
@@ -31783,7 +32167,7 @@ Parser.CAT_ID_BOOK = 44;
 Parser.CAT_ID_PAGE = 45;
 Parser.CAT_ID_LEGENDARY_GROUP = 46;
 Parser.CAT_ID_CHAR_CREATION_OPTIONS = 47;
-Parser.CAT_ID_RECIPES = 48;
+Parser.CAT_ID_RECIPE = 48;
 Parser.CAT_ID_STATUS = 49;
 Parser.CAT_ID_SKILLS = 50;
 Parser.CAT_ID_SENSES = 51;
@@ -31791,6 +32175,8 @@ Parser.CAT_ID_DECK = 52;
 Parser.CAT_ID_CARD = 53;
 Parser.CAT_ID_ITEM_MASTERY = 54;
 Parser.CAT_ID_FACILITY = 55;
+Parser.CAT_ID_VEHICLE_UPGRADE_OTHER = 56;
+Parser.CAT_ID_CROCHET_PATTERN = 57;
 
 Parser.CAT_ID_GROUPS = {
 	"optionalfeature": [
@@ -31810,8 +32196,9 @@ Parser.CAT_ID_GROUPS = {
 		Parser.CAT_ID_MANEUVER,
 	],
 	"vehicleUpgrade": [
-		Parser.CAT_ID_SHIP_UPGRADE,
-		Parser.CAT_ID_INFERNAL_WAR_MACHINE_UPGRADE,
+		Parser.CAT_ID_VEHICLE_UPGRADE_SHIP,
+		Parser.CAT_ID_VEHICLE_UPGRADE_INFERNAL_WAR_MACHINE,
+		Parser.CAT_ID_VEHICLE_UPGRADE_OTHER,
 	],
 };
 
@@ -31833,7 +32220,7 @@ Parser.CAT_ID_TO_FULL[Parser.CAT_ID_DEITY] = "Deity";
 Parser.CAT_ID_TO_FULL[Parser.CAT_ID_OBJECT] = "Object";
 Parser.CAT_ID_TO_FULL[Parser.CAT_ID_TRAP] = "Trap";
 Parser.CAT_ID_TO_FULL[Parser.CAT_ID_HAZARD] = "Hazard";
-Parser.CAT_ID_TO_FULL[Parser.CAT_ID_QUICKREF] = "Quick Reference (2014)";
+Parser.CAT_ID_TO_FULL[Parser.CAT_ID_QUICKREF] = "Quick Reference (5e/2014)";
 Parser.CAT_ID_TO_FULL[Parser.CAT_ID_CULT] = "Cult";
 Parser.CAT_ID_TO_FULL[Parser.CAT_ID_BOON] = "Boon";
 Parser.CAT_ID_TO_FULL[Parser.CAT_ID_DISEASE] = "Disease";
@@ -31850,8 +32237,9 @@ Parser.CAT_ID_TO_FULL[Parser.CAT_ID_VEHICLE] = "Vehicle";
 Parser.CAT_ID_TO_FULL[Parser.CAT_ID_PACT_BOON] = "Pact Boon";
 Parser.CAT_ID_TO_FULL[Parser.CAT_ID_ELEMENTAL_DISCIPLINE] = "Elemental Discipline";
 Parser.CAT_ID_TO_FULL[Parser.CAT_ID_ARTIFICER_INFUSION] = "Infusion";
-Parser.CAT_ID_TO_FULL[Parser.CAT_ID_SHIP_UPGRADE] = "Ship Upgrade";
-Parser.CAT_ID_TO_FULL[Parser.CAT_ID_INFERNAL_WAR_MACHINE_UPGRADE] = "Infernal War Machine Upgrade";
+Parser.CAT_ID_TO_FULL[Parser.CAT_ID_VEHICLE_UPGRADE_SHIP] = "Ship Upgrade";
+Parser.CAT_ID_TO_FULL[Parser.CAT_ID_VEHICLE_UPGRADE_INFERNAL_WAR_MACHINE] = "Infernal War Machine Upgrade";
+Parser.CAT_ID_TO_FULL[Parser.CAT_ID_VEHICLE_UPGRADE_OTHER] = "Vehicle Upgrade";
 Parser.CAT_ID_TO_FULL[Parser.CAT_ID_ONOMANCY_RESONANT] = "Onomancy Resonant";
 Parser.CAT_ID_TO_FULL[Parser.CAT_ID_RUNE_KNIGHT_RUNE] = "Rune Knight Rune";
 Parser.CAT_ID_TO_FULL[Parser.CAT_ID_ALCHEMICAL_FORMULA] = "Alchemical Formula";
@@ -31864,7 +32252,8 @@ Parser.CAT_ID_TO_FULL[Parser.CAT_ID_BOOK] = "Book";
 Parser.CAT_ID_TO_FULL[Parser.CAT_ID_PAGE] = "Page";
 Parser.CAT_ID_TO_FULL[Parser.CAT_ID_LEGENDARY_GROUP] = "Legendary Group";
 Parser.CAT_ID_TO_FULL[Parser.CAT_ID_CHAR_CREATION_OPTIONS] = "Character Creation Option";
-Parser.CAT_ID_TO_FULL[Parser.CAT_ID_RECIPES] = "Recipe";
+Parser.CAT_ID_TO_FULL[Parser.CAT_ID_RECIPE] = "Recipe";
+Parser.CAT_ID_TO_FULL[Parser.CAT_ID_CROCHET_PATTERN] = "Crochet Pattern";
 Parser.CAT_ID_TO_FULL[Parser.CAT_ID_STATUS] = "Status";
 Parser.CAT_ID_TO_FULL[Parser.CAT_ID_DECK] = "Deck";
 Parser.CAT_ID_TO_FULL[Parser.CAT_ID_CARD] = "Card";
@@ -31910,8 +32299,9 @@ Parser.CAT_ID_TO_PROP[Parser.CAT_ID_MANEUVER_BATTLE_MASTER] = "optionalfeature";
 Parser.CAT_ID_TO_PROP[Parser.CAT_ID_PACT_BOON] = "optionalfeature";
 Parser.CAT_ID_TO_PROP[Parser.CAT_ID_ELEMENTAL_DISCIPLINE] = "optionalfeature";
 Parser.CAT_ID_TO_PROP[Parser.CAT_ID_ARTIFICER_INFUSION] = "optionalfeature";
-Parser.CAT_ID_TO_PROP[Parser.CAT_ID_SHIP_UPGRADE] = "vehicleUpgrade";
-Parser.CAT_ID_TO_PROP[Parser.CAT_ID_INFERNAL_WAR_MACHINE_UPGRADE] = "vehicleUpgrade";
+Parser.CAT_ID_TO_PROP[Parser.CAT_ID_VEHICLE_UPGRADE_SHIP] = "vehicleUpgrade";
+Parser.CAT_ID_TO_PROP[Parser.CAT_ID_VEHICLE_UPGRADE_INFERNAL_WAR_MACHINE] = "vehicleUpgrade";
+Parser.CAT_ID_TO_PROP[Parser.CAT_ID_VEHICLE_UPGRADE_OTHER] = "vehicleUpgrade";
 Parser.CAT_ID_TO_PROP[Parser.CAT_ID_ONOMANCY_RESONANT] = "optionalfeature";
 Parser.CAT_ID_TO_PROP[Parser.CAT_ID_RUNE_KNIGHT_RUNE] = "optionalfeature";
 Parser.CAT_ID_TO_PROP[Parser.CAT_ID_ALCHEMICAL_FORMULA] = "optionalfeature";
@@ -31926,7 +32316,8 @@ Parser.CAT_ID_TO_PROP[Parser.CAT_ID_BOOK] = "book";
 Parser.CAT_ID_TO_PROP[Parser.CAT_ID_PAGE] = null;
 Parser.CAT_ID_TO_PROP[Parser.CAT_ID_LEGENDARY_GROUP] = "legendaryGroup";
 Parser.CAT_ID_TO_PROP[Parser.CAT_ID_CHAR_CREATION_OPTIONS] = "charoption";
-Parser.CAT_ID_TO_PROP[Parser.CAT_ID_RECIPES] = "recipe";
+Parser.CAT_ID_TO_PROP[Parser.CAT_ID_RECIPE] = "recipe";
+Parser.CAT_ID_TO_PROP[Parser.CAT_ID_CROCHET_PATTERN] = "crochetPattern";
 Parser.CAT_ID_TO_PROP[Parser.CAT_ID_STATUS] = "status";
 Parser.CAT_ID_TO_PROP[Parser.CAT_ID_DECK] = "deck";
 Parser.CAT_ID_TO_PROP[Parser.CAT_ID_CARD] = "card";
@@ -32218,6 +32609,29 @@ Parser.SP_SCHOOL_ABV_TO_SHORT[Parser.SKL_ABV_TRA] = "Trans.";
 Parser.SP_SCHOOL_ABV_TO_SHORT[Parser.SKL_ABV_CON] = "Conj.";
 Parser.SP_SCHOOL_ABV_TO_SHORT[Parser.SKL_ABV_PSI] = "Psi.";
 
+Parser.SP_SCHOOL_ABV_TO_CSS_CLASS = {};
+Parser.SP_SCHOOL_ABV_TO_CSS_CLASS[Parser.SKL_ABV_ABJ] = "ve-sp__school--a";
+Parser.SP_SCHOOL_ABV_TO_CSS_CLASS[Parser.SKL_ABV_CON] = "ve-sp__school--c";
+Parser.SP_SCHOOL_ABV_TO_CSS_CLASS[Parser.SKL_ABV_DIV] = "ve-sp__school--d";
+Parser.SP_SCHOOL_ABV_TO_CSS_CLASS[Parser.SKL_ABV_ENC] = "ve-sp__school--e";
+Parser.SP_SCHOOL_ABV_TO_CSS_CLASS[Parser.SKL_ABV_EVO] = "ve-sp__school--v";
+Parser.SP_SCHOOL_ABV_TO_CSS_CLASS[Parser.SKL_ABV_ILL] = "ve-sp__school--i";
+Parser.SP_SCHOOL_ABV_TO_CSS_CLASS[Parser.SKL_ABV_NEC] = "ve-sp__school--n";
+Parser.SP_SCHOOL_ABV_TO_CSS_CLASS[Parser.SKL_ABV_PSI] = "ve-sp__school--p";
+Parser.SP_SCHOOL_ABV_TO_CSS_CLASS[Parser.SKL_ABV_TRA] = "ve-sp__school--t";
+
+Parser.spSchoolAbvToStyleClass = function (school) {
+	return Parser.SP_SCHOOL_ABV_TO_CSS_CLASS[school] || "";
+};
+
+Parser.PSI_ABV_TYPE_TO_CSS_CLASS = {};
+Parser.PSI_ABV_TYPE_TO_CSS_CLASS[Parser.PSI_ABV_TYPE_TALENT] = "ve-psi__type--t";
+Parser.PSI_ABV_TYPE_TO_CSS_CLASS[Parser.PSI_ABV_TYPE_DISCIPLINE] = "ve-psi__type--d";
+
+Parser.psiTypeAbvToStyleClass = function (type) {
+	return Parser.PSI_ABV_TYPE_TO_CSS_CLASS[type] || "";
+};
+
 Parser.ATB_ABV_TO_FULL = {
 	"str": "Strength",
 	"dex": "Dexterity",
@@ -32268,18 +32682,34 @@ Parser.SZ_HUGE = "H";
 Parser.SZ_GARGANTUAN = "G";
 Parser.SZ_COLOSSAL = "C";
 Parser.SZ_VARIES = "V";
+
 Parser.SIZE_ABVS = [Parser.SZ_TINY, Parser.SZ_SMALL, Parser.SZ_MEDIUM, Parser.SZ_LARGE, Parser.SZ_HUGE, Parser.SZ_GARGANTUAN, Parser.SZ_VARIES];
-Parser.SIZE_ABV_TO_FULL = {};
-Parser.SIZE_ABV_TO_FULL[Parser.SZ_FINE] = "Fine";
-Parser.SIZE_ABV_TO_FULL[Parser.SZ_DIMINUTIVE] = "Diminutive";
-Parser.SIZE_ABV_TO_FULL[Parser.SZ_TINY] = "Tiny";
-Parser.SIZE_ABV_TO_FULL[Parser.SZ_SMALL] = "Small";
-Parser.SIZE_ABV_TO_FULL[Parser.SZ_MEDIUM] = "Medium";
-Parser.SIZE_ABV_TO_FULL[Parser.SZ_LARGE] = "Large";
-Parser.SIZE_ABV_TO_FULL[Parser.SZ_HUGE] = "Huge";
-Parser.SIZE_ABV_TO_FULL[Parser.SZ_GARGANTUAN] = "Gargantuan";
-Parser.SIZE_ABV_TO_FULL[Parser.SZ_COLOSSAL] = "Colossal";
-Parser.SIZE_ABV_TO_FULL[Parser.SZ_VARIES] = "Varies";
+
+Parser.SIZE_ABV_TO_FULL = {
+	[Parser.SZ_FINE]: "Fine",
+	[Parser.SZ_DIMINUTIVE]: "Diminutive",
+	[Parser.SZ_TINY]: "Tiny",
+	[Parser.SZ_SMALL]: "Small",
+	[Parser.SZ_MEDIUM]: "Medium",
+	[Parser.SZ_LARGE]: "Large",
+	[Parser.SZ_HUGE]: "Huge",
+	[Parser.SZ_GARGANTUAN]: "Gargantuan",
+	[Parser.SZ_COLOSSAL]: "Colossal",
+	[Parser.SZ_VARIES]: "Varies",
+};
+
+Parser.SIZE_ABV_TO_SHORT = {
+	[Parser.SZ_FINE]: "Fin.",
+	[Parser.SZ_DIMINUTIVE]: "Dmtv.",
+	[Parser.SZ_TINY]: "Tin.",
+	[Parser.SZ_SMALL]: "Sml.",
+	[Parser.SZ_MEDIUM]: "Med.",
+	[Parser.SZ_LARGE]: "Lrg.",
+	[Parser.SZ_HUGE]: "Hge.",
+	[Parser.SZ_GARGANTUAN]: "Grgn.",
+	[Parser.SZ_COLOSSAL]: "Clsl.",
+	[Parser.SZ_VARIES]: "Vars.",
+};
 
 Parser.XP_CHART_ALT = {
 	"0": 10,
@@ -32383,6 +32813,42 @@ Parser.VEHICLE_TYPE_TO_FULL = {
 
 Parser.vehicleTypeToFull = function (vehicleType) {
 	return Parser._parse_aToB(Parser.VEHICLE_TYPE_TO_FULL, vehicleType);
+};
+
+Parser.CROCHET_PATTERN_SKILL_LEVEL_TO_FULL = {
+	"B": "Beginner",
+	"I": "Intermediate",
+	"A": "Advanced",
+};
+
+Parser.crochetPatternSkilLevelToFull = function (lvl) {
+	return Parser._parse_aToB(Parser.CROCHET_PATTERN_SKILL_LEVEL_TO_FULL, lvl);
+};
+
+Parser.CROCHET_HOOK_MM_TO_US = {
+	"2.25": "B/1",
+	"2.75": "C",
+	"3.25": "D",
+	"3.50": "E/4",
+	"3.75": "F",
+	"4": "G/6",
+	"4.25": "G/6",
+	"4.50": "7",
+	"5": "H/8",
+	"5.25": "I",
+	"5.50": "I/9",
+	"6": "J/10",
+	"6.50": "K",
+	"9": "M/13",
+	"10": "N/15",
+	"12": "P/16",
+	"15": "Q",
+	"16": "Q",
+	"19": "S",
+};
+
+Parser.crochetHookMmToUs = function (sz) {
+	return Parser._parse_aToB(Parser.CROCHET_HOOK_MM_TO_US, sz);
 };
 
 // SOURCES =============================================================================================================
@@ -32496,6 +32962,7 @@ Parser.SRC_VEoR = "VEoR";
 Parser.SRC_XPHB = "XPHB";
 Parser.SRC_XDMG = "XDMG";
 Parser.SRC_XMM = "XMM";
+Parser.SRC_XSAC = "XSAC";
 Parser.SRC_DrDe = "DrDe";
 Parser.SRC_DrDe_DaS = "DrDe-DaS";
 Parser.SRC_DrDe_BD = "DrDe-BD";
@@ -32516,12 +32983,15 @@ Parser.SRC_NF = "NF";
 Parser.SRC_LFL = "LFL";
 Parser.SRC_EFA = "EFA";
 Parser.SRC_FFotR = "FFotR";
+Parser.SRC_RHW = "RHW";
+
 Parser.SRC_TD = "TD";
 Parser.SRC_SCREEN = "Screen";
 Parser.SRC_SCREEN_WILDERNESS_KIT = "ScreenWildernessKit";
 Parser.SRC_SCREEN_DUNGEON_KIT = "ScreenDungeonKit";
 Parser.SRC_SCREEN_SPELLJAMMER = "ScreenSpelljammer";
 Parser.SRC_XSCREEN = "XScreen";
+Parser.SRC_XSCREEN_RHW = "XScreenRHW";
 Parser.SRC_HF = "HF";
 Parser.SRC_HFFotM = "HFFotM";
 Parser.SRC_HFStCM = "HFStCM";
@@ -32552,12 +33022,8 @@ Parser.SRC_UtHftLH = "UtHftLH";
 Parser.SRC_ScoEE = "ScoEE";
 Parser.SRC_HBTD = "HBTD";
 Parser.SRC_BQGT = "BQGT";
-
-Parser.SRC_AL_PREFIX = "AL";
-
-Parser.SRC_ALCoS = `${Parser.SRC_AL_PREFIX}CurseOfStrahd`;
-Parser.SRC_ALEE = `${Parser.SRC_AL_PREFIX}ElementalEvil`;
-Parser.SRC_ALRoD = `${Parser.SRC_AL_PREFIX}RageOfDemons`;
+Parser.SRC_CaBoMP = "CaBoMP";
+Parser.SRC_BQDD = "BQDD";
 
 Parser.SRC_PS_PREFIX = "PS";
 
@@ -32644,7 +33110,7 @@ Parser.SOURCE_JSON_TO_FULL[Parser.SRC_SDW] = "Sleeping Dragon's Wake";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_BGDIA] = "Baldur's Gate: Descent Into Avernus";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_LR] = "Locathah Rising";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_AL] = "Adventurers' League";
-Parser.SOURCE_JSON_TO_FULL[Parser.SRC_SAC] = "Sage Advice Compendium";
+Parser.SOURCE_JSON_TO_FULL[Parser.SRC_SAC] = "Sage Advice Compendium (5e/2014)";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_ERLW] = "Eberron: Rising from the Last War";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_EFR] = "Eberron: Forgotten Relics";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_RMBRE] = "The Lost Dungeon of Rickedness: Big Rick Energy";
@@ -32702,6 +33168,7 @@ Parser.SOURCE_JSON_TO_FULL[Parser.SRC_VEoR] = "Vecna: Eve of Ruin";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_XPHB] = "Player's Handbook (2024)";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_XDMG] = "Dungeon Master's Guide (2024)";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_XMM] = "Monster Manual (2025)";
+Parser.SOURCE_JSON_TO_FULL[Parser.SRC_XSAC] = "Sage Advice Compendium (2025)";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_DrDe] = "Dragon Delves";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_DrDe_DaS] = "Death at Sunset";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_DrDe_BD] = "Baker's Doesn't";
@@ -32722,12 +33189,14 @@ Parser.SOURCE_JSON_TO_FULL[Parser.SRC_NF] = "Netheril's Fall";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_LFL] = "Lorwyn: First Light";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_EFA] = "Eberron: Forge of the Artificer";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_FFotR] = "Fated Flight of the Recluse";
+Parser.SOURCE_JSON_TO_FULL[Parser.SRC_RHW] = "Ravenloft: The Horrors Within";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_TD] = "Tarot Deck";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_SCREEN] = "Dungeon Master's Screen";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_SCREEN_WILDERNESS_KIT] = "Dungeon Master's Screen: Wilderness Kit";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_SCREEN_DUNGEON_KIT] = "Dungeon Master's Screen: Dungeon Kit";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_SCREEN_SPELLJAMMER] = "Dungeon Master's Screen: Spelljammer";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_XSCREEN] = "Dungeon Master's Screen (2024)";
+Parser.SOURCE_JSON_TO_FULL[Parser.SRC_XSCREEN_RHW] = "Dungeon Master's Screen; Ravenloft: The Horrors Within";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_HF] = "Heroes' Feast";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_HFFotM] = "Heroes' Feast: Flavors of the Multiverse";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_HFStCM] = "Heroes' Feast: Saving the Children's Menu";
@@ -32758,9 +33227,6 @@ Parser.SOURCE_JSON_TO_FULL[Parser.SRC_UtHftLH] = "Uni and the Hunt for the Lost 
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_ScoEE] = "Scions of Elemental Evil";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_HBTD] = "Hold Back The Dead";
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_BQGT] = "Borderlands Quest: Goblin Trouble";
-Parser.SOURCE_JSON_TO_FULL[Parser.SRC_ALCoS] = `${Parser.AL_PREFIX}Curse of Strahd`;
-Parser.SOURCE_JSON_TO_FULL[Parser.SRC_ALEE] = `${Parser.AL_PREFIX}Elemental Evil`;
-Parser.SOURCE_JSON_TO_FULL[Parser.SRC_ALRoD] = `${Parser.AL_PREFIX}Rage of Demons`;
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_PSA] = `${Parser.PS_PREFIX}Amonkhet`;
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_PSI] = `${Parser.PS_PREFIX}Innistrad`;
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_PSK] = `${Parser.PS_PREFIX}Kaladesh`;
@@ -32775,6 +33241,8 @@ Parser.SOURCE_JSON_TO_FULL[Parser.SRC_MCV3MC] = `${Parser.MCVX_PREFIX}3: Minecra
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_MCV4EC] = `${Parser.MCVX_PREFIX}4: Eldraine Creatures`;
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_MisMV1] = `${Parser.MisMVX_PREFIX}1`;
 Parser.SOURCE_JSON_TO_FULL[Parser.SRC_AATM] = `${Parser.AA_PREFIX}The Mortuary`;
+Parser.SOURCE_JSON_TO_FULL[Parser.SRC_CaBoMP] = "Crochet: A Book of Many Patterns";
+Parser.SOURCE_JSON_TO_FULL[Parser.SRC_BQDD] = "Borderlands Quest: Dagger Danger!";
 
 Parser.SOURCE_JSON_TO_ABV = {};
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_PHB] = "PHB'14";
@@ -32825,7 +33293,7 @@ Parser.SOURCE_JSON_TO_ABV[Parser.SRC_SDW] = "SDW";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_BGDIA] = "BGDIA";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_LR] = "LR";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_AL] = "AL";
-Parser.SOURCE_JSON_TO_ABV[Parser.SRC_SAC] = "SAC";
+Parser.SOURCE_JSON_TO_ABV[Parser.SRC_SAC] = "SAC'14";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_ERLW] = "ERLW";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_EFR] = "EFR";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_RMBRE] = "RMBRE";
@@ -32883,6 +33351,7 @@ Parser.SOURCE_JSON_TO_ABV[Parser.SRC_VEoR] = "VEoR";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_XPHB] = "PHB'24";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_XDMG] = "DMG'24";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_XMM] = "MM'25";
+Parser.SOURCE_JSON_TO_ABV[Parser.SRC_XSAC] = "SAC'25";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_DrDe] = "DrDe";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_DrDe_DaS] = "DrDe-DaS";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_DrDe_BD] = "DrDe-BD";
@@ -32903,12 +33372,14 @@ Parser.SOURCE_JSON_TO_ABV[Parser.SRC_NF] = "NF";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_LFL] = "LFL";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_EFA] = "EFA";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_FFotR] = "FFotR";
+Parser.SOURCE_JSON_TO_ABV[Parser.SRC_RHW] = "RHW";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_TD] = "TD";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_SCREEN] = "Scr'14";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_SCREEN_WILDERNESS_KIT] = "ScrWild";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_SCREEN_DUNGEON_KIT] = "ScrDun";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_SCREEN_SPELLJAMMER] = "ScrSJ";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_XSCREEN] = "Scr'24";
+Parser.SOURCE_JSON_TO_ABV[Parser.SRC_XSCREEN_RHW] = "ScrRHW";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_HF] = "HF";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_HFFotM] = "HFFotM";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_HFStCM] = "HFStCM";
@@ -32939,9 +33410,6 @@ Parser.SOURCE_JSON_TO_ABV[Parser.SRC_UtHftLH] = "UHftLH";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_ScoEE] = "ScoEE";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_HBTD] = "HBTD";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_BQGT] = "BQGT";
-Parser.SOURCE_JSON_TO_ABV[Parser.SRC_ALCoS] = "ALCoS";
-Parser.SOURCE_JSON_TO_ABV[Parser.SRC_ALEE] = "ALEE";
-Parser.SOURCE_JSON_TO_ABV[Parser.SRC_ALRoD] = "ALRoD";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_PSA] = "PSA";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_PSI] = "PSI";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_PSK] = "PSK";
@@ -32956,6 +33424,8 @@ Parser.SOURCE_JSON_TO_ABV[Parser.SRC_MCV3MC] = "MCV3MC";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_MCV4EC] = "MCV4EC";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_MisMV1] = "MisMV1";
 Parser.SOURCE_JSON_TO_ABV[Parser.SRC_AATM] = "AATM";
+Parser.SOURCE_JSON_TO_ABV[Parser.SRC_CaBoMP] = "CaBoMP";
+Parser.SOURCE_JSON_TO_ABV[Parser.SRC_BQDD] = "BQDD";
 
 Parser.SOURCE_JSON_TO_DATE = {};
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_PHB] = "2014-08-19";
@@ -33063,6 +33533,7 @@ Parser.SOURCE_JSON_TO_DATE[Parser.SRC_VEoR] = "2024-05-21";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_XPHB] = "2024-09-17";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_XDMG] = "2024-11-12";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_XMM] = "2025-02-18";
+Parser.SOURCE_JSON_TO_DATE[Parser.SRC_XSAC] = "2025-04-30";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_DrDe] = "2025-07-08";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_DrDe_DaS] = Parser.SOURCE_JSON_TO_DATE[Parser.SRC_DrDe];
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_DrDe_BD] = Parser.SOURCE_JSON_TO_DATE[Parser.SRC_DrDe];
@@ -33083,12 +33554,14 @@ Parser.SOURCE_JSON_TO_DATE[Parser.SRC_NF] = "2025-11-11";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_LFL] = "2025-11-18";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_EFA] = "2025-12-09";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_FFotR] = "2025-12-09";
+Parser.SOURCE_JSON_TO_DATE[Parser.SRC_RHW] = "2026-06-16";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_TD] = "2022-05-24";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_SCREEN] = "2015-01-20";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_SCREEN_WILDERNESS_KIT] = "2020-11-17";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_SCREEN_DUNGEON_KIT] = "2020-09-21";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_SCREEN_SPELLJAMMER] = "2022-08-16";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_XSCREEN] = "2024-11-12";
+Parser.SOURCE_JSON_TO_DATE[Parser.SRC_XSCREEN_RHW] = "2026-06-16";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_HF] = "2020-10-27";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_HFFotM] = "2023-11-07";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_HFStCM] = "2023-11-21";
@@ -33119,9 +33592,6 @@ Parser.SOURCE_JSON_TO_DATE[Parser.SRC_UtHftLH] = "2024-09-24";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_ScoEE] = "2024-10-24";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_HBTD] = "2025-02-07";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_BQGT] = "2025-06-04";
-Parser.SOURCE_JSON_TO_DATE[Parser.SRC_ALCoS] = "2016-03-15";
-Parser.SOURCE_JSON_TO_DATE[Parser.SRC_ALEE] = "2015-04-07";
-Parser.SOURCE_JSON_TO_DATE[Parser.SRC_ALRoD] = "2015-09-15";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_PSA] = "2017-07-06";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_PSI] = "2016-07-12";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_PSK] = "2017-02-16";
@@ -33136,6 +33606,8 @@ Parser.SOURCE_JSON_TO_DATE[Parser.SRC_MCV3MC] = "2023-03-28";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_MCV4EC] = "2023-09-21";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_MisMV1] = "2023-05-03";
 Parser.SOURCE_JSON_TO_DATE[Parser.SRC_AATM] = "2023-10-17";
+Parser.SOURCE_JSON_TO_DATE[Parser.SRC_CaBoMP] = "2026-03-31";
+Parser.SOURCE_JSON_TO_DATE[Parser.SRC_BQDD] = "2026-05-28";
 
 // region Source categories
 Parser.SOURCES_ADVENTURES = new Set([
@@ -33339,7 +33811,8 @@ Parser.SOURCES_VANILLA = new Set([
 	// Parser.SRC_VGM, // "Legacy" source, removed in favor of MPMM
 	Parser.SRC_XGE,
 	// Parser.SRC_MTF, // "Legacy" source, removed in favor of MPMM
-	Parser.SRC_SAC,
+	// Parser.SRC_SAC, // "Legacy" source, removed in favor of XSAC
+	Parser.SRC_XSAC,
 	Parser.SRC_MFF,
 	Parser.SRC_SADS,
 	Parser.SRC_TCE,
@@ -33347,6 +33820,7 @@ Parser.SOURCES_VANILLA = new Set([
 	Parser.SRC_MPMM,
 	// Parser.SRC_SCREEN, // "Legacy" source, removed in favor of XSCREEN
 	Parser.SRC_XSCREEN,
+	Parser.SRC_XSCREEN_RHW,
 	Parser.SRC_SCREEN_WILDERNESS_KIT,
 	Parser.SRC_SCREEN_DUNGEON_KIT,
 	Parser.SRC_VD,
@@ -33480,6 +33954,9 @@ Parser.SOURCES_AVAILABLE_DOCS_BOOK = {};
 	Parser.SRC_NF,
 	Parser.SRC_LFL,
 	Parser.SRC_EFA,
+	Parser.SRC_CaBoMP,
+	Parser.SRC_RHW,
+	Parser.SRC_XSCREEN_RHW,
 ].forEach(src => {
 	Parser.SOURCES_AVAILABLE_DOCS_BOOK[src] = src;
 	Parser.SOURCES_AVAILABLE_DOCS_BOOK[src.toLowerCase()] = src;
@@ -33593,6 +34070,7 @@ Parser.SOURCES_AVAILABLE_DOCS_ADVENTURE = {};
 	Parser.SRC_HotB,
 	Parser.SRC_WttHC,
 	Parser.SRC_FFotR,
+	Parser.SRC_BQDD,
 ].forEach(src => {
 	Parser.SOURCES_AVAILABLE_DOCS_ADVENTURE[src] = src;
 	Parser.SOURCES_AVAILABLE_DOCS_ADVENTURE[src.toLowerCase()] = src;
@@ -33603,10 +34081,7 @@ Parser.getTagSource = function (tag, source) {
 
 	tag = tag.trim();
 
-	const tagMeta = Renderer.tag.TAG_LOOKUP[tag];
-
-	if (!tagMeta) throw new Error(`Unhandled tag "${tag}"`);
-	return tagMeta.defaultSource;
+	return Renderer.tag.getTagInfo(tag, {isRequired: true}).defaultSource;
 };
 
 Parser.PROP_TO_TAG = {
@@ -33617,6 +34092,7 @@ Parser.PROP_TO_TAG = {
 	"baseitem": "item",
 	"itemGroup": "item",
 	"magicvariant": "item",
+	"crochetPattern": "crochet",
 };
 Parser._RE_PROP_RAW_PREFIX = /^raw_/;
 Parser.getPropTag = function (prop) {
@@ -33651,12 +34127,18 @@ Parser.PROP_TO_DISPLAY_NAME = {
 	"bookData": "Book Text",
 	"makebrewCreatureTrait": "Homebrew Builder Creature Trait",
 	"charoption": "Other Character Creation Option",
+	"encounterShape": "Encounter Shape",
+	"crochetPattern": "Crochet Pattern",
 
 	"bonus": "Bonus Action",
 	"legendary": "Legendary Action",
 	"mythic": "Mythic Action",
 	"lairActions": "Lair Action",
 	"regionalEffects": "Regional Effect",
+
+	// '24-specific
+	"race": "Species",
+	"subrace": "Subspecies",
 };
 Parser.getPropDisplayName = function (prop, {suffix = ""} = {}) {
 	if (Parser.PROP_TO_DISPLAY_NAME[prop]) return `${Parser.PROP_TO_DISPLAY_NAME[prop]}${suffix}`;
@@ -33711,22 +34193,22 @@ Parser.NUMBERS_TENS = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "s
 Parser.NUMBERS_TEENS = ["ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen"];
 
 // region Metric conversion
-Parser.metric = {
+Parser.metric = class {
 	// See MPMB's breakdown: https://old.reddit.com/r/dndnext/comments/6gkuec
-	MILES_TO_KILOMETRES: 1.6,
-	FEET_TO_METRES: 0.3, // 5 ft = 1.5 m
-	YARDS_TO_METRES: 0.9, // (as above)
-	POUNDS_TO_KILOGRAMS: 0.5, // 2 lb = 1 kg
+	static MILES_TO_KILOMETRES = 1.6;
+	static FEET_TO_METRES = 0.3; // 5 ft = 1.5 m
+	static YARDS_TO_METRES = 0.9; // (as above)
+	static POUNDS_TO_KILOGRAMS = 0.5; // 2 lb = 1 kg
 	// Other additions
-	INCHES_TO_CENTIMETERS: 2.5, // 1 in = 2.5 cm
-	CUBIC_FEET_TO_LITRES: 28, // 1 ft³ = 28 L
+	static INCHES_TO_CENTIMETERS = 2.5; // 1 in = 2.5 cm
+	static CUBIC_FEET_TO_LITRES = 28; // 1 ft³ = 28 L
 
 	/**
 	 * @param {number} originalValue
 	 * @param {string} originalUnit
 	 * @param {?boolean} toFixed
 	 */
-	getMetricNumber ({originalValue, originalUnit, toFixed = null}) {
+	static getMetricNumber ({originalValue, originalUnit, toFixed = null}) {
 		if (originalValue == null || isNaN(originalValue)) return originalValue;
 
 		originalValue = Number(originalValue);
@@ -33744,14 +34226,14 @@ Parser.metric = {
 		}
 		if (toFixed != null) return NumberUtil.toFixedNumber(out, toFixed);
 		return out;
-	},
+	}
 
 	/**
 	 * @param {number} originalValue
 	 * @param {boolean} isShortForm
 	 * @param {isPlural} isShortForm
 	 */
-	getMetricUnit ({originalUnit, isShortForm = false, isPlural = true}) {
+	static getMetricUnit ({originalUnit, isShortForm = false, isPlural = true}) {
 		switch (Parser.getNormalizedUnit(originalUnit)) {
 			case Parser.UNT_INCHES: return isShortForm ? "cm" : `centimeter`[isPlural ? "toPlural" : "toString"]();
 			case Parser.UNT_FEET: return isShortForm ? "m" : `meter`[isPlural ? "toPlural" : "toString"]();
@@ -33761,7 +34243,14 @@ Parser.metric = {
 			case Parser.UNT_CUBIC_FEET: return isShortForm ? "L" : `liter`[isPlural ? "toPlural" : "toString"]();
 			default: return originalUnit;
 		}
-	},
+	}
+
+	static _MM_PER_INCHES = 25.4;
+
+	// Display to the nearest 0.5 in.
+	static getApproxDisplayInches (distMm) {
+		return Math.round((distMm / this._MM_PER_INCHES) * 2) / 2;
+	}
 };
 // endregion
 // region Map grids
@@ -33786,7 +34275,7 @@ Parser.mapGridTypeToFull = function (gridType) {
 EXT_LIB_SCRIPTS.push((function lib_script_4 () {
 // in deployment, `IS_DEPLOYED = "<version number>";` should be set below.
 globalThis.IS_DEPLOYED = undefined;
-globalThis.VERSION_NUMBER = /* 5ETOOLS_VERSION__OPEN */"2.21.0"/* 5ETOOLS_VERSION__CLOSE */;
+globalThis.VERSION_NUMBER = /* 5ETOOLS_VERSION__OPEN */"2.32.1"/* 5ETOOLS_VERSION__CLOSE */;
 globalThis.DEPLOYED_IMG_ROOT = undefined;
 // for the roll20 script to set
 globalThis.IS_VTT = false;
@@ -33801,63 +34290,67 @@ globalThis.HASH_SUB_KV_SEP = ":";
 globalThis.HASH_BLANK = "blankhash";
 globalThis.HASH_SUB_NONE = "null";
 
-globalThis.VeCt = {
-	STR_NONE: "None",
-	STR_SEE_CONSOLE: "See the console (CTRL+SHIFT+J) for details.",
+globalThis.VeCt = class {
+	static STR_NONE = "None";
+	static STR_SEE_CONSOLE = "See the console (CTRL+SHIFT+J) for details.";
 
-	HASH_SCALED: "scaled",
-	HASH_SCALED_SPELL_SUMMON: "scaledspellsummon",
-	HASH_SCALED_CLASS_SUMMON: "scaledclasssummon",
+	static HASH_SCALED = "scaled";
+	static HASH_SCALED_SPELL_SUMMON = "scaledspellsummon";
+	static HASH_SCALED_CLASS_SUMMON = "scaledclasssummon";
 
-	FILTER_BOX_SUB_HASH_SEARCH_PREFIX: "fbsr",
-	FILTER_BOX_SUB_HASH_FLAG_IS_PRESERVE_EXISTING: "fbpe",
+	static FILTER_BOX_SUB_HASH_SEARCH_PREFIX = "fbsr";
+	static FILTER_BOX_SUB_HASH_FLAG_IS_PRESERVE_EXISTING = "fbpe";
 
-	JSON_PRERELEASE_INDEX: `prerelease/index.json`,
-	JSON_BREW_INDEX: `homebrew/index.json`,
+	static JSON_PRERELEASE_INDEX = `prerelease/index.json`;
+	static JSON_BREW_INDEX = `homebrew/index.json`;
 
-	STORAGE_HOMEBREW: "HOMEBREW_STORAGE",
-	STORAGE_HOMEBREW_META: "HOMEBREW_META_STORAGE",
-	STORAGE_EXCLUDES: "EXCLUDES_STORAGE",
-	STORAGE_DMSCREEN: "DMSCREEN_STORAGE",
-	STORAGE_DMSCREEN_TEMP_SUBLIST: "DMSCREEN_TEMP_SUBLIST",
-	STORAGE_ROLLER_MACRO: "ROLLER_MACRO_STORAGE",
-	STORAGE_ENCOUNTER: "ENCOUNTER_STORAGE",
-	STORAGE_POINTBUY: "POINTBUY_STORAGE",
-	STORAGE_GLOBAL_COMPONENT_STATE: "GLOBAL_COMPONENT_STATE",
+	static STORAGE_HOMEBREW = "HOMEBREW_STORAGE";
+	static STORAGE_HOMEBREW_META = "HOMEBREW_META_STORAGE";
+	static STORAGE_EXCLUDES = "EXCLUDES_STORAGE";
+	static STORAGE_DMSCREEN = "DMSCREEN_STORAGE";
+	static STORAGE_DMSCREEN_TEMP_SUBLIST = "DMSCREEN_TEMP_SUBLIST";
+	static STORAGE_ROLLER_MACRO = "ROLLER_MACRO_STORAGE";
+	static STORAGE_ENCOUNTER = "ENCOUNTER_STORAGE";
+	static STORAGE_POINTBUY = "POINTBUY_STORAGE";
+	static STORAGE_GLOBAL_COMPONENT_STATE = "GLOBAL_COMPONENT_STATE";
 
-	DUR_INLINE_NOTIFY: 500,
+	static DUR_INLINE_NOTIFY = 500;
+	static DUR_DEBOUNCE_SAVE = 100;
 
-	PG_NONE: "NO_PAGE",
-	STR_GENERIC: "Generic",
+	static PG_NONE = "NO_PAGE";
+	static STR_GENERIC = "Generic";
 
-	SYM_UI_SKIP: Symbol("uiSkip"),
+	static SYM_UI_SKIP = Symbol("uiSkip");
 
-	SYM_WALKER_BREAK: Symbol("walkerBreak"),
+	static SYM_WALKER_BREAK = Symbol("walkerBreak");
 
-	SYM_UTIL_TIMEOUT: Symbol("timeout"),
+	static SYM_UTIL_TIMEOUT = Symbol("timeout");
 
-	LOC_HOSTNAME_CANCER: "5e.tools",
+	static LOC_HOSTNAME_CANCER = "5e.tools";
 
-	URL_BREW: `https://github.com/TheGiddyLimit/homebrew`,
-	URL_ROOT_BREW: `https://raw.githubusercontent.com/TheGiddyLimit/homebrew/master/`, // N.b. must end with a slash
-	URL_ROOT_BREW_IMG: `https://raw.githubusercontent.com/TheGiddyLimit/homebrew-img/main/`, // N.b. must end with a slash
-	URL_PRERELEASE: `https://github.com/TheGiddyLimit/unearthed-arcana`,
-	URL_ROOT_PRERELEASE: `https://raw.githubusercontent.com/TheGiddyLimit/unearthed-arcana/master/`, // As above
+	static URL_BREW = `https://github.com/TheGiddyLimit/homebrew`;
+	static URL_ROOT_BREW = `https://raw.githubusercontent.com/TheGiddyLimit/homebrew/master/`; // N.b. must end with a slash
+	static URL_ROOT_BREW_IMG = `https://raw.githubusercontent.com/TheGiddyLimit/homebrew-img/main/`; // N.b. must end with a slash
+	static URL_PRERELEASE = `https://github.com/TheGiddyLimit/unearthed-arcana`;
+	static URL_ROOT_PRERELEASE = `https://raw.githubusercontent.com/TheGiddyLimit/unearthed-arcana/master/`; // As above
 
-	STR_NO_ATTUNEMENT: "No Attunement Required",
+	static STR_NO_ATTUNEMENT = "No Attunement Required";
 
-	CR_UNKNOWN: 100001,
-	CR_CUSTOM: 100000,
+	static CR_UNKNOWN = 100001;
+	static CR_CUSTOM = 100000;
 
-	SPELL_LEVEL_MAX: 9,
-	LEVEL_MAX: 20,
+	static SPELL_LEVEL_MAX = 9;
+	static SPELL_USES_MAX = 99;
+	static SPELL_USES_KEYS = new Set(Array.from({length: this.SPELL_USES_MAX}, (_, i) => `${i + 1}`));
+	static SPELL_USES_KEYS_EACH = new Set(Array.from({length: this.SPELL_USES_MAX}, (_, i) => `${i + 1}e`));
+	static LEVEL_MAX = 20;
 
-	ENTDATA_ITEM_MERGED_ENTRY_TAG: "item__mergedEntryTag",
+	static ENTDATA_ITEM_MERGED_ENTRY_TAG = "item__mergedEntryTag";
 
-	DRAG_TYPE_IMPORT: "ve-Import",
-	DRAG_TYPE_LOOT: "ve-Loot",
+	static DRAG_TYPE_IMPORT = "ve-Import";
+	static DRAG_TYPE_LOOT = "ve-Loot";
 
-	Z_INDEX_BENEATH_HOVER: 199,
+	static Z_INDEX_BENEATH_HOVER = 199;
 };
 
 // STRING ==============================================================================================================
@@ -34170,6 +34663,8 @@ globalThis.StrUtil = class {
 		"yuan-ti": "yuan-ti",
 	};
 
+	/* -------------------------------------------- */
+
 	static _IRREGULAR_SINGLE_WORDS = {
 		...Object.fromEntries(Object.entries(this._IRREGULAR_PLURAL_WORDS).map(([k, v]) => [v, k])),
 	};
@@ -34178,7 +34673,17 @@ globalThis.StrUtil = class {
 		[/(axe)s$/i, "$1"],
 	];
 
+	static _RE_TO_SINGLE_END_ES = null;
+	static _RE_TO_SINGLE_END_IES = null;
+
+	static _toSingle_init () {
+		this._RE_TO_SINGLE_END_ES ??= /(s|x|z|ch|sh)es$/i;
+		this._RE_TO_SINGLE_END_IES ??= /[bcdfghjklmnpqrstvwxyz]ies$/i;
+	}
+
 	static toSingle (str) {
+		this._toSingle_init();
+
 		if (this._IRREGULAR_SINGLE_WORDS[str.toLowerCase()]) return this._getMatchedCase(str, this._IRREGULAR_SINGLE_WORDS[str.toLowerCase()]);
 		const single = this._IRREGULAR_SINGLE_PATTERNS
 			.first(([re, repl]) => {
@@ -34186,16 +34691,28 @@ globalThis.StrUtil = class {
 			});
 		if (single) return single;
 
-		if (/(s|x|z|ch|sh)es$/i.test(str)) return str.slice(0, -2);
-		if (/[bcdfghjklmnpqrstvwxyz]ies$/i.test(str)) return `${str.slice(0, -3)}y`;
+		if (this._RE_TO_SINGLE_END_ES.test(str)) return str.slice(0, -2);
+		if (this._RE_TO_SINGLE_END_IES.test(str)) return `${str.slice(0, -3)}y`;
 		return str.replace(/s$/i, "");
 	}
 
+	/* -------------------------------------------- */
+
+	static _RE_TO_PLURAL_END_ES = null;
+	static _RE_TO_PLURAL_END_IES = null;
+
+	static _toPlural_init () {
+		this._RE_TO_PLURAL_END_ES ??= /(s|x|z|ch|sh)$/i;
+		this._RE_TO_PLURAL_END_IES ??= /[bcdfghjklmnpqrstvwxyz]y$/i;
+	}
+
 	static toPlural (str) {
+		this._toPlural_init();
+
 		let plural;
 		if (this._IRREGULAR_PLURAL_WORDS[str.toLowerCase()]) plural = this._IRREGULAR_PLURAL_WORDS[str.toLowerCase()];
-		else if (/(s|x|z|ch|sh)$/i.test(str)) plural = `${str}es`;
-		else if (/[bcdfghjklmnpqrstvwxyz]y$/i.test(str)) plural = str.replace(/y$/i, "ies");
+		else if (this._RE_TO_PLURAL_END_ES.test(str)) plural = `${str}es`;
+		else if (this._RE_TO_PLURAL_END_IES.test(str)) plural = `${str.slice(0, -1)}ies`;
 		else plural = `${str}s`;
 
 		return this._getMatchedCase(str, plural);
@@ -34226,15 +34743,55 @@ globalThis.NumberUtil = class {
 	}
 };
 
-globalThis.CleanUtil = {
-	getCleanJson (data, {isMinify = false, isFast = true} = {}) {
+globalThis.CleanUtil = class {
+	static SHARED_REPLACEMENTS = {
+		"’": "'",
+		"‘": "'",
+		"": "'",
+		"\u02BC": "'",
+		"…": "...",
+		"\u200B": "", // zero-width space
+		"\u2002": " ", // em space
+		"ﬀ": "ff",
+		"ﬃ": "ffi",
+		"ﬄ": "ffl",
+		"ﬁ": "fi",
+		"ﬂ": "fl",
+		"Ĳ": "IJ",
+		"ĳ": "ij",
+		"Ǉ": "LJ",
+		"ǈ": "Lj",
+		"ǉ": "lj",
+		"Ǌ": "NJ",
+		"ǋ": "Nj",
+		"ǌ": "nj",
+		"ﬅ": "ft",
+		"“": `"`,
+		"”": `"`,
+		"\u201a": ",",
+	};
+	static STR_REPLACEMENTS = {
+		"—": "\\u2014",
+		"–": "\\u2013",
+		"‑": "\\u2011",
+		"−": "\\u2212",
+		" ": "\\u00A0",
+		" ": "\\u2007",
+	};
+	static SHARED_REPLACEMENTS_REGEX = new RegExp(Object.keys(this.SHARED_REPLACEMENTS).join("|"), "g");
+	static STR_REPLACEMENTS_REGEX = new RegExp(Object.keys(this.STR_REPLACEMENTS).join("|"), "g");
+	static _SOFT_HYPHEN_REMOVE_REGEX = /\u00AD *\r?\n?\r?/g;
+	static _ELLIPSIS_COLLAPSE_REGEX = /\s*(\.\s*\.\s*\.)/g;
+	static _DASH_COLLAPSE_REGEX = /[ ]*([\u2014\u2013])[ ]*/g;
+
+	static getCleanJson (data, {isMinify = false, isFast = true} = {}) {
 		data = MiscUtil.copy(data);
 		data = MiscUtil.getWalker().walk(data, {string: (str) => CleanUtil.getCleanString(str, {isFast})});
 		let str = isMinify ? JSON.stringify(data) : `${JSON.stringify(data, null, "\t")}\n`;
 		return str.replace(CleanUtil.STR_REPLACEMENTS_REGEX, (match) => CleanUtil.STR_REPLACEMENTS[match]);
-	},
+	}
 
-	getCleanString (str, {isFast = true} = {}) {
+	static getCleanString (str, {isFast = true} = {}) {
 		str = str
 			.replace(CleanUtil.SHARED_REPLACEMENTS_REGEX, (match) => CleanUtil.SHARED_REPLACEMENTS[match])
 			.replace(CleanUtil._SOFT_HYPHEN_REMOVE_REGEX, "")
@@ -34245,9 +34802,9 @@ globalThis.CleanUtil = {
 		const ptrStack = {_: ""};
 		CleanUtil._getCleanString_walkerStringHandler(ptrStack, 0, str);
 		return ptrStack._;
-	},
+	}
 
-	_getCleanString_walkerStringHandler (ptrStack, tagCount, str) {
+	static _getCleanString_walkerStringHandler (ptrStack, tagCount, str) {
 		const tagSplit = Renderer.splitByTags(str);
 		const len = tagSplit.length;
 		for (let i = 0; i < len; ++i) {
@@ -34270,47 +34827,8 @@ globalThis.CleanUtil = {
 				}
 			}
 		}
-	},
+	}
 };
-CleanUtil.SHARED_REPLACEMENTS = {
-	"’": "'",
-	"‘": "'",
-	"": "'",
-	"\u02BC": "'",
-	"…": "...",
-	"\u200B": "", // zero-width space
-	"\u2002": " ", // em space
-	"ﬀ": "ff",
-	"ﬃ": "ffi",
-	"ﬄ": "ffl",
-	"ﬁ": "fi",
-	"ﬂ": "fl",
-	"Ĳ": "IJ",
-	"ĳ": "ij",
-	"Ǉ": "LJ",
-	"ǈ": "Lj",
-	"ǉ": "lj",
-	"Ǌ": "NJ",
-	"ǋ": "Nj",
-	"ǌ": "nj",
-	"ﬅ": "ft",
-	"“": `"`,
-	"”": `"`,
-	"\u201a": ",",
-};
-CleanUtil.STR_REPLACEMENTS = {
-	"—": "\\u2014",
-	"–": "\\u2013",
-	"‑": "\\u2011",
-	"−": "\\u2212",
-	" ": "\\u00A0",
-	" ": "\\u2007",
-};
-CleanUtil.SHARED_REPLACEMENTS_REGEX = new RegExp(Object.keys(CleanUtil.SHARED_REPLACEMENTS).join("|"), "g");
-CleanUtil.STR_REPLACEMENTS_REGEX = new RegExp(Object.keys(CleanUtil.STR_REPLACEMENTS).join("|"), "g");
-CleanUtil._SOFT_HYPHEN_REMOVE_REGEX = /\u00AD *\r?\n?\r?/g;
-CleanUtil._ELLIPSIS_COLLAPSE_REGEX = /\s*(\.\s*\.\s*\.)/g;
-CleanUtil._DASH_COLLAPSE_REGEX = /[ ]*([\u2014\u2013])[ ]*/g;
 
 // SOURCES =============================================================================================================
 globalThis.SourceUtil = class {
@@ -34325,6 +34843,7 @@ globalThis.SourceUtil = class {
 		{group: "homebrew", displayName: "Homebrew"},
 		{group: "screen", displayName: "Screens"},
 		{group: "recipe", displayName: "Recipes"},
+		{group: "homecraft", displayName: "Home Crafts"},
 		{group: "other", displayName: "Miscellaneous"},
 	];
 
@@ -34391,7 +34910,6 @@ globalThis.SourceUtil = class {
 	static isNonstandardSourceWotc (source) {
 		return SourceUtil.isPrereleaseSource(source)
 			|| source.startsWith(Parser.SRC_PS_PREFIX)
-			|| source.startsWith(Parser.SRC_AL_PREFIX)
 			|| source.startsWith(Parser.SRC_MCVX_PREFIX)
 			|| Parser.SOURCES_NON_STANDARD_WOTC.has(source);
 	}
@@ -34399,6 +34917,9 @@ globalThis.SourceUtil = class {
 	static _CLASSIC_THRESHOLD_TIMESTAMP = null;
 
 	static isClassicSource (source) {
+		if (typeof PrereleaseUtil !== "undefined" && PrereleaseUtil.hasSourceJson(source)) return PrereleaseUtil.isClassicSource(source);
+		if (typeof BrewUtil2 !== "undefined" && BrewUtil2.hasSourceJson(source)) return BrewUtil2.isClassicSource(source);
+
 		this._CLASSIC_THRESHOLD_TIMESTAMP ||= new Date(Parser.sourceJsonToDate(Parser.SRC_XPHB));
 		return new Date(Parser.sourceJsonToDate(source)) < this._CLASSIC_THRESHOLD_TIMESTAMP;
 	}
@@ -34463,6 +34984,7 @@ globalThis.SourceUtil = class {
 	}
 
 	static getEntitySource (it) { return it.source || it.inherits?.source; }
+	static getEntityPage (it) { return it.page ?? it.inherits?.page; }
 };
 
 // CURRENCY ============================================================================================================
@@ -34622,6 +35144,10 @@ Math.seed = Math.seed || function (s) {
 
 class TemplateUtil {
 	static initJquery () {
+		// eslint-disable-next-line vet-jquery/jquery
+		if (!globalThis.jQuery) return;
+
+		/* eslint-disable vet-jquery/jquery */
 		/**
 		 * Template strings which can contain jQuery objects.
 		 * Usage: $$`<div>Press this button: ${$btn}</div>`
@@ -34654,6 +35180,7 @@ class TemplateUtil {
 			if (ele?.nodeType === Node.DOCUMENT_FRAGMENT_NODE) return $([...ele.children]);
 			return $(ele);
 		};
+		/* eslint-enable vet-jquery/jquery */
 	}
 
 	/* -------------------------------------------- */
@@ -34661,16 +35188,22 @@ class TemplateUtil {
 	static initVanilla () {
 		/**
 		 * Template strings which can contain DOM elements.
-		 * Usage: ee`<div>Press this button: ${ve-btn}</div>`
-		 * or:    ee(ele)`<div>Press this button: ${ve-btn}</div>`
+		 * Usage: ee`<div>Press this button: ${btn}</div>`
+		 * or:    ee(ele)`<div>Press this button: ${btn}</div>`
 		 * @return {HTMLElementExtended}
 		 */
-		globalThis.ee = (parts, ...args) => {
-			// eslint-disable-next-line vet-jquery/jquery
-			if (parts instanceof $) throw new Error(`Unhandled jQuery instance!`); // TODO(jquery) migrate
+		globalThis.ee = (...allArgs) => {
+			if (!allArgs.length) throw new TypeError(`"ee" called with no arguments!`);
+
+			const [parts, ...args] = allArgs;
+
+			if (parts == null) throw new TypeError(`"ee" called with "${parts}" as first argument!`);
 
 			// eslint-disable-next-line vet-jquery/jquery
-			if (args?.some(arg => arg instanceof $)) throw new Error(`Unhandled jQuery instance!`); // TODO(jquery) migrate
+			if (globalThis.jQuery && parts instanceof globalThis.jQuery) throw new Error(`Unhandled jQuery instance!`); // TODO(jquery) migrate
+
+			// eslint-disable-next-line vet-jquery/jquery
+			if (globalThis.jQuery && args?.some(arg => arg instanceof globalThis.jQuery)) throw new Error(`Unhandled jQuery instance!`); // TODO(jquery) migrate
 
 			if (parts instanceof Node) {
 				return (...passed) => {
@@ -34708,7 +35241,7 @@ class TemplateUtil {
 
 			if (!eleTmp.children.length) throw new Error(`Failed to create HTML element(s) from "${raw}"!`);
 
-			Array.from(eleTmp.querySelectorAll(`[data-r="true"]`))
+			Array.from(eleTmp.querySelectorAll(".ve-ee-r"))
 				.forEach((node, i) => node.replaceWith(eles[i]));
 
 			const childNodes = Array.from(eleTmp.childNodes);
@@ -34728,7 +35261,8 @@ class TemplateUtil {
 	static _ee_handleArg (eles, arg) {
 		if (arg instanceof Node) {
 			eles.push(arg);
-			return `<${arg.tagName} data-r="true"></${arg.tagName}>`;
+			// Use a class for performance
+			return `<${arg.tagName} class="ve-ee-r"></${arg.tagName}>`;
 		}
 
 		return arg;
@@ -34746,6 +35280,10 @@ globalThis.JqueryUtil = class {
 		TemplateUtil.initVanilla();
 		TemplateUtil.initJquery();
 
+		// eslint-disable-next-line vet-jquery/jquery
+		if (!globalThis.jQuery) return;
+
+		// eslint-disable-next-line vet-jquery/jquery
 		$.fn.extend({
 			// avoid setting input type to "search" as it visually offsets the contents of the input
 			disableSpellcheck: function () { return this.attr("autocomplete", "new-password").attr("autocapitalize", "off").attr("spellcheck", "false"); },
@@ -34777,15 +35315,26 @@ globalThis.JqueryUtil = class {
 		});
 	}
 
-	static showCopiedEffect ($_ele, {text = "Copied!", isBubble = false} = {}) {
-		const ele = $_ele instanceof $ ? $_ele[0] : $_ele;
+	static _COPY_BUBBLE_CLASS_NAMES = [
+		"ve-clp__disp-copied--bubble-variant-1",
+		"ve-clp__disp-copied--bubble-variant-2",
+		"ve-clp__disp-copied--bubble-variant-3",
+		"ve-clp__disp-copied--bubble-variant-4",
+		"ve-clp__disp-copied--bubble-variant-5",
+	];
+
+	static showCopiedEffect (ele, {text = "Copied!", isBubble = false} = {}) {
+		// eslint-disable-next-line vet-jquery/jquery
+		ele = (globalThis.jQuery && ele instanceof globalThis.jQuery)
+			? e_({ele: ele[0]})
+			: ele;
 
 		const {top, left, width} = ele.getBoundingClientRect();
 
 		const seed = Math.random();
 		const duration = isBubble ? 250 + seed * 200 : 250;
 
-		const dispCopied = ee`<div class="clp__disp-copied ve-flex-vh-center"></div>`;
+		const dispCopied = ee`<div class="ve-clp__disp-copied ve-flex-vh-center"></div>`;
 		dispCopied
 			.html(text)
 			.css({
@@ -34796,29 +35345,20 @@ globalThis.JqueryUtil = class {
 			.appendTo(document.body);
 		if (isBubble) {
 			dispCopied
-				.addClass(`clp__disp-copied--bubble`)
-				.addClass(`clp__disp-copied--bubble-variant-${RollerUtil.randomise(5)}`);
+				.addClass(`ve-clp__disp-copied--bubble`)
+				.addClass(RollerUtil.rollOnArray(this._COPY_BUBBLE_CLASS_NAMES));
 		} else {
-			dispCopied.addClass(`clp__disp-copied--basic`);
+			dispCopied.addClass(`ve-clp__disp-copied--basic`);
 		}
 
 		setTimeout(() => dispCopied.remove(), duration);
 	}
 
-	static _dropdownInit = false;
-	static bindDropdownButton (ele) {
-		if (!JqueryUtil._dropdownInit) {
-			JqueryUtil._dropdownInit = true;
-			document.addEventListener("click", () => [...document.querySelectorAll(`.open`)].filter(ele => !ele.classList.contains(`dropdown--navbar`)).forEach(ele => ele.classList.remove("open")));
-		}
-		ele.onn("click", () => setTimeout(() => ele.parente().addClass("open"), 1)); // defer to allow the above to complete
-	}
-
 	static _WRP_TOAST = null;
 	static _ACTIVE_TOAST = [];
 	/**
-	 * @param {{content: jQuery|string, type?: string, autoHideTime?: boolean} | string} options The options for the toast.
-	 * @param {(jQuery|string)} options.content Toast contents. Supports jQuery objects.
+	 * @param {{content: jQuery|string|HTMLElementExtended, type?: string, autoHideTime?: boolean} | string} options The options for the toast.
+	 * @param {(jQuery|string|HTMLElementExtended)} options.content Toast contents. Supports jQuery objects.
 	 * @param {string} options.type Toast type. Can be any Bootstrap alert type ("success", "info", "warning", or "danger").
 	 * @param {number} options.autoHideTime The time in ms before the toast will be automatically hidden.
 	 * Defaults to 5000 ms.
@@ -34830,7 +35370,7 @@ globalThis.JqueryUtil = class {
 		if (JqueryUtil._WRP_TOAST == null) {
 			JqueryUtil._WRP_TOAST = e_({
 				tag: "div",
-				clazz: "toast__container no-events w-100 ve-overflow-y-hidden ve-flex-col",
+				clazz: "toast__container ve-no-events ve-w-100 ve-overflow-y-hidden ve-flex-col",
 			});
 			document.body.appendChild(JqueryUtil._WRP_TOAST);
 		}
@@ -34848,13 +35388,16 @@ globalThis.JqueryUtil = class {
 
 		const eleToast = e_({
 			tag: "div",
-			clazz: `toast toast--type-${options.type} events-initial relative my-2 mx-auto`,
+			clazz: `toast toast--type-${options.type} ve-events-initial ve-relative ve-my-2 ve-mx-auto`,
 			children: [
 				e_({
 					tag: "div",
 					clazz: "toast__wrp-content",
 					children: [
-						options.content instanceof $ ? options.content[0] : options.content,
+						// eslint-disable-next-line vet-jquery/jquery
+						(globalThis.jQuery && options.content instanceof globalThis.jQuery)
+							? options.content[0]
+							: options.content,
 					],
 				}),
 				e_({
@@ -34937,6 +35480,7 @@ class ElementUtil {
 		"checked",
 		"disabled",
 		"readonly",
+		"title",
 	]);
 
 	/**
@@ -34957,7 +35501,7 @@ class ElementUtil {
 	 * @property {function(HTMLElement|string): HTMLElementExtended} aftere
 	 * @property {function(HTMLElement): HTMLElementExtended} insertAfter
 	 * @property {function(HTMLElement|string): HTMLElementExtended} beforee
-	 * @property {function(HTMLElement|string): HTMLElementExtended} insertBefore
+	 * @property {function(HTMLElement|string): HTMLElementExtended} insertBeforee
 	 *
 	 * @property {function(string): HTMLElementExtended} addClass
 	 * @property {function(string): HTMLElementExtended} removeClass
@@ -34978,12 +35522,15 @@ class ElementUtil {
 	 * @property {function(string=): (HTMLElementExtended|string)} html
 	 * @property {function(string=): (HTMLElementExtended|string)} txt
 	 *
-	 * @property {function(string): HTMLElementExtended} tooltip
+	 * @property {function(?string): HTMLElementExtended} tooltip
+	 * @property {function(?string): HTMLElementExtended} placeholdere
 	 * @property {function(): HTMLElementExtended} disableSpellcheck
+	 * @property {function(Array<string>): HTMLElementExtended} typeahead
 	 *
 	 * @property {function(object): HTMLElementExtended} css
 	 *
 	 * @property {function(string, function, object=): HTMLElementExtended} onn
+	 * @property {function(string, function=, object=): HTMLElementExtended} off
 	 * @property {function(function): HTMLElementExtended} onClick
 	 * @property {function(function): HTMLElementExtended} onContextmenu
 	 * @property {function(function): HTMLElementExtended} onChange
@@ -34994,8 +35541,8 @@ class ElementUtil {
 	 *
 	 * @property {function(string=): HTMLElementExtended} first
 	 * @property {function(string): HTMLElementExtended} closeste
-	 * @property {function(string): Array<HTMLElementExtended>} childrene
-	 * @property {function(string): Array<HTMLElementExtended>} siblings
+	 * @property {function(string=): Array<HTMLElementExtended>} childrene
+	 * @property {function(string=): Array<HTMLElementExtended>} siblings
 	 * @property {function(): HTMLElementExtended} parente
 	 *
 	 * @property {function(): number} outerWidthe
@@ -35113,7 +35660,7 @@ class ElementUtil {
 		ele.aftere = ele.aftere || ElementUtil._aftere.bind(ele);
 		ele.insertAfter = ele.insertAfter || ElementUtil._insertAfter.bind(ele);
 		ele.beforee = ele.beforee || ElementUtil._beforee.bind(ele);
-		ele.insertBefore = ele.insertBefore || ElementUtil._insertBefore.bind(ele);
+		ele.insertBeforee = ele.insertBeforee || ElementUtil._insertBeforee.bind(ele);
 		ele.addClass = ele.addClass || ElementUtil._addClass.bind(ele);
 		ele.removeClass = ele.removeClass || ElementUtil._removeClass.bind(ele);
 		ele.toggleClass = ele.toggleClass || ElementUtil._toggleClass.bind(ele);
@@ -35129,7 +35676,9 @@ class ElementUtil {
 		ele.html = ele.html || ElementUtil._html.bind(ele);
 		ele.txt = ele.txt || ElementUtil._txt.bind(ele);
 		ele.tooltip = ele.tooltip || ElementUtil._tooltip.bind(ele);
+		ele.placeholdere = ele.placeholdere || ElementUtil._placeholdere.bind(ele);
 		ele.disableSpellcheck = ele.disableSpellcheck || ElementUtil._disableSpellcheck.bind(ele);
+		ele.typeahead = ele.typeahead || ElementUtil._typeahead.bind(ele);
 		ele.css = ele.css || ElementUtil._css.bind(ele);
 		ele.onn = ele.onn || ElementUtil._onX.bind(ele);
 		ele.off = ele.off || ElementUtil._offX.bind(ele);
@@ -35164,7 +35713,13 @@ class ElementUtil {
 		},
 	) {
 		if (ele) return {ele, isSetId: true};
-		if (outer) return {ele: (new DOMParser()).parseFromString(outer, "text/html").body.childNodes[0], isSetId: true};
+		if (outer) {
+			const eleTmpTemplate = document.createElement("template");
+			eleTmpTemplate.innerHTML = outer.trim();
+			const {content: eleTmp} = eleTmpTemplate;
+			if (eleTmp.childNodes.length !== 1) throw new Error(`Failed to create exactly one DOM element from HTML "${outer}"!`);
+			return {ele: eleTmp.childNodes[0], isSetId: true};
+		}
 		if (tag) return {ele: document.createElement(tag), isSetId: true};
 		if (id) {
 			const eleId = document.getElementById(id);
@@ -35228,7 +35783,7 @@ class ElementUtil {
 		if (typeof child === "string") child = ee`${child}`;
 
 		// eslint-disable-next-line vet-jquery/jquery
-		if (child instanceof $) throw new Error(`Unhandled jQuery instance!`); // TODO(jquery) migrate
+		if (globalThis.jQuery && child instanceof globalThis.jQuery) throw new Error(`Unhandled jQuery instance!`); // TODO(jquery) migrate
 
 		this.appendChild(child);
 		return this;
@@ -35239,7 +35794,7 @@ class ElementUtil {
 		if (typeof child === "string") child = ee`${child}`;
 
 		// eslint-disable-next-line vet-jquery/jquery
-		if (child instanceof $) throw new Error(`Unhandled jQuery instance!`); // TODO(jquery) migrate
+		if (globalThis.jQuery && child instanceof globalThis.jQuery) throw new Error(`Unhandled jQuery instance!`); // TODO(jquery) migrate
 
 		this.prepend(child);
 		return this;
@@ -35248,7 +35803,7 @@ class ElementUtil {
 	/** @this {HTMLElementExtended} */
 	static _appendTo (parent) {
 		// eslint-disable-next-line vet-jquery/jquery
-		if (parent instanceof $) throw new Error(`Unhandled jQuery instance!`); // TODO(jquery) migrate
+		if (globalThis.jQuery && parent instanceof globalThis.jQuery) throw new Error(`Unhandled jQuery instance!`); // TODO(jquery) migrate
 
 		parent.appendChild(this);
 		return this;
@@ -35257,7 +35812,7 @@ class ElementUtil {
 	/** @this {HTMLElementExtended} */
 	static _prependTo (parent) {
 		// eslint-disable-next-line vet-jquery/jquery
-		if (parent instanceof $) throw new Error(`Unhandled jQuery instance!`); // TODO(jquery) migrate
+		if (globalThis.jQuery && parent instanceof globalThis.jQuery) throw new Error(`Unhandled jQuery instance!`); // TODO(jquery) migrate
 
 		parent.prepend(this);
 		return this;
@@ -35266,7 +35821,7 @@ class ElementUtil {
 	/** @this {HTMLElementExtended} */
 	static _aftere (other) {
 		// eslint-disable-next-line vet-jquery/jquery
-		if (other instanceof $) throw new Error(`Unhandled jQuery instance!`); // TODO(jquery) migrate
+		if (globalThis.jQuery && other instanceof globalThis.jQuery) throw new Error(`Unhandled jQuery instance!`); // TODO(jquery) migrate
 
 		if (typeof other === "string") other = ee`${other}`;
 		this.after(other);
@@ -35276,7 +35831,7 @@ class ElementUtil {
 	/** @this {HTMLElementExtended} */
 	static _insertAfter (parent) {
 		// eslint-disable-next-line vet-jquery/jquery
-		if (parent instanceof $) throw new Error(`Unhandled jQuery instance!`); // TODO(jquery) migrate
+		if (globalThis.jQuery && parent instanceof globalThis.jQuery) throw new Error(`Unhandled jQuery instance!`); // TODO(jquery) migrate
 
 		parent.after(this);
 		return this;
@@ -35285,7 +35840,7 @@ class ElementUtil {
 	/** @this {HTMLElementExtended} */
 	static _beforee (other) {
 		// eslint-disable-next-line vet-jquery/jquery
-		if (other instanceof $) throw new Error(`Unhandled jQuery instance!`); // TODO(jquery) migrate
+		if (globalThis.jQuery && other instanceof globalThis.jQuery) throw new Error(`Unhandled jQuery instance!`); // TODO(jquery) migrate
 
 		if (typeof other === "string") other = ee`${other}`;
 		this.before(other);
@@ -35293,9 +35848,9 @@ class ElementUtil {
 	}
 
 	/** @this {HTMLElementExtended} */
-	static _insertBefore (parent) {
+	static _insertBeforee (parent) {
 		// eslint-disable-next-line vet-jquery/jquery
-		if (parent instanceof $) throw new Error(`Unhandled jQuery instance!`); // TODO(jquery) migrate
+		if (globalThis.jQuery && parent instanceof globalThis.jQuery) throw new Error(`Unhandled jQuery instance!`); // TODO(jquery) migrate
 
 		parent.before(this);
 		return this;
@@ -35339,7 +35894,7 @@ class ElementUtil {
 	}
 
 	/** @this {HTMLElementExtended} */
-	static _toggleVe (isActive) {
+	static _toggleVe (isActive = null) {
 		this.toggleClass("ve-hidden", isActive == null ? isActive : !isActive);
 		return this;
 	}
@@ -35357,38 +35912,50 @@ class ElementUtil {
 	}
 
 	/** @this {HTMLElementExtended} */
-	static _attr (name, value) {
-		if (value === undefined) return this.getAttribute(name);
+	static _attr (...args) {
+		const [name, value] = args;
+		if (args.length <= 1) return this.getAttribute(name);
 		if (!value && ElementUtil._ATTRS_NO_FALSY.has(name)) this.removeAttribute(name);
 		else this.setAttribute(name, value);
 		return this;
 	}
 
 	/** @this {HTMLElementExtended} */
-	static _prop (name, value) {
-		if (value === undefined) return this[name];
+	static _prop (...args) {
+		const [name, value] = args;
+		if (args.length <= 1) return this[name];
 		this[name] = value;
 		return this;
 	}
 
 	/** @this {HTMLElementExtended} */
-	static _html (html) {
-		if (html === undefined) return this.innerHTML;
+	static _html (...args) {
+		const [html] = args;
+		if (!args.length) return this.innerHTML;
 		this.innerHTML = html;
 		return this;
 	}
 
 	/** @this {HTMLElementExtended} */
-	static _txt (txt) {
-		if (txt === undefined) return this.innerText;
+	static _txt (...args) {
+		const [txt] = args;
+		if (!args.length) return this.innerText;
 		this.innerText = txt;
 		return this;
 	}
 
 	/** @this {HTMLElementExtended} */
-	static _tooltip (title) {
-		if (title === undefined) return this.getAttribute("title");
+	static _tooltip (...args) {
+		const [title] = args;
+		if (!args.length) return this.getAttribute("title");
 		return this.attr("title", title);
+	}
+
+	/** @this {HTMLElementExtended} */
+	static _placeholdere (...args) {
+		const [placeholder] = args;
+		if (!args.length) return this.getAttribute("placeholder");
+		return this.attr("placeholder", placeholder);
 	}
 
 	/** @this {HTMLElementExtended} */
@@ -35401,9 +35968,23 @@ class ElementUtil {
 	}
 
 	/** @this {HTMLElementExtended} */
-	static _css (keyOrObj, val) {
+	static _typeahead (values) {
+		const id = CryptUtil.md5(JSON.stringify(values));
+
+		if (!document.getElementById(id)) {
+			ee`<datalist id="${id}">${values.map(val => `<option value="${val.qq()}"></option>`).join("")}</datalist>`
+				.appendTo(document.body);
+		}
+
+		return this
+			.attr("list", id);
+	}
+
+	/** @this {HTMLElementExtended} */
+	static _css (...args) {
+		const [keyOrObj, val] = args;
 		if (typeof keyOrObj === "string") {
-			if (val === undefined) return this.style[keyOrObj];
+			if (args.length <= 1) return this.style[keyOrObj];
 			this.style[keyOrObj] = val;
 			return this;
 		}
@@ -35414,6 +35995,10 @@ class ElementUtil {
 
 	/** @this {HTMLElementExtended} */
 	static _onX (evtName, fn, opts) {
+		// TODO(jquery) migrate
+		if (evtName.includes(" ")) throw new Error(`Event name "${evtName}" contains a space! This should be split into multiple ".onn" calls.`);
+		if (evtName.includes(".")) throw new Error(`Event name "${evtName}" contains a "."! This should be revised as a non-namespaced name.`);
+
 		((this._veListeners ||= {})[evtName] ||= []).push({fn, opts});
 
 		if (opts) this.addEventListener(evtName, fn, opts);
@@ -35423,6 +36008,10 @@ class ElementUtil {
 
 	/** @this {HTMLElementExtended} */
 	static _offX (evtName, fn, opts) {
+		// TODO(jquery) migrate
+		if (evtName.includes(" ")) throw new Error(`Event name "${evtName}" contains a space! This should be split into multiple ".onn" calls.`);
+		if (evtName.includes(".")) throw new Error(`Event name "${evtName}" contains a "."! This should be revised as a non-namespaced name.`);
+
 		if (!fn) {
 			(this._veListeners?.[evtName] || [])
 				.forEach(({fn, opts}) => {
@@ -35440,6 +36029,11 @@ class ElementUtil {
 
 	/** @this {HTMLElementExtended} */
 	static _trigger (evtOrEvtName) {
+		// e.g. `<input type="file">` requires a native `.click()` call to show file browser
+		if (evtOrEvtName === "click") {
+			this.click();
+			return this;
+		}
 		const evt = evtOrEvtName instanceof Event ? evtOrEvtName : new Event(evtOrEvtName);
 		this.dispatchEvent(evt);
 		return this;
@@ -35459,6 +36053,17 @@ class ElementUtil {
 
 		switch (this.tagName) {
 			case "SELECT": {
+				if (val == null) {
+					this.selectedIndex = -1;
+					return this;
+				}
+
+				if (typeof val !== "string") {
+					// TODO(jquery) upgrade to blocking error
+					setTimeout(() => { throw new Error(`Attempted to assign SELECT value to non-string "${val}"!`); });
+					return this;
+				}
+
 				let selectedIndexNxt = -1;
 				for (let i = 0, len = this.options.length; i < len; ++i) {
 					if (this.options[i]?.value === val) {
@@ -35491,9 +36096,9 @@ class ElementUtil {
 
 	/** @this {HTMLElementExtended} */
 	static _closeste (selector) {
-		const sibling = this.closest(selector);
-		if (!sibling) return sibling;
-		return e_({ele: sibling});
+		const ancestor = this.closest(selector);
+		if (!ancestor) return ancestor;
+		return e_({ele: ancestor});
 	}
 
 	/** @this {HTMLElementExtended} */
@@ -35548,8 +36153,9 @@ class ElementUtil {
 	/* -------------------------------------------- */
 
 	/** @this {HTMLElementExtended} */
-	static _scrollTope (val) {
-		if (val === undefined) return this.scrollTop;
+	static _scrollTope (...args) {
+		const [val] = args;
+		if (!args.length) return this.scrollTop;
 		this.scrollTop = val;
 		return this;
 	}
@@ -35559,7 +36165,7 @@ class ElementUtil {
 	/** @this {HTMLElementExtended} */
 	static _is (nodeTypeOrEle) {
 		// eslint-disable-next-line vet-jquery/jquery
-		if (nodeTypeOrEle instanceof $) throw new Error(`Unhandled jQuery instance!`); // TODO(jquery) migrate
+		if (globalThis.jQuery && nodeTypeOrEle instanceof globalThis.jQuery) throw new Error(`Unhandled jQuery instance!`); // TODO(jquery) migrate
 
 		if (typeof nodeTypeOrEle === "string") return this.nodeName.toLowerCase() === nodeTypeOrEle.toLowerCase();
 
@@ -35573,7 +36179,7 @@ class ElementUtil {
 	 */
 	static getBySelector (selector, parent) {
 		// eslint-disable-next-line vet-jquery/jquery
-		if (parent instanceof $) throw new Error(`Unhandled jQuery instance!`); // TODO(jquery) migrate
+		if (globalThis.jQuery && parent instanceof globalThis.jQuery) throw new Error(`Unhandled jQuery instance!`); // TODO(jquery) migrate
 
 		const ele = (parent || document).querySelector(selector);
 		if (!ele) return null;
@@ -35585,7 +36191,7 @@ class ElementUtil {
 	 */
 	static getBySelectorMulti (selector, parent) {
 		// eslint-disable-next-line vet-jquery/jquery
-		if (parent instanceof $) throw new Error(`Unhandled jQuery instance!`); // TODO(jquery) migrate
+		if (globalThis.jQuery && parent instanceof globalThis.jQuery) throw new Error(`Unhandled jQuery instance!`); // TODO(jquery) migrate
 
 		return [...(parent || document).querySelectorAll(selector)]
 			.map(ele => e_({ele}));
@@ -35682,8 +36288,8 @@ if (typeof window !== "undefined") {
 	window.em = ElementUtil.getBySelectorMulti.bind(ElementUtil);
 }
 
-globalThis.ObjUtil = {
-	async pForEachDeep (source, pCallback, options = {depth: Infinity, callEachLevel: false}) {
+globalThis.ObjUtil = class {
+	static async pForEachDeep (source, pCallback, options = {depth: Infinity, callEachLevel: false}) {
 		const path = [];
 		const pDiveDeep = async function (val, path, depth = 0) {
 			if (options.callEachLevel || typeof val !== "object" || options.depth === depth) {
@@ -35698,7 +36304,7 @@ globalThis.ObjUtil = {
 			path.pop();
 		};
 		await pDiveDeep(source, path);
-	},
+	}
 };
 
 // TODO refactor specific utils out of this
@@ -35707,6 +36313,7 @@ globalThis.MiscUtil = class {
 	static COLOR_HURT = "#c5ca00";
 	static COLOR_BLOODIED = "#f7a100";
 	static COLOR_DEFEATED = "#cc0000";
+	static COLOR_DEAD = "#9b1d20";
 
 	/**
 	 * @param obj
@@ -35731,12 +36338,12 @@ globalThis.MiscUtil = class {
 
 	static async pCopyTextToClipboard (text) {
 		function doCompatibilityCopy () {
-			const $iptTemp = $(`<textarea class="clp__wrp-temp"></textarea>`)
+			const iptTemp = ee`<textarea class="ve-clp__wrp-temp"></textarea>`
 				.appendTo(document.body)
 				.val(text)
-				.select();
+				.selecte();
 			document.execCommand("Copy");
-			$iptTemp.remove();
+			iptTemp.remove();
 		}
 
 		try {
@@ -36681,6 +37288,7 @@ globalThis.EventUtil = class {
 	static getKeyIgnoreCapsLock (evt) {
 		if (!evt.key) return null;
 		if (evt.key.length !== 1) return evt.key;
+		// TODO(jquery) migrate
 		const isCaps = (evt.originalEvent || evt).getModifierState("CapsLock");
 		if (!isCaps) return evt.key;
 		const asciiCode = evt.key.charCodeAt(0);
@@ -36802,9 +37410,21 @@ globalThis.ContextUtil = class {
 	 * @param evt
 	 * @param menu
 	 * @param {?object} userData
+	 * @param {?number} xPos
+	 * @param {?boolean} isFromRight
+	 * @param {?number} yPos
 	 * @return {Promise<*>}
 	 */
-	static pOpenMenu (evt, menu, {userData = null} = {}) {
+	static pOpenMenu (
+		evt,
+		menu,
+		{
+			userData = null,
+			xPos = null,
+			isFromRight = false,
+			yPos = null,
+		} = {},
+	) {
 		evt.preventDefault();
 		evt.stopPropagation();
 
@@ -36813,7 +37433,7 @@ globalThis.ContextUtil = class {
 		// Close any other open menus
 		ContextUtil._menus.filter(it => it !== menu).forEach(it => it.close());
 
-		return menu.pOpen(evt, {userData});
+		return menu.pOpen(evt, {userData, xPos, isFromRight, yPos});
 	}
 
 	static closeAllMenus () {
@@ -36834,6 +37454,18 @@ globalThis.ContextUtil = class {
 			this._metasActions = [];
 
 			this._menusSub = [];
+
+			this._eventChannel = new EventTarget();
+		}
+
+		on (eventName, handler) {
+			this._eventChannel.addEventListener(eventName, handler);
+			return handler;
+		}
+
+		off (eventName, handler) {
+			this._eventChannel.removeEventListener(eventName, handler);
+			return handler;
 		}
 
 		remove () {
@@ -36843,13 +37475,23 @@ globalThis.ContextUtil = class {
 		}
 
 		width () { return this._ele ? this._ele.outerWidthe() : undefined; }
-		height () { return this._ele ? this._ele.outerWidthe() : undefined; }
+		height () { return this._ele ? this._ele.outerHeighte() : undefined; }
 
-		pOpen (evt, {userData = null, offsetY = null, boundsX = null} = {}) {
+		pOpen (
+			evt,
+			{
+				userData = null,
+				offsetY = null,
+				boundsX = null,
+				xPos = null,
+				isFromRight = false,
+				yPos = null,
+			} = {},
+		) {
 			evt.stopPropagation();
 			evt.preventDefault();
 
-			this._initLazy();
+			this._initLazy({window: evt?.view?.window || window});
 
 			if (this.resolveResult_) this.resolveResult_(null);
 			this._pResult = new Promise(resolve => {
@@ -36865,16 +37507,24 @@ globalThis.ContextUtil = class {
 					opacity: `0px`,
 					pointerEvents: "none",
 				})
-				.showVe()
-				// Use the accurate width/height to set the final position, and remove our temp styling
-				.css({
-					left: `${this._getMenuPosition(evt, "x", {bounds: boundsX})}px`,
-					top: `${this._getMenuPosition(evt, "y", {offset: offsetY})}px`,
-					opacity: "",
-					pointerEvents: "",
-				});
+				.showVe();
+
+			// Use the accurate width/height to set the final position, and remove our temp styling
+			const cssNxt = {
+				left: "",
+				top: "",
+				opacity: "",
+				pointerEvents: "",
+			};
+
+			cssNxt[isFromRight ? "right" : "left"] = `${xPos ?? this._getMenuPosition(evt, "x", {bounds: boundsX})}px`;
+			cssNxt.top = `${yPos ?? this._getMenuPosition(evt, "y", {offset: offsetY})}px`;
+
+			this._ele.css(cssNxt);
 
 			this._metasActions[0].eleRow.focus();
+
+			this._eventChannel.dispatchEvent(new Event("open"));
 
 			return this._pResult;
 		}
@@ -36888,6 +37538,8 @@ globalThis.ContextUtil = class {
 
 			if (!_isSkipSubMenus) this.closeSubMenus();
 			if (!isSkipParentMenus) this._closeParentMenus();
+
+			this._eventChannel.dispatchEvent(new Event("close"));
 		}
 
 		isOpen () {
@@ -36895,33 +37547,34 @@ globalThis.ContextUtil = class {
 			return !this._ele.classList.contains("ve-hidden");
 		}
 
-		_initLazy () {
+		_initLazy ({window}) {
 			if (this._ele) {
 				this._metasActions.forEach(meta => meta.action.update());
+				this._ele.appendTo(window.document.body);
 				return;
 			}
 
 			const elesAction = this._actions.map(it => {
-				if (it == null) return ee`<div class="my-1 w-100 ui-ctx__divider"></div>`;
+				if (it == null) return ee`<div class="ve-my-1 ve-w-100 ve-ui-ctx__divider"></div>`;
 
 				const rdMeta = it.render({menu: this});
 				this._metasActions.push(rdMeta);
 				return rdMeta.eleRow;
 			});
 
-			this._ele = ee`<div class="ve-flex-col ui-ctx__wrp py-2 absolute">${elesAction}</div>`
+			this._ele = ee`<div class="ve-flex-col ve-ui-ctx__wrp ve-py-2 ve-absolute">${elesAction}</div>`
 				.hideVe()
-				.appendTo(document.body);
+				.appendTo(window.document.body);
 		}
 
 		_getMenuPosition (evt, axis, {bounds = null, offset = null} = {}) {
-			const {fnMenuSize, fnGetEventPos, fnWindowSize, fnScrollDir} = axis === "x"
-				? {fnMenuSize: "width", fnGetEventPos: "getClientX", fnWindowSize: "width", fnScrollDir: "scrollLeft"}
-				: {fnMenuSize: "height", fnGetEventPos: "getClientY", fnWindowSize: "height", fnScrollDir: "scrollTop"};
+			const {fnMenuSize, fnGetEventPos, propWindowSize, propScrollPos} = axis === "x"
+				? {fnMenuSize: "width", fnGetEventPos: "getClientX", propWindowSize: "innerWidth", propScrollPos: "scrollX"}
+				: {fnMenuSize: "height", fnGetEventPos: "getClientY", propWindowSize: "innerHeight", propScrollPos: "scrollY"};
 
 			const posMouse = EventUtil[fnGetEventPos](evt);
-			const szWin = $(window)[fnWindowSize]();
-			const posScroll = $(window)[fnScrollDir]();
+			const szWin = window[propWindowSize];
+			const posScroll = window[propScrollPos];
 			const posMouseOffset = offset ? posMouse + offset : posMouse;
 			const szMenu = this[fnMenuSize]();
 
@@ -36998,8 +37651,8 @@ globalThis.ContextUtil = class {
 
 			return {
 				action: this,
-				eleRow: ee`<div class="ui-ctx__row ve-flex-v-center ${this.style || ""}">${btnAction}${btnActionAlt}</div>`,
-				eleBtn: btnAction,
+				eleRow: ee`<div class="ve-ui-ctx__row ve-flex-v-center ${this.style || ""}">${btnAction}${btnActionAlt}</div>`,
+				btn: btnAction,
 			};
 		}
 
@@ -37016,7 +37669,7 @@ globalThis.ContextUtil = class {
 				if (menu.resolveResult_) menu.resolveResult_(result);
 			};
 
-			const btnAction = ee`<div class="w-100 min-w-0 ui-ctx__btn py-1 pl-5 ${this.fnActionAlt ? "" : "pr-5"}" ${this.isDisabled ? "disabled" : ""} tabindex="0">${this.text}</div>`
+			const btnAction = ee`<div class="ve-w-100 ve-min-w-0 ve-ui-ctx__btn ve-py-1 ve-pl-5 ${this.fnActionAlt ? "" : "ve-pr-5"}" ${this.isDisabled ? "disabled" : ""} tabindex="0">${this.text}</div>`
 				.onn("click", evt => pOnClick(evt))
 				.onn("mousedown", evt => {
 					evt.preventDefault();
@@ -37033,7 +37686,7 @@ globalThis.ContextUtil = class {
 		_render_btnActionAlt ({menu}) {
 			if (!this.fnActionAlt) return null;
 
-			const btnActionAlt = ee`<div class="ui-ctx__btn ml-1 bl-1 py-1 px-4" ${this.isDisabled ? "disabled" : ""}>${this.textAlt ?? `<span class="glyphicon glyphicon-cog"></span>`}</div>`
+			const btnActionAlt = ee`<div class="ve-ui-ctx__btn ve-ml-1 ve-bl-1 ve-py-1 ve-px-4" ${this.isDisabled ? "disabled" : ""}>${this.textAlt ?? `<span class="glyphicon glyphicon-cog"></span>`}</div>`
 				.onn("click", async evt => {
 					if (this.isDisabled) return;
 
@@ -37065,7 +37718,7 @@ globalThis.ContextUtil = class {
 		}
 
 		_render_btnAction () {
-			this._btnAction = ee`<a href="${this.fnHref()}" class="w-100 min-w-0 ui-ctx__btn py-1 pl-5 ${this.fnActionAlt ? "" : "pr-5"}" ${this.isDisabled ? "disabled" : ""} tabindex="0">${this.text}</a>`;
+			this._btnAction = ee`<a href="${this.fnHref()}" class="ve-w-100 ve-min-w-0 ve-ui-ctx__btn ve-py-1 ve-pl-5 ${this.fnActionAlt ? "" : "ve-pr-5"}" ${this.isDisabled ? "disabled" : ""} tabindex="0">${this.text}</a>`;
 			if (this.title) this._btnAction.tooltip(this.title);
 
 			return this._btnAction;
@@ -37103,14 +37756,14 @@ globalThis.ContextUtil = class {
 
 			return {
 				action: this,
-				eleRow: ee`<div class="ui-ctx__row ve-flex-v-center">${this._sel}</div>`,
+				eleRow: ee`<div class="ve-ui-ctx__row ve-flex-v-center">${this._sel}</div>`,
 			};
 		}
 
 		_render_sel ({menu}) {
 			const sel = e_({
 				tag: "select",
-				clazz: "w-100 min-w-0 mx-5 py-1",
+				clazz: "ve-w-100 ve-min-w-0 ve-mx-5 ve-py-1",
 				tabindex: 0,
 				children: this._values
 					.map((val, i) => {
@@ -37161,9 +37814,9 @@ globalThis.ContextUtil = class {
 			const menuSub = ContextUtil.getMenu(this._actions, {menuParent: menu});
 			menu.addSubMenu(menuSub);
 
-			const eleRow = ee`<div class="ui-ctx__btn py-1 px-5 split-v-center">
+			const eleRow = ee`<div class="ve-ui-ctx__btn ve-py-1 ve-px-5 ve-split-v-center">
 				<div>${this._name}</div>
-				<div class="pl-4"><span class="caret caret--right"></span></div>
+				<div class="ve-pl-4"><span class="ve-caret ve-caret--right"></span></div>
 			</div>`
 				.onn("click", async evt => {
 					evt.stopPropagation();
@@ -37199,34 +37852,102 @@ globalThis.ContextUtil = class {
 };
 
 // LIST AND SEARCH =====================================================================================================
-globalThis.SearchUtil = {
-	removeStemmer (elasticSearch) {
+globalThis.SearchUtil = class {
+	static removeStemmer (elasticSearch) {
 		const stemmer = elasticlunr.Pipeline.getRegisteredFunction("stemmer");
 		elasticSearch.pipeline.remove(stemmer);
-	},
+	}
 };
 
 // ENCODING/DECODING ===================================================================================================
-globalThis.UrlUtil = {
-	encodeForHash (toEncode) {
+globalThis.UrlUtil = class {
+	static URL_TO_HASH_BUILDER = {};
+	static PG_TO_NAME = {};
+	static CAT_TO_PAGE = {};
+	static CAT_TO_HOVER_PAGE = {};
+	static PAGE_TO_PROPS = {};
+	static PROP_TO_PAGE = {};
+
+	static PG_BESTIARY = "bestiary.html";
+	static PG_SPELLS = "spells.html";
+	static PG_BACKGROUNDS = "backgrounds.html";
+	static PG_ITEMS = "items.html";
+	static PG_CLASSES = "classes.html";
+	static PG_CONDITIONS_DISEASES = "conditionsdiseases.html";
+	static PG_FEATS = "feats.html";
+	static PG_OPT_FEATURES = "optionalfeatures.html";
+	static PG_PSIONICS = "psionics.html";
+	static PG_RACES = "races.html";
+	static PG_REWARDS = "rewards.html";
+	static PG_VARIANTRULES = "variantrules.html";
+	static PG_ADVENTURE = "adventure.html";
+	static PG_ADVENTURES = "adventures.html";
+	static PG_BOOK = "book.html";
+	static PG_BOOKS = "books.html";
+	static PG_DEITIES = "deities.html";
+	static PG_CULTS_BOONS = "cultsboons.html";
+	static PG_OBJECTS = "objects.html";
+	static PG_TRAPS_HAZARDS = "trapshazards.html";
+	static PG_QUICKREF = "quickreference.html";
+	static PG_MANAGE_BREW = "managebrew.html";
+	static PG_MANAGE_PRERELEASE = "manageprerelease.html";
+	static PG_MAKE_BREW = "makebrew.html";
+	static PG_DEMO_RENDER = "renderdemo.html";
+	static PG_TABLES = "tables.html";
+	static PG_VEHICLES = "vehicles.html";
+	static PG_CHARACTERS = "characters.html";
+	static PG_ACTIONS = "actions.html";
+	static PG_LANGUAGES = "languages.html";
+	static PG_STATGEN = "statgen.html";
+	static PG_LIFEGEN = "lifegen.html";
+	static PG_NAMES = "names.html";
+	static PG_DM_SCREEN = "dmscreen.html";
+	static PG_CR_CALCULATOR = "crcalculator.html";
+	static PG_ENCOUNTERGEN = "encountergen.html";
+	static PG_LOOTGEN = "lootgen.html";
+	static PG_TEXT_CONVERTER = "converter.html";
+	static PG_CHANGELOG = "changelog.html";
+	static PG_CHAR_CREATION_OPTIONS = "charcreationoptions.html";
+	static PG_RECIPES = "recipes.html";
+	static PG_HOMECRAFTS = "homecrafts.html";
+	static PG_CLASS_SUBCLASS_FEATURES = "classfeatures.html";
+	static PG_CREATURE_FEATURES = "creaturefeatures.html";
+	static PG_VEHICLE_FEATURES = "vehiclefeatures.html";
+	static PG_OBJECT_FEATURES = "objectfeatures.html";
+	static PG_TRAP_FEATURES = "trapfeatures.html";
+	static PG_MAPS = "maps.html";
+	static PG_SEARCH = "search.html";
+	static PG_DECKS = "decks.html";
+	static PG_BASTIONS = "bastions.html";
+
+	static URL_TO_HASH_GENERIC = (it) => UrlUtil.encodeArrayForHash(it.name, it.source);
+
+	static encodeForHash (toEncode) {
 		if (toEncode instanceof Array) return toEncode.map(it => `${it}`.toUrlified()).join(HASH_LIST_SEP);
 		else return `${toEncode}`.toUrlified();
-	},
+	}
 
-	encodeArrayForHash (...toEncodes) {
+	static encodeArrayForHash (...toEncodes) {
 		return toEncodes.map(UrlUtil.encodeForHash).join(HASH_LIST_SEP);
-	},
+	}
 
-	autoEncodeHash (obj) {
+	static autoEncodeHash (obj) {
 		const curPage = UrlUtil.getCurrentPage();
 		const encoder = UrlUtil.URL_TO_HASH_BUILDER[curPage];
 		if (!encoder) throw new Error(`No encoder found for page ${curPage}`);
 		return encoder(obj);
-	},
+	}
 
-	decodeHash (hash) {
+	static decodeHash (hash) {
 		return hash.split(HASH_LIST_SEP).map(it => decodeURIComponent(it));
-	},
+	}
+
+	/* -------------------------------------------- */
+
+	static getHashBuilder (propOrPage) {
+		if (!UrlUtil.URL_TO_HASH_BUILDER[propOrPage]) throw new Error(`No hash builder available for "${propOrPage}"!`);
+		return UrlUtil.URL_TO_HASH_BUILDER[propOrPage];
+	}
 
 	/* -------------------------------------------- */
 
@@ -37234,19 +37955,19 @@ globalThis.UrlUtil = {
 	 * @param hash
 	 * @param {?string} page
 	 */
-	async pAutoDecodeHash (hash, {page = null} = {}) {
+	static async pAutoDecodeHash (hash, {page = null} = {}) {
 		page ||= UrlUtil.getCurrentPage();
 
 		if ([UrlUtil.PG_ADVENTURE, UrlUtil.PG_BOOK].includes(page)) return UrlUtil._pAutoDecodeHashAdventureBookHash(hash, {page});
 		return UrlUtil.autoDecodeHash(hash, {page});
-	},
+	}
 
 	// TODO(Future) expand
 	/**
 	 * @param hash
 	 * @param {?string} page
 	 */
-	autoDecodeHash (hash, {page = null} = {}) {
+	static autoDecodeHash (hash, {page = null} = {}) {
 		page ||= UrlUtil.getCurrentPage();
 		const parts = UrlUtil.decodeHash(hash.toLowerCase().trim());
 
@@ -37275,13 +37996,13 @@ globalThis.UrlUtil = {
 
 		const [name, source] = parts;
 		return {name, source};
-	},
+	}
 
 	/**
 	 * @param hash
 	 * @param {?string} page
 	 */
-	async _pAutoDecodeHashAdventureBookHash (hash, {page = null} = {}) {
+	static async _pAutoDecodeHashAdventureBookHash (hash, {page = null} = {}) {
 		page ||= UrlUtil.getCurrentPage();
 		const parts = UrlUtil.decodeHash(hash.toLowerCase().trim());
 
@@ -37312,21 +38033,21 @@ globalThis.UrlUtil = {
 		}
 
 		return {};
-	},
+	}
 
 	/* -------------------------------------------- */
 
-	getSluggedHash (hash) {
+	static getSluggedHash (hash) {
 		return Parser.stringToSlug(decodeURIComponent(hash)).replace(/_/g, "-");
-	},
+	}
 
-	getCurrentPage () {
+	static getCurrentPage () {
 		if (typeof window === "undefined") return VeCt.PG_NONE;
 		const pSplit = window.location.pathname.split("/");
 		let out = pSplit[pSplit.length - 1];
 		if (!out.toLowerCase().endsWith(".html")) out += ".html";
 		return out;
-	},
+	}
 
 	/**
 	 * All internal URL construction should pass through here, to ensure `static.5etools.com` is used when required.
@@ -37334,17 +38055,17 @@ globalThis.UrlUtil = {
 	 * @param href the link
 	 * @param isBustCache If a cache-busting parameter should always be added.
 	 */
-	link (href, {isBustCache = false} = {}) {
+	static link (href, {isBustCache = false} = {}) {
 		if (isBustCache) return UrlUtil._link_getWithParam(href, {param: `t=${Date.now()}`});
 		return href;
-	},
+	}
 
-	_link_getWithParam (href, {param = `v=${VERSION_NUMBER}`} = {}) {
+	static _link_getWithParam (href, {param = `v=${VERSION_NUMBER}`} = {}) {
 		if (href.includes("?")) return `${href}&${param}`;
 		return `${href}?${param}`;
-	},
+	}
 
-	unpackSubHash (subHash, unencode) {
+	static unpackSubHash (subHash, unencode) {
 		// format is "key:value~list~sep~with~tilde"
 		if (subHash.includes(HASH_SUB_KV_SEP)) {
 			const keyValArr = subHash.split(HASH_SUB_KV_SEP).map(s => s.trim());
@@ -37359,7 +38080,7 @@ globalThis.UrlUtil = {
 		} else {
 			throw new Error(`Badly formatted subhash ${subHash}`);
 		}
-	},
+	}
 
 	/**
 	 * @param key The subhash key.
@@ -37370,30 +38091,31 @@ globalThis.UrlUtil = {
 	 * @param [opts.isEncodeValues] If the values should be URL encoded.
 	 * @returns {string}
 	 */
-	packSubHash (key, values, opts) {
+	static packSubHash (key, values, opts) {
 		opts = opts || {};
 		if (opts.isEncodeBoth || opts.isEncodeKey) key = key.toUrlified();
 		if (opts.isEncodeBoth || opts.isEncodeValues) values = values.map(it => it.toUrlified());
 		return `${key}${HASH_SUB_KV_SEP}${values.join(HASH_SUB_LIST_SEP)}`;
-	},
+	}
 
-	categoryToPage (category) { return UrlUtil.CAT_TO_PAGE[category]; },
-	categoryToHoverPage (category) { return UrlUtil.CAT_TO_HOVER_PAGE[category] || UrlUtil.categoryToPage(category); },
+	static categoryToPage (category) { return UrlUtil.CAT_TO_PAGE[category]; }
 
-	pageToDisplayPage (page) { return UrlUtil.PG_TO_NAME[page] || (page || "").replace(/\.html$/, ""); },
+	static categoryToHoverPage (category) { return UrlUtil.CAT_TO_HOVER_PAGE[category] || UrlUtil.categoryToPage(category); }
 
-	getFilename (url) {
+	static pageToDisplayPage (page) { return UrlUtil.PG_TO_NAME[page] || (page || "").replace(/\.html$/, ""); }
+
+	static getFilename (url) {
 		const out = url.slice(url.lastIndexOf("/") + 1);
 		try {
 			return decodeURIComponent(out);
 		} catch (e) {
 			return out;
 		}
-	},
+	}
 
-	isFullUrl (url) { return url && /^.*?:\/\//.test(url); },
+	static isFullUrl (url) { return url && /^.*?:\/\//.test(url); }
 
-	mini: {
+	static mini = {
 		compress (primitive) {
 			const type = typeof primitive;
 			if (primitive === undefined) return "u";
@@ -37417,9 +38139,9 @@ globalThis.UrlUtil = {
 				default: throw new Error(`Unhandled type "${type}"`);
 			}
 		},
-	},
+	};
 
-	class: {
+	static class = {
 		getIndexedClassEntries (cls) {
 			const out = [];
 
@@ -37496,26 +38218,26 @@ globalThis.UrlUtil = {
 
 			return out;
 		},
-	},
+	};
 
-	getStateKeySubclass (sc) {
+	static getStateKeySubclass (sc) {
 		return UrlUtil.encodeArrayForHash(["sub", sc.shortName || sc.name, sc.source]);
-	},
+	}
 
-	unpackStateKeySubclass (str) {
+	static unpackStateKeySubclass (str) {
 		const [, shortName, source] = UrlUtil.decodeHash(str);
 		return {
 			shortName,
 			source,
 		};
-	},
+	}
 
 	/**
 	 * @param opts Options object.
 	 * @param [opts.subclass] Subclass (or object of the form `{shortName: "str", source: "str"}`)
 	 * @param [opts.feature] Object of the form `{ixLevel: 0, ixFeature: 0}`
 	 */
-	getClassesPageStatePart (opts) {
+	static getClassesPageStatePart (opts) {
 		if (!opts.subclass && !opts.feature) return "";
 
 		if (!opts.feature) return UrlUtil.packSubHash("state", [UrlUtil._getClassesPageStatePart_subclass(opts.subclass)]);
@@ -37528,12 +38250,13 @@ globalThis.UrlUtil = {
 				UrlUtil._getClassesPageStatePart_feature(opts.feature),
 			],
 		);
-	},
+	}
 
-	_getClassesPageStatePart_subclass (sc) { return `${UrlUtil.getStateKeySubclass(sc)}=${UrlUtil.mini.compress(true)}`; },
-	_getClassesPageStatePart_feature (feature) { return `feature=${UrlUtil.mini.compress(`${feature.ixLevel}-${feature.ixFeature}`)}`; },
+	static _getClassesPageStatePart_subclass (sc) { return `${UrlUtil.getStateKeySubclass(sc)}=${UrlUtil.mini.compress(true)}`; }
 
-	unpackClassesPageStatePart (href) {
+	static _getClassesPageStatePart_feature (feature) { return `feature=${UrlUtil.mini.compress(`${feature.ixLevel}-${feature.ixFeature}`)}`; }
+
+	static unpackClassesPageStatePart (href) {
 		const [, ...subs] = Hist.util.getHashParts(href);
 		const unpackeds = subs.map(sub => UrlUtil.unpackSubHash(sub));
 		const unpackedState = unpackeds.find(it => it.state)?.state;
@@ -37550,63 +38273,9 @@ globalThis.UrlUtil = {
 			});
 
 		return out;
-	},
+	}
 };
 
-UrlUtil.PG_BESTIARY = "bestiary.html";
-UrlUtil.PG_SPELLS = "spells.html";
-UrlUtil.PG_BACKGROUNDS = "backgrounds.html";
-UrlUtil.PG_ITEMS = "items.html";
-UrlUtil.PG_CLASSES = "classes.html";
-UrlUtil.PG_CONDITIONS_DISEASES = "conditionsdiseases.html";
-UrlUtil.PG_FEATS = "feats.html";
-UrlUtil.PG_OPT_FEATURES = "optionalfeatures.html";
-UrlUtil.PG_PSIONICS = "psionics.html";
-UrlUtil.PG_RACES = "races.html";
-UrlUtil.PG_REWARDS = "rewards.html";
-UrlUtil.PG_VARIANTRULES = "variantrules.html";
-UrlUtil.PG_ADVENTURE = "adventure.html";
-UrlUtil.PG_ADVENTURES = "adventures.html";
-UrlUtil.PG_BOOK = "book.html";
-UrlUtil.PG_BOOKS = "books.html";
-UrlUtil.PG_DEITIES = "deities.html";
-UrlUtil.PG_CULTS_BOONS = "cultsboons.html";
-UrlUtil.PG_OBJECTS = "objects.html";
-UrlUtil.PG_TRAPS_HAZARDS = "trapshazards.html";
-UrlUtil.PG_QUICKREF = "quickreference.html";
-UrlUtil.PG_MANAGE_BREW = "managebrew.html";
-UrlUtil.PG_MANAGE_PRERELEASE = "manageprerelease.html";
-UrlUtil.PG_MAKE_BREW = "makebrew.html";
-UrlUtil.PG_DEMO_RENDER = "renderdemo.html";
-UrlUtil.PG_TABLES = "tables.html";
-UrlUtil.PG_VEHICLES = "vehicles.html";
-UrlUtil.PG_CHARACTERS = "characters.html";
-UrlUtil.PG_ACTIONS = "actions.html";
-UrlUtil.PG_LANGUAGES = "languages.html";
-UrlUtil.PG_STATGEN = "statgen.html";
-UrlUtil.PG_LIFEGEN = "lifegen.html";
-UrlUtil.PG_NAMES = "names.html";
-UrlUtil.PG_DM_SCREEN = "dmscreen.html";
-UrlUtil.PG_CR_CALCULATOR = "crcalculator.html";
-UrlUtil.PG_ENCOUNTERGEN = "encountergen.html";
-UrlUtil.PG_LOOTGEN = "lootgen.html";
-UrlUtil.PG_TEXT_CONVERTER = "converter.html";
-UrlUtil.PG_CHANGELOG = "changelog.html";
-UrlUtil.PG_CHAR_CREATION_OPTIONS = "charcreationoptions.html";
-UrlUtil.PG_RECIPES = "recipes.html";
-UrlUtil.PG_CLASS_SUBCLASS_FEATURES = "classfeatures.html";
-UrlUtil.PG_CREATURE_FEATURES = "creaturefeatures.html";
-UrlUtil.PG_VEHICLE_FEATURES = "vehiclefeatures.html";
-UrlUtil.PG_OBJECT_FEATURES = "objectfeatures.html";
-UrlUtil.PG_TRAP_FEATURES = "trapfeatures.html";
-UrlUtil.PG_MAPS = "maps.html";
-UrlUtil.PG_SEARCH = "search.html";
-UrlUtil.PG_DECKS = "decks.html";
-UrlUtil.PG_BASTIONS = "bastions.html";
-
-UrlUtil.URL_TO_HASH_GENERIC = (it) => UrlUtil.encodeArrayForHash(it.name, it.source);
-
-UrlUtil.URL_TO_HASH_BUILDER = {};
 UrlUtil.URL_TO_HASH_BUILDER[UrlUtil.PG_BESTIARY] = UrlUtil.URL_TO_HASH_GENERIC;
 UrlUtil.URL_TO_HASH_BUILDER[UrlUtil.PG_SPELLS] = UrlUtil.URL_TO_HASH_GENERIC;
 UrlUtil.URL_TO_HASH_BUILDER[UrlUtil.PG_BACKGROUNDS] = UrlUtil.URL_TO_HASH_GENERIC;
@@ -37633,6 +38302,7 @@ UrlUtil.URL_TO_HASH_BUILDER[UrlUtil.PG_ACTIONS] = UrlUtil.URL_TO_HASH_GENERIC;
 UrlUtil.URL_TO_HASH_BUILDER[UrlUtil.PG_LANGUAGES] = UrlUtil.URL_TO_HASH_GENERIC;
 UrlUtil.URL_TO_HASH_BUILDER[UrlUtil.PG_CHAR_CREATION_OPTIONS] = UrlUtil.URL_TO_HASH_GENERIC;
 UrlUtil.URL_TO_HASH_BUILDER[UrlUtil.PG_RECIPES] = (it) => `${UrlUtil.encodeArrayForHash(it.name, it.source)}${it._scaleFactor ? `${HASH_PART_SEP}${VeCt.HASH_SCALED}${HASH_SUB_KV_SEP}${it._scaleFactor}` : ""}`;
+UrlUtil.URL_TO_HASH_BUILDER[UrlUtil.PG_HOMECRAFTS] = UrlUtil.URL_TO_HASH_GENERIC;
 UrlUtil.URL_TO_HASH_BUILDER[UrlUtil.PG_DECKS] = UrlUtil.URL_TO_HASH_GENERIC;
 UrlUtil.URL_TO_HASH_BUILDER[UrlUtil.PG_BASTIONS] = UrlUtil.URL_TO_HASH_GENERIC;
 UrlUtil.URL_TO_HASH_BUILDER[UrlUtil.PG_CLASS_SUBCLASS_FEATURES] = (it) => (it.__prop === "subclassFeature" || it.subclassSource) ? UrlUtil.URL_TO_HASH_BUILDER["subclassFeature"](it) : UrlUtil.URL_TO_HASH_BUILDER["classFeature"](it);
@@ -37683,6 +38353,7 @@ UrlUtil.URL_TO_HASH_BUILDER["action"] = UrlUtil.URL_TO_HASH_BUILDER[UrlUtil.PG_A
 UrlUtil.URL_TO_HASH_BUILDER["language"] = UrlUtil.URL_TO_HASH_BUILDER[UrlUtil.PG_LANGUAGES];
 UrlUtil.URL_TO_HASH_BUILDER["charoption"] = UrlUtil.URL_TO_HASH_BUILDER[UrlUtil.PG_CHAR_CREATION_OPTIONS];
 UrlUtil.URL_TO_HASH_BUILDER["recipe"] = UrlUtil.URL_TO_HASH_BUILDER[UrlUtil.PG_RECIPES];
+UrlUtil.URL_TO_HASH_BUILDER["crochetPattern"] = UrlUtil.URL_TO_HASH_BUILDER[UrlUtil.PG_HOMECRAFTS];
 UrlUtil.URL_TO_HASH_BUILDER["deck"] = UrlUtil.URL_TO_HASH_BUILDER[UrlUtil.PG_DECKS];
 UrlUtil.URL_TO_HASH_BUILDER["facility"] = UrlUtil.URL_TO_HASH_BUILDER[UrlUtil.PG_BASTIONS];
 
@@ -37705,6 +38376,7 @@ UrlUtil.URL_TO_HASH_BUILDER["sense"] = UrlUtil.URL_TO_HASH_GENERIC;
 UrlUtil.URL_TO_HASH_BUILDER["raceFeature"] = (it) => UrlUtil.encodeArrayForHash(it.name, it.raceName, it.raceSource, it.source);
 UrlUtil.URL_TO_HASH_BUILDER["citation"] = UrlUtil.URL_TO_HASH_GENERIC;
 UrlUtil.URL_TO_HASH_BUILDER["languageScript"] = UrlUtil.URL_TO_HASH_GENERIC;
+UrlUtil.URL_TO_HASH_BUILDER["encounterShape"] = UrlUtil.URL_TO_HASH_GENERIC;
 
 // Add lowercase aliases
 Object.keys(UrlUtil.URL_TO_HASH_BUILDER)
@@ -37725,7 +38397,6 @@ Object.keys(UrlUtil.URL_TO_HASH_BUILDER)
 	});
 // endregion
 
-UrlUtil.PG_TO_NAME = {};
 UrlUtil.PG_TO_NAME[UrlUtil.PG_BESTIARY] = "Bestiary";
 UrlUtil.PG_TO_NAME[UrlUtil.PG_SPELLS] = "Spells";
 UrlUtil.PG_TO_NAME[UrlUtil.PG_BACKGROUNDS] = "Backgrounds";
@@ -37744,7 +38415,7 @@ UrlUtil.PG_TO_NAME[UrlUtil.PG_DEITIES] = "Deities";
 UrlUtil.PG_TO_NAME[UrlUtil.PG_CULTS_BOONS] = "Cults & Supernatural Boons";
 UrlUtil.PG_TO_NAME[UrlUtil.PG_OBJECTS] = "Objects";
 UrlUtil.PG_TO_NAME[UrlUtil.PG_TRAPS_HAZARDS] = "Traps & Hazards";
-UrlUtil.PG_TO_NAME[UrlUtil.PG_QUICKREF] = "Quick Reference (2014)";
+UrlUtil.PG_TO_NAME[UrlUtil.PG_QUICKREF] = "Quick Reference (5e/2014)";
 UrlUtil.PG_TO_NAME[UrlUtil.PG_MANAGE_BREW] = "Homebrew Manager";
 UrlUtil.PG_TO_NAME[UrlUtil.PG_MANAGE_PRERELEASE] = "Prerelease Content Manager";
 UrlUtil.PG_TO_NAME[UrlUtil.PG_MAKE_BREW] = "Homebrew Builder";
@@ -37765,6 +38436,7 @@ UrlUtil.PG_TO_NAME[UrlUtil.PG_TEXT_CONVERTER] = "Text Converter";
 UrlUtil.PG_TO_NAME[UrlUtil.PG_CHANGELOG] = "Changelog";
 UrlUtil.PG_TO_NAME[UrlUtil.PG_CHAR_CREATION_OPTIONS] = "Other Character Creation Options";
 UrlUtil.PG_TO_NAME[UrlUtil.PG_RECIPES] = "Recipes";
+UrlUtil.PG_TO_NAME[UrlUtil.PG_HOMECRAFTS] = "Home Crafts";
 UrlUtil.PG_TO_NAME[UrlUtil.PG_CREATURE_FEATURES] = "Creature Features";
 UrlUtil.PG_TO_NAME[UrlUtil.PG_VEHICLE_FEATURES] = "Vehicle Features";
 UrlUtil.PG_TO_NAME[UrlUtil.PG_OBJECT_FEATURES] = "Object Features";
@@ -37773,7 +38445,6 @@ UrlUtil.PG_TO_NAME[UrlUtil.PG_MAPS] = "Maps";
 UrlUtil.PG_TO_NAME[UrlUtil.PG_DECKS] = "Decks";
 UrlUtil.PG_TO_NAME[UrlUtil.PG_BASTIONS] = "Bastions";
 
-UrlUtil.CAT_TO_PAGE = {};
 UrlUtil.CAT_TO_PAGE[Parser.CAT_ID_CREATURE] = UrlUtil.PG_BESTIARY;
 UrlUtil.CAT_TO_PAGE[Parser.CAT_ID_SPELL] = UrlUtil.PG_SPELLS;
 UrlUtil.CAT_TO_PAGE[Parser.CAT_ID_BACKGROUND] = UrlUtil.PG_BACKGROUNDS;
@@ -37810,8 +38481,9 @@ UrlUtil.CAT_TO_PAGE[Parser.CAT_ID_VEHICLE] = UrlUtil.PG_VEHICLES;
 UrlUtil.CAT_TO_PAGE[Parser.CAT_ID_PACT_BOON] = UrlUtil.PG_OPT_FEATURES;
 UrlUtil.CAT_TO_PAGE[Parser.CAT_ID_ELEMENTAL_DISCIPLINE] = UrlUtil.PG_OPT_FEATURES;
 UrlUtil.CAT_TO_PAGE[Parser.CAT_ID_ARTIFICER_INFUSION] = UrlUtil.PG_OPT_FEATURES;
-UrlUtil.CAT_TO_PAGE[Parser.CAT_ID_SHIP_UPGRADE] = UrlUtil.PG_VEHICLES;
-UrlUtil.CAT_TO_PAGE[Parser.CAT_ID_INFERNAL_WAR_MACHINE_UPGRADE] = UrlUtil.PG_VEHICLES;
+UrlUtil.CAT_TO_PAGE[Parser.CAT_ID_VEHICLE_UPGRADE_SHIP] = UrlUtil.PG_VEHICLES;
+UrlUtil.CAT_TO_PAGE[Parser.CAT_ID_VEHICLE_UPGRADE_INFERNAL_WAR_MACHINE] = UrlUtil.PG_VEHICLES;
+UrlUtil.CAT_TO_PAGE[Parser.CAT_ID_VEHICLE_UPGRADE_OTHER] = UrlUtil.PG_VEHICLES;
 UrlUtil.CAT_TO_PAGE[Parser.CAT_ID_ONOMANCY_RESONANT] = UrlUtil.PG_OPT_FEATURES;
 UrlUtil.CAT_TO_PAGE[Parser.CAT_ID_RUNE_KNIGHT_RUNE] = UrlUtil.PG_OPT_FEATURES;
 UrlUtil.CAT_TO_PAGE[Parser.CAT_ID_ALCHEMICAL_FORMULA] = UrlUtil.PG_OPT_FEATURES;
@@ -37822,7 +38494,8 @@ UrlUtil.CAT_TO_PAGE[Parser.CAT_ID_BOOK] = UrlUtil.PG_BOOK;
 UrlUtil.CAT_TO_PAGE[Parser.CAT_ID_PAGE] = null;
 UrlUtil.CAT_TO_PAGE[Parser.CAT_ID_LEGENDARY_GROUP] = null;
 UrlUtil.CAT_TO_PAGE[Parser.CAT_ID_CHAR_CREATION_OPTIONS] = UrlUtil.PG_CHAR_CREATION_OPTIONS;
-UrlUtil.CAT_TO_PAGE[Parser.CAT_ID_RECIPES] = UrlUtil.PG_RECIPES;
+UrlUtil.CAT_TO_PAGE[Parser.CAT_ID_RECIPE] = UrlUtil.PG_RECIPES;
+UrlUtil.CAT_TO_PAGE[Parser.CAT_ID_CROCHET_PATTERN] = UrlUtil.PG_HOMECRAFTS;
 UrlUtil.CAT_TO_PAGE[Parser.CAT_ID_STATUS] = UrlUtil.PG_CONDITIONS_DISEASES;
 UrlUtil.CAT_TO_PAGE[Parser.CAT_ID_DECK] = UrlUtil.PG_DECKS;
 UrlUtil.CAT_TO_PAGE[Parser.CAT_ID_FACILITY] = UrlUtil.PG_BASTIONS;
@@ -37832,7 +38505,6 @@ UrlUtil.CAT_TO_PAGE[Parser.CAT_ID_SENSES] = "sense";
 UrlUtil.CAT_TO_PAGE[Parser.CAT_ID_LEGENDARY_GROUP] = "legendaryGroup";
 UrlUtil.CAT_TO_PAGE[Parser.CAT_ID_ITEM_MASTERY] = "itemMastery";
 
-UrlUtil.CAT_TO_HOVER_PAGE = {};
 UrlUtil.CAT_TO_HOVER_PAGE[Parser.CAT_ID_CLASS_FEATURE] = "classfeature";
 UrlUtil.CAT_TO_HOVER_PAGE[Parser.CAT_ID_SUBCLASS_FEATURE] = "subclassfeature";
 UrlUtil.CAT_TO_HOVER_PAGE[Parser.CAT_ID_CARD] = "card";
@@ -37867,6 +38539,7 @@ UrlUtil.SUBLIST_PAGES = {
 	[UrlUtil.PG_LANGUAGES]: true,
 	[UrlUtil.PG_CHAR_CREATION_OPTIONS]: true,
 	[UrlUtil.PG_RECIPES]: true,
+	[UrlUtil.PG_HOMECRAFTS]: true,
 	[UrlUtil.PG_DECKS]: true,
 	[UrlUtil.PG_BASTIONS]: true,
 };
@@ -37879,7 +38552,6 @@ UrlUtil.FAUX_PAGES = {
 	[UrlUtil.PG_TRAP_FEATURES]: true,
 };
 
-UrlUtil.PAGE_TO_PROPS = {};
 UrlUtil.PAGE_TO_PROPS[UrlUtil.PG_SPELLS] = ["spell"];
 UrlUtil.PAGE_TO_PROPS[UrlUtil.PG_ITEMS] = ["item", "itemGroup", "itemType", "itemEntry", "itemProperty", "itemTypeAdditionalEntries", "itemMastery", "baseitem", "magicvariant"];
 UrlUtil.PAGE_TO_PROPS[UrlUtil.PG_RACES] = ["race", "subrace"];
@@ -37897,7 +38569,6 @@ UrlUtil.PAGE_TO_PROPS[UrlUtil.PG_REWARDS] = ["reward"];
 UrlUtil.PAGE_TO_PROPS[UrlUtil.PG_TRAPS_HAZARDS] = ["trap", "hazard"];
 UrlUtil.PAGE_TO_PROPS[UrlUtil.PG_VARIANTRULES] = ["variantrule"];
 
-UrlUtil.PROP_TO_PAGE = {};
 UrlUtil.PROP_TO_PAGE["spell"] = UrlUtil.PG_SPELLS;
 UrlUtil.PROP_TO_PAGE["item"] = UrlUtil.PG_ITEMS;
 UrlUtil.PROP_TO_PAGE["baseitem"] = UrlUtil.PG_ITEMS;
@@ -37939,6 +38610,25 @@ globalThis.SortUtil = class {
 		return SortUtil._ascSort(a, b);
 	}
 
+	static _COLLATOR_NORMALIZED = new Intl.Collator(
+		undefined,
+		{
+			sensitivity: "base",
+			usage: "sort",
+		},
+	);
+
+	static ascSortLowerNormalized (a, b) {
+		if (typeof FilterItem !== "undefined") {
+			if (a instanceof FilterItem) a = a.item;
+			if (b instanceof FilterItem) b = b.item;
+		}
+
+		if (a == null || b == null) return SortUtil._ascSort(a, b);
+
+		return SortUtil._COLLATOR_NORMALIZED.compare(`${a}`, `${b}`);
+	}
+
 	static ascSortLowerProp (prop, a, b) { return SortUtil.ascSortLower(a[prop], b[prop]); }
 
 	// warning: slow
@@ -37968,6 +38658,10 @@ globalThis.SortUtil = class {
 	}
 
 	static _ascSort (a, b) {
+		if (a == null && b == null) return 0;
+		if (a == null) return -1;
+		if (b == null) return 1;
+
 		if (b === a) return 0;
 		return b < a ? 1 : -1;
 	}
@@ -38064,17 +38758,13 @@ globalThis.SortUtil = class {
 	static ascSortSize (a, b) { return Parser.SIZE_ABVS.indexOf(a) - Parser.SIZE_ABVS.indexOf(b); }
 
 	static initBtnSortHandlers (wrpBtnsSort, list) {
-		if (wrpBtnsSort instanceof $) { // TODO(jquery) migrate
-			wrpBtnsSort = wrpBtnsSort[0];
-		}
-
 		let dispCaretInitial = null;
 
 		const dispCarets = [...wrpBtnsSort.querySelectorAll(`[data-sort]`)]
 			.map(btnSort => {
 				const dispCaret = e_({
 					tag: "span",
-					clazz: "lst__caret",
+					clazz: "ve-lst__caret",
 				})
 					.appendTo(btnSort);
 
@@ -38107,13 +38797,13 @@ globalThis.SortUtil = class {
 			direction,
 		},
 	) {
-		dispCarets.forEach($it => $it.removeClass("lst__caret--active"));
-		dispCaret.addClass("lst__caret--active").toggleClass("lst__caret--reverse", direction === "asc");
+		dispCarets.forEach(it => it.removeClass("ve-lst__caret--active"));
+		dispCaret.addClass("ve-lst__caret--active").toggleClass("ve-lst__caret--reverse", direction === "asc");
 	}
 
 	/** Add more list sort on-clicks to existing sort buttons. */
-	static initBtnSortHandlersAdditional ($wrpBtnsSort, list) {
-		[...$wrpBtnsSort[0].querySelectorAll(".sort")]
+	static initBtnSortHandlersAdditional (wrpBtnsSort, list) {
+		[...wrpBtnsSort.querySelectorAll(".sort")]
 			.map(btnSort => {
 				const btnSortField = btnSort.dataset.sort;
 
@@ -38159,6 +38849,14 @@ globalThis.SortUtil = class {
 		return SortUtil.ascSortLower(a.name || "", b.name || "") || SortUtil.ascSortLower(a.source || "", b.source || "");
 	}
 
+	static ascSortClass (a, b) {
+		return SortUtil.ascSortDateString(Parser.sourceJsonToDate(b.source), Parser.sourceJsonToDate(a.source)) || SortUtil.ascSortLower(a.name, b.name) || SortUtil.ascSortLower(a.source, b.source);
+	}
+
+	static ascSortSubclass (a, b) {
+		return SortUtil.ascSortDateString(Parser.sourceJsonToDate(b.source), Parser.sourceJsonToDate(a.source)) || SortUtil.ascSortLower(a.name, b.name);
+	}
+
 	static ascSortDeity (a, b) {
 		return SortUtil.ascSortLower(a.name, b.name) || SortUtil.ascSortLower(a.source, b.source) || SortUtil.ascSortLower(a.pantheon, b.pantheon);
 	}
@@ -38176,6 +38874,11 @@ globalThis.SortUtil = class {
 		const ixA = SortUtil._ITEM_RARITY_ORDER.indexOf(a);
 		const ixB = SortUtil._ITEM_RARITY_ORDER.indexOf(b);
 		return (~ixA ? ixA : Number.MAX_SAFE_INTEGER) - (~ixB ? ixB : Number.MAX_SAFE_INTEGER);
+	}
+
+	static ascSortSpellRechargeKeys (a, b) {
+		// `parseInt` discards trailing/un-parsed `e`s; secondary ascSort handles `e`-vs-not-`e`
+		return SortUtil.ascSort(parseInt(a, 10), parseInt(b, 10)) || SortUtil.ascSort(a, b);
 	}
 };
 
@@ -38980,6 +39683,7 @@ globalThis.DataUtil = class {
 		static _MERGE_REQUIRES_PRESERVE_BASE = {
 			page: true,
 			otherSources: true,
+			referenceSources: true,
 			srd: true,
 			srd52: true,
 			basicRules: true,
@@ -38990,6 +39694,8 @@ globalThis.DataUtil = class {
 			hasToken: true,
 			tokenCredit: true,
 			tokenCustom: true,
+			foundryTokenScale: true,
+			altArt: true,
 			_versions: true,
 		};
 
@@ -39065,11 +39771,14 @@ globalThis.DataUtil = class {
 			}
 
 			if (DataUtil.dbg.isTrackCopied) entParent.dbg_isCopied = true;
+
 			// Handle recursive copy
 			if (entParent._copy) await DataUtil.generic._pMergeCopy(impl, page, entryList, entParent, options);
+			if (!entry._copy) return; // Another merge may have completed for this entry, if multiple entries use it as a parent
 
 			// Preload templates, if required
 			const templates = await this._pMergeCopy_pGetTemplates(entry);
+			if (!entry._copy) return; // Another merge may have completed for this entry, if multiple entries use it as a parent
 
 			return DataUtil.generic.copyApplier.getCopy(impl, MiscUtil.copyFast(entParent), entry, templates, options);
 		}
@@ -39089,10 +39798,8 @@ globalThis.DataUtil = class {
 
 			// TODO(Template) allow templates for other entity types
 			switch (entry.__prop) {
-				case "monster": {
-					const templateData = await DataUtil.loadJSON(`${Renderer.get().baseUrl}data/bestiary/template.json`);
-					return templateData.monsterTemplate;
-				}
+				case "monster": return (await DataUtil.loadJSON(`${Renderer.get().baseUrl}data/bestiary/template.json`)).monsterTemplate;
+				case "legendaryGroup": return ((await DataUtil.loadJSON(`${Renderer.get().baseUrl}data/bestiary/template.json`)).legendaryGroupTemplate);
 				default: throw new Error(`Unsupported!`);
 			}
 		}
@@ -39121,8 +39828,9 @@ globalThis.DataUtil = class {
 				return new RegExp(replace, `g${flags || ""}`);
 			}
 
-			static _doReplaceStringHandler ({re, withStr}, str) {
-				// TODO(Future) may need to have this handle replaces inside _some_ tags
+			static _doReplaceStringHandler ({re, withStr, isTagInsensitive = false}, str) {
+				if (isTagInsensitive) return str.replace(re, withStr);
+
 				const split = Renderer.splitByTags(str);
 				const len = split.length;
 				for (let i = 0; i < len; ++i) {
@@ -39144,7 +39852,7 @@ globalThis.DataUtil = class {
 
 				DataUtil.generic._walker_replaceTxt = DataUtil.generic._walker_replaceTxt || MiscUtil.getWalker();
 				const re = this._getRegexFromReplaceModInfo({replace: modInfo.replace, flags: modInfo.flags});
-				const handlers = {string: this._doReplaceStringHandler.bind(null, {re: re, withStr: modInfo.with})};
+				const handlers = {string: this._doReplaceStringHandler.bind(null, {re: re, withStr: modInfo.with, isTagInsensitive: modInfo.tagInsensitive})};
 
 				ents.forEach(ent => {
 					if (ent.name) ent.name = DataUtil.generic._walker_replaceTxt.walk(ent.name, handlers);
@@ -39157,7 +39865,7 @@ globalThis.DataUtil = class {
 
 				DataUtil.generic._walker_replaceTxt = DataUtil.generic._walker_replaceTxt || MiscUtil.getWalker();
 				const re = this._getRegexFromReplaceModInfo({replace: modInfo.replace, flags: modInfo.flags});
-				const handlers = {string: this._doReplaceStringHandler.bind(null, {re: re, withStr: modInfo.with})};
+				const handlers = {string: this._doReplaceStringHandler.bind(null, {re: re, withStr: modInfo.with, isTagInsensitive: modInfo.tagInsensitive})};
 
 				const props = modInfo.props || [null, "entries", "headerEntries", "footerEntries"];
 				if (!props.length) return;
@@ -39431,19 +40139,14 @@ globalThis.DataUtil = class {
 				["recharge", "legendary", "charges", "rest", "restLong", "daily", "weekly", "monthly", "yearly"].forEach(prop => {
 					if (!modInfo[prop]) return;
 
-					for (let i = 1; i <= 9; ++i) {
-						const e = `${i}e`;
+					Object.entries(modInfo[prop])
+						.forEach(([k, spells]) => {
+							if (!VeCt.SPELL_USES_KEYS.has(k) && !VeCt.SPELL_USES_KEYS_EACH.has(k)) return;
 
-						spellcasting[prop] = spellcasting[prop] || {};
+							spellcasting[prop] ||= {};
 
-						if (modInfo[prop][i]) {
-							modInfo[prop][i].forEach(sp => (spellcasting[prop][i] = spellcasting[prop][i] || []).push(sp));
-						}
-
-						if (modInfo[prop][e]) {
-							modInfo[prop][e].forEach(sp => (spellcasting[prop][e] = spellcasting[prop][e] || []).push(sp));
-						}
-					}
+							spells.forEach(sp => (spellcasting[prop][k] ||= []).push(sp));
+						});
 				});
 			}
 
@@ -39475,19 +40178,16 @@ globalThis.DataUtil = class {
 				}
 
 				// TODO should be extended  to handle all non-slot-based spellcasters
-				if (modInfo.daily) {
-					for (let i = 1; i <= 9; ++i) {
-						const e = `${i}e`;
+				["daily"].forEach(prop => {
+					if (!modInfo[prop]) return;
 
-						if (modInfo.daily[i]) {
-							modInfo.daily[i].forEach(replaceMeta => handleReplace(spellcasting.daily, replaceMeta, i));
-						}
+					Object.entries(modInfo[prop])
+						.forEach(([k, replaceMetas]) => {
+							if (!VeCt.SPELL_USES_KEYS.has(k) && !VeCt.SPELL_USES_KEYS_EACH.has(k)) return;
 
-						if (modInfo.daily[e]) {
-							modInfo.daily[e].forEach(replaceMeta => handleReplace(spellcasting.daily, replaceMeta, e));
-						}
-					}
-				}
+							replaceMetas.forEach(replaceMeta => handleReplace(spellcasting[prop], replaceMeta, k));
+						});
+				});
 			}
 
 			static _doMod_removeSpells ({copyTo, copyFrom, modInfo, msgPtFailed}) {
@@ -39514,19 +40214,14 @@ globalThis.DataUtil = class {
 				["recharge", "legendary", "charges", "rest", "restLong", "daily", "weekly", "monthly", "yearly"].forEach(prop => {
 					if (!modInfo[prop]) return;
 
-					for (let i = 1; i <= 9; ++i) {
-						const e = `${i}e`;
+					Object.entries(modInfo[prop])
+						.forEach(([k, spells]) => {
+							if (!VeCt.SPELL_USES_KEYS.has(k) && !VeCt.SPELL_USES_KEYS_EACH.has(k)) return;
 
-						spellcasting[prop] = spellcasting[prop] || {};
+							spellcasting[prop] ||= {};
 
-						if (modInfo[prop][i]) {
-							spellcasting[prop][i] = spellcasting[prop][i].filter(it => !modInfo[prop][i].includes(it));
-						}
-
-						if (modInfo[prop][e]) {
-							spellcasting[prop][e] = spellcasting[prop][e].filter(it => !modInfo[prop][e].includes(it));
-						}
-					}
+							spellcasting[prop][k] = spellcasting[prop][k].filter(it => !spells.includes(it));
+						});
 				});
 			}
 
@@ -39985,6 +40680,10 @@ globalThis.DataUtil = class {
 			static getCleanMathExpression (str) { return str.replace(/[^-+/*0-9.,]+/g, ""); }
 		};
 
+		static hasVersions (parent) {
+			return !!parent?._versions?.length;
+		}
+
 		static getVersions (parent, {impl = null, isExternalApplicationIdentityOnly = false} = {}) {
 			if (!parent?._versions?.length) return [];
 
@@ -40041,6 +40740,7 @@ globalThis.DataUtil = class {
 			// Tweak the data structure to match what `_applyCopy` expects
 			ent._copy = {
 				_mod: ent._mod,
+				_templates: ent._templates,
 				_preserve: ent._preserve || {"*": true},
 			};
 			delete ent._mod;
@@ -40065,7 +40765,7 @@ globalThis.DataUtil = class {
 			delete cpyParentEntity.hasFluff;
 			delete cpyParentEntity.hasFluffImages;
 
-			["additionalSources", "otherSources"]
+			["additionalSources", "otherSources", "referenceSources"]
 				.forEach(prop => {
 					if (cpyParentEntity[prop]?.length) cpyParentEntity[prop] = cpyParentEntity[prop].filter(srcMeta => srcMeta.source !== version.source);
 					if (!cpyParentEntity[prop]?.length) delete cpyParentEntity[prop];
@@ -40075,7 +40775,7 @@ globalThis.DataUtil = class {
 				impl,
 				cpyParentEntity,
 				version,
-				null,
+				DataLoader.getAllFromCacheAll(`${parentEntity.__prop}Template`, {isSilent: true}),
 				{isExternalApplicationIdentityOnly},
 			);
 			Object.assign(version, additionalData);
@@ -40084,6 +40784,11 @@ globalThis.DataUtil = class {
 	};
 
 	static proxy = class {
+		static hasVersions (prop, ent) {
+			if (DataUtil[prop]?.hasVersions) return DataUtil[prop]?.hasVersions(ent);
+			return DataUtil.generic.hasVersions(ent);
+		}
+
 		static getVersions (prop, ent, {isExternalApplicationIdentityOnly = false} = {}) {
 			if (DataUtil[prop]?.getVersions) return DataUtil[prop]?.getVersions(ent, {isExternalApplicationIdentityOnly});
 			return DataUtil.generic.getVersions(ent, {isExternalApplicationIdentityOnly});
@@ -40140,10 +40845,14 @@ globalThis.DataUtil = class {
 		static _DIR = "bestiary";
 		static _PROP = "monster";
 
-		static async loadJSON () {
-			await DataUtil.monster.pPreloadLegendaryGroups();
-			return super.loadJSON();
+		/* -------------------------------------------- */
+
+		static hasVersions (mon) {
+			return DataUtil.generic.hasVersions(mon)
+				|| mon.variant?.some(it => it._version?.addAs || it._version?.addHeadersAs);
 		}
+
+		/* ----- */
 
 		static getVersions (mon, {isExternalApplicationIdentityOnly = false} = {}) {
 			const additionalVersionData = DataUtil.monster._getAdditionalVersionsData(mon);
@@ -40204,26 +40913,29 @@ globalThis.DataUtil = class {
 				.filter(Boolean);
 		}
 
+		/* -------------------------------------------- */
+
 		static _pLoadLegendaryGroups = null;
-		static async pPreloadLegendaryGroups () {
-			return (
-				DataUtil.monster._pLoadLegendaryGroups ||= ((async () => {
-					const legendaryGroups = await DataUtil.legendaryGroup.pLoadAll();
-					DataUtil.monster.populateMetaReference({legendaryGroup: legendaryGroups});
-				})())
-			);
+		static async pPreloadLegendaryGroupsSite () {
+			return (DataUtil.monster._pLoadLegendaryGroups ||= DataLoader.pCacheAndGetAllSite("legendaryGroup"));
 		}
 
-		static legendaryGroupLookup = {};
+		static async pUpdatePreloadLegendaryGroupsPrerelease () {
+			return DataLoader.pCacheAndGetAllPrerelease("legendaryGroup");
+		}
+
+		static async pUpdatePreloadLegendaryGroupsBrew () {
+			return DataLoader.pCacheAndGetAllBrew("legendaryGroup");
+		}
+
+		/* ----- */
+
 		static getLegendaryGroup (mon) {
-			if (!mon.legendaryGroup || !mon.legendaryGroup.source || !mon.legendaryGroup.name) return null;
-			return DataUtil.monster.legendaryGroupLookup[mon.legendaryGroup.source]?.[mon.legendaryGroup.name];
+			if (!mon.legendaryGroup?.source || !mon.legendaryGroup?.name) return null;
+			return DataLoader.getFromCache("legendaryGroup", mon.legendaryGroup.source, UrlUtil.URL_TO_HASH_BUILDER["legendaryGroup"](mon.legendaryGroup));
 		}
-		static populateMetaReference (data) {
-			(data.legendaryGroup || []).forEach(it => {
-				(DataUtil.monster.legendaryGroupLookup[it.source] ||= {})[it.name] = it;
-			});
-		}
+
+		/* -------------------------------------------- */
 	};
 
 	static monsterFluff = class extends _DataUtilPropConfigMultiSource {
@@ -40235,6 +40947,11 @@ globalThis.DataUtil = class {
 	static monsterTemplate = class extends _DataUtilPropConfigSingleSource {
 		static _PAGE = "monsterTemplate";
 		static _FILENAME = "bestiary/template.json";
+	};
+
+	static encounterShape = class extends _DataUtilPropConfigSingleSource {
+		static _PAGE = "encounterShape";
+		static _FILENAME = "encounterbuilder.json";
 	};
 
 	static spell = class extends _DataUtilPropConfigMultiSource {
@@ -40441,6 +41158,11 @@ globalThis.DataUtil = class {
 		static _PROP = "spellFluff";
 	};
 
+	static psionic = class extends _DataUtilPropConfigSingleSource {
+		static _PAGE = UrlUtil.PG_PSIONICS;
+		static _FILENAME = "psionics.json";
+	};
+
 	static background = class extends _DataUtilPropConfigSingleSource {
 		static _PAGE = UrlUtil.PG_BACKGROUNDS;
 		static _FILENAME = "backgrounds.json";
@@ -40627,6 +41349,10 @@ globalThis.DataUtil = class {
 			if (isMaintainCase) return out;
 			return out.toLowerCase();
 		}
+	};
+
+	static itemMastery = class extends _DataUtilPropConfig {
+		static _PAGE = "itemMastery";
 	};
 
 	static language = class extends _DataUtilPropConfigSingleSource {
@@ -40864,29 +41590,47 @@ globalThis.DataUtil = class {
 		static _FILENAME = "recipes.json";
 
 		static async loadJSON () {
-			return DataUtil.recipe._pLoadJson = DataUtil.recipe._pLoadJson || (async () => {
-				return {
-					recipe: await DataLoader.pCacheAndGetAllSite("recipe"),
-				};
+			return DataUtil.recipe._pLoadJson ||= (async () => {
+				return {recipe: await DataLoader.pCacheAndGetAllSite("recipe")};
 			})();
 		}
 
 		static async loadPrerelease () {
-			return {
-				recipe: await DataLoader.pCacheAndGetAllPrerelease("recipe"),
-			};
+			return {recipe: await DataLoader.pCacheAndGetAllPrerelease("recipe")};
 		}
 
 		static async loadBrew () {
-			return {
-				recipe: await DataLoader.pCacheAndGetAllBrew("recipe"),
-			};
+			return {recipe: await DataLoader.pCacheAndGetAllBrew("recipe")};
 		}
 	};
 
 	static recipeFluff = class extends _DataUtilPropConfigSingleSource {
 		static _PAGE = UrlUtil.PG_RECIPES;
 		static _FILENAME = "fluff-recipes.json";
+	};
+
+	static crochetPattern = class extends _DataUtilPropConfigSingleSource {
+		static _PAGE = UrlUtil.PG_HOMECRAFTS;
+		static _FILENAME = "homecrafts.json";
+
+		static async loadJSON () {
+			return DataUtil.crochetPattern._pLoadJson ||= (async () => {
+				return {crochetPattern: await DataLoader.pCacheAndGetAllSite("crochetPattern")};
+			})();
+		}
+
+		static async loadPrerelease () {
+			return {crochetPattern: await DataLoader.pCacheAndGetAllPrerelease("crochetPattern")};
+		}
+
+		static async loadBrew () {
+			return {crochetPattern: await DataLoader.pCacheAndGetAllBrew("crochetPattern")};
+		}
+	};
+
+	static crochetPatternFluff = class extends _DataUtilPropConfigSingleSource {
+		static _PAGE = UrlUtil.PG_HOMECRAFTS;
+		static _FILENAME = "fluff-homecrafts.json";
 	};
 
 	static vehicle = class extends _DataUtilPropConfigSingleSource {
@@ -40897,6 +41641,11 @@ globalThis.DataUtil = class {
 	static vehicleFluff = class extends _DataUtilPropConfigSingleSource {
 		static _PAGE = UrlUtil.PG_VEHICLES;
 		static _FILENAME = "fluff-vehicles.json";
+	};
+
+	static vehicleUpgrade = class extends _DataUtilPropConfigSingleSource {
+		static _PAGE = UrlUtil.PG_VEHICLES;
+		static _FILENAME = "vehicles.json";
 	};
 
 	static optionalfeature = class extends _DataUtilPropConfigSingleSource {
@@ -41343,6 +42092,26 @@ globalThis.DataUtil = class {
 		static _FILENAME = "fluff-trapshazards.json";
 	};
 
+	static cult = class extends _DataUtilPropConfigSingleSource {
+		static _PAGE = UrlUtil.PG_CULTS_BOONS;
+		static _FILENAME = "cultsboons.json";
+	};
+
+	static boon = class extends _DataUtilPropConfigSingleSource {
+		static _PAGE = UrlUtil.PG_CULTS_BOONS;
+		static _FILENAME = "cultsboons.json";
+	};
+
+	static sense = class extends _DataUtilPropConfigSingleSource {
+		static _PAGE = "sense";
+		static _FILENAME = "senses.json";
+	};
+
+	static skill = class extends _DataUtilPropConfigSingleSource {
+		static _PAGE = "skill";
+		static _FILENAME = "skills.json";
+	};
+
 	static action = class extends _DataUtilPropConfigSingleSource {
 		static _PAGE = UrlUtil.PG_ACTIONS;
 		static _FILENAME = "actions.json";
@@ -41385,29 +42154,64 @@ globalThis.DataUtil = class {
 };
 
 // ROLLING =============================================================================================================
-globalThis.RollerUtil = {
-	isCrypto () {
-		return typeof window !== "undefined" && typeof window.crypto !== "undefined";
-	},
+globalThis.RollerUtil = class {
+	static _DICE_REGEX_STR = /((?:\s*?(?<opLeading>[-+×x*÷/])\s*?)?((?<diceCount>[1-9]\d*)?d(?<diceFace>[1-9]\d*)(?<bonus>(\s*?[-+×x*÷/]\s*?(\d,\d|\d)+(\.\d+)?(?!d))*)))+?/.source;
+	static DICE_REGEX = new RegExp(this._DICE_REGEX_STR, "g");
+	static DICE_REGEX_FULLMATCH = new RegExp(`^\\s*${this._DICE_REGEX_STR}\\s*$`);
+	static REGEX_DAMAGE_DICE = /(?<average>\d+)(?<prefix> \((?:{@dice |{@damage ))(?<diceExp>[-+0-9d ]*)(?<suffix>}\)(?:\s*\+\s*the spell's level)?(?: magic(?:al)?)? [a-z]+( \([-a-zA-Z0-9 ]+\))?( or [a-z]+( \([-a-zA-Z0-9 ]+\))?)? damage)/gi;
+	static REGEX_DAMAGE_FLAT = /(?<prefix>Hit(?: or Miss)?: |Miss: |{@hom}|{@h}|{@m})(?<flatVal>[0-9]+)(?<suffix> [a-z]+( \([-a-zA-Z0-9 ]+\))?( or [a-z]+( \([-a-zA-Z0-9 ]+\))?)? damage)/gi;
+	static _REGEX_ROLLABLE_COL_LABEL = /^(.*?\d)(\s*[-+/*^×÷]\s*)([a-zA-Z0-9 ]+)$/;
+	static _REGEX_ROLLABLE_COL_TRAILING_VARIABLE = /^(.*?\d)(\s*[-+/*^×÷]\s*)(#\$.*?\$#)$/;
+	static ROLL_COL_NONE = 0;
+	static ROLL_COL_STANDARD = 1;
+	static ROLL_COL_VARIABLE = 2;
 
-	randomise (max, min = 1) {
+	static isCrypto () {
+		return typeof window !== "undefined" && typeof window.crypto !== "undefined";
+	}
+
+	static #_DBG_MODE = null;
+	static #_DBG_REPEAT_STORE = null;
+	static #_DBG_REPEAT = null;
+
+	static dbg_setMode (mode) {
+		this.#_DBG_MODE = mode;
+		switch (mode) {
+			case "none": this.#_DBG_REPEAT_STORE = null; this.#_DBG_REPEAT = null; break;
+			case "capture": this.#_DBG_REPEAT_STORE = null; this.#_DBG_REPEAT = null; break;
+			case "replay": this.#_DBG_REPEAT = [...this.#_DBG_REPEAT_STORE]; break;
+			default: throw new Error(`Unhandled mode "${mode}"!`);
+		}
+	}
+
+	static randomise (max, min = 1) {
+		if (this.#_DBG_MODE === "replay") {
+			if (!this.#_DBG_REPEAT?.length) throw new Error(`Exhausted replay!`);
+			return this.#_DBG_REPEAT.shift();
+		}
+
+		const out = this._randomise({min, max});
+		if (this.#_DBG_MODE === "capture") {
+			(this.#_DBG_REPEAT_STORE ||= []).push(out);
+		}
+		return out;
+	}
+
+	static _randomise ({min, max}) {
 		if (min > max) return 0;
 		if (max === min) return max;
 		if (RollerUtil.isCrypto()) {
-			return RollerUtil._randomise(min, max + 1);
+			return RollerUtil._getRandomCryptoRoll(min, max + 1);
 		} else {
 			return RollerUtil.roll(max) + min;
 		}
-	},
+	}
 
-	rollOnArray (array) {
+	static rollOnArray (array) {
 		return array[RollerUtil.randomise(array.length) - 1];
-	},
+	}
 
-	/**
-	 * Cryptographically secure RNG
-	 */
-	_randomise: (min, max) => {
+	static _getRandomCryptoRoll = (min, max) => {
 		if (isNaN(min) || isNaN(max)) throw new Error(`Invalid min/max!`);
 
 		const range = max - min;
@@ -41429,7 +42233,7 @@ globalThis.RollerUtil = {
 				return min + randomInteger;
 			}
 		}
-	},
+	};
 
 	/**
 	 * Result in range: 0 to (max-1); inclusive
@@ -41438,11 +42242,11 @@ globalThis.RollerUtil = {
 	 * @param fn function to call to generate random numbers
 	 * @returns {number} rolled
 	 */
-	roll (max, fn = Math.random) {
+	static roll (max, fn = Math.random) {
 		return Math.floor(fn() * max);
-	},
+	}
 
-	getColRollType (colLabel) {
+	static getColRollType (colLabel) {
 		if (typeof colLabel !== "string") return false;
 
 		colLabel = colLabel.trim();
@@ -41472,9 +42276,9 @@ globalThis.RollerUtil = {
 		) return RollerUtil.ROLL_COL_VARIABLE;
 
 		return RollerUtil.ROLL_COL_NONE;
-	},
+	}
 
-	getFullRollCol (lbl) {
+	static getFullRollCol (lbl) {
 		if (typeof lbl !== "string") return lbl;
 
 		if (lbl.includes("@dice")) return lbl;
@@ -41486,19 +42290,8 @@ globalThis.RollerUtil = {
 		if (!m) return lbl;
 
 		return `{@dice ${m[1]}${m[2]}#$prompt_number:title=Enter a ${m[3].trim()}$#|${lbl}}`;
-	},
-
-	_DICE_REGEX_STR: /((?:\s*?(?<opLeading>[-+×x*÷/])\s*?)?((?<diceCount>[1-9]\d*)?d(?<diceFace>[1-9]\d*)(?<bonus>(\s*?[-+×x*÷/]\s*?(\d,\d|\d)+(\.\d+)?(?!d))*)))+?/.source,
+	}
 };
-RollerUtil.DICE_REGEX = new RegExp(RollerUtil._DICE_REGEX_STR, "g");
-RollerUtil.DICE_REGEX_FULLMATCH = new RegExp(`^\\s*${RollerUtil._DICE_REGEX_STR}\\s*$`);
-RollerUtil.REGEX_DAMAGE_DICE = /(?<average>\d+)(?<prefix> \((?:{@dice |{@damage ))(?<diceExp>[-+0-9d ]*)(?<suffix>}\)(?:\s*\+\s*the spell's level)?(?: magic(?:al)?)? [a-z]+( \([-a-zA-Z0-9 ]+\))?( or [a-z]+( \([-a-zA-Z0-9 ]+\))?)? damage)/gi;
-RollerUtil.REGEX_DAMAGE_FLAT = /(?<prefix>Hit(?: or Miss)?: |Miss: |{@hom}|{@h}|{@m})(?<flatVal>[0-9]+)(?<suffix> [a-z]+( \([-a-zA-Z0-9 ]+\))?( or [a-z]+( \([-a-zA-Z0-9 ]+\))?)? damage)/gi;
-RollerUtil._REGEX_ROLLABLE_COL_LABEL = /^(.*?\d)(\s*[-+/*^×÷]\s*)([a-zA-Z0-9 ]+)$/;
-RollerUtil._REGEX_ROLLABLE_COL_TRAILING_VARIABLE = /^(.*?\d)(\s*[-+/*^×÷]\s*)(#\$.*?\$#)$/;
-RollerUtil.ROLL_COL_NONE = 0;
-RollerUtil.ROLL_COL_STANDARD = 1;
-RollerUtil.ROLL_COL_VARIABLE = 2;
 
 // STORAGE =============================================================================================================
 // Dependency: localforage
@@ -41732,10 +42525,12 @@ function StorageUtilBacked () {
 globalThis.StorageUtil = new StorageUtilBacked();
 
 // TODO transition cookie-like storage items over to this
-globalThis.SessionStorageUtil = {
-	_fakeStorage: {},
-	__storage: null,
-	getStorage: () => {
+globalThis.SessionStorageUtil = class {
+	static _fakeStorage = {};
+
+	static __storage = null;
+
+	static getStorage = () => {
 		try {
 			return window.sessionStorage;
 		} catch (e) {
@@ -41756,44 +42551,44 @@ globalThis.SessionStorageUtil = {
 				};
 			}
 		}
-	},
+	};
 
-	isFake () {
+	static isFake () {
 		return SessionStorageUtil.getStorage().isSyncFake;
-	},
+	}
 
-	setForPage: (key, value) => {
+	static setForPage = (key, value) => {
 		SessionStorageUtil.set(`${key}_${UrlUtil.getCurrentPage()}`, value);
-	},
+	};
 
-	set (key, value) {
+	static set (key, value) {
 		SessionStorageUtil.getStorage().setItem(key, JSON.stringify(value));
-	},
+	}
 
-	getForPage: (key) => {
+	static getForPage = (key) => {
 		return SessionStorageUtil.get(`${key}_${UrlUtil.getCurrentPage()}`);
-	},
+	};
 
-	get (key) {
+	static get (key) {
 		const rawOut = SessionStorageUtil.getStorage().getItem(key);
 		if (rawOut && rawOut !== "undefined" && rawOut !== "null") return JSON.parse(rawOut);
 		return null;
-	},
+	}
 
-	removeForPage: (key) => {
+	static removeForPage = (key) => {
 		SessionStorageUtil.remove(`${key}_${UrlUtil.getCurrentPage()}`);
-	},
+	};
 
-	remove (key) {
+	static remove (key) {
 		SessionStorageUtil.getStorage().removeItem(key);
-	},
+	}
 };
 
 // ID GENERATION =======================================================================================================
-globalThis.CryptUtil = {
+globalThis.CryptUtil = class {
 	// region md5 internals
 	// stolen from http://www.myersdaily.org/joseph/javascript/md5.js
-	_md5cycle: (x, k) => {
+	static _md5cycle = (x, k) => {
 		let a = x[0];
 		let b = x[1];
 		let c = x[2];
@@ -41871,30 +42666,30 @@ globalThis.CryptUtil = {
 		x[1] = CryptUtil._add32(b, x[1]);
 		x[2] = CryptUtil._add32(c, x[2]);
 		x[3] = CryptUtil._add32(d, x[3]);
-	},
+	};
 
-	_cmn: (q, a, b, x, s, t) => {
+	static _cmn = (q, a, b, x, s, t) => {
 		a = CryptUtil._add32(CryptUtil._add32(a, q), CryptUtil._add32(x, t));
 		return CryptUtil._add32((a << s) | (a >>> (32 - s)), b);
-	},
+	};
 
-	_ff: (a, b, c, d, x, s, t) => {
+	static _ff = (a, b, c, d, x, s, t) => {
 		return CryptUtil._cmn((b & c) | ((~b) & d), a, b, x, s, t);
-	},
+	};
 
-	_gg: (a, b, c, d, x, s, t) => {
+	static _gg = (a, b, c, d, x, s, t) => {
 		return CryptUtil._cmn((b & d) | (c & (~d)), a, b, x, s, t);
-	},
+	};
 
-	_hh: (a, b, c, d, x, s, t) => {
+	static _hh = (a, b, c, d, x, s, t) => {
 		return CryptUtil._cmn(b ^ c ^ d, a, b, x, s, t);
-	},
+	};
 
-	_ii: (a, b, c, d, x, s, t) => {
+	static _ii = (a, b, c, d, x, s, t) => {
 		return CryptUtil._cmn(c ^ (b | (~d)), a, b, x, s, t);
-	},
+	};
 
-	_md51: (s) => {
+	static _md51 = (s) => {
 		let n = s.length;
 		let state = [1732584193, -271733879, -1732584194, 271733878];
 		let i;
@@ -41912,52 +42707,52 @@ globalThis.CryptUtil = {
 		tail[14] = n * 8;
 		CryptUtil._md5cycle(state, tail);
 		return state;
-	},
+	};
 
-	_md5blk: (s) => {
+	static _md5blk = (s) => {
 		let md5blks = [];
 		for (let i = 0; i < 64; i += 4) {
 			md5blks[i >> 2] = s.charCodeAt(i) + (s.charCodeAt(i + 1) << 8) + (s.charCodeAt(i + 2) << 16) + (s.charCodeAt(i + 3) << 24);
 		}
 		return md5blks;
-	},
+	};
 
-	_hex_chr: "0123456789abcdef".split(""),
+	static _hex_chr = "0123456789abcdef".split("");
 
-	_rhex: (n) => {
+	static _rhex = (n) => {
 		let s = "";
 		for (let j = 0; j < 4; j++) {
 			s += CryptUtil._hex_chr[(n >> (j * 8 + 4)) & 0x0F] + CryptUtil._hex_chr[(n >> (j * 8)) & 0x0F];
 		}
 		return s;
-	},
+	};
 
-	_add32: (a, b) => {
+	static _add32 = (a, b) => {
 		return (a + b) & 0xFFFFFFFF;
-	},
+	};
 	// endregion
 
-	hex: (x) => {
+	static hex = (x) => {
 		for (let i = 0; i < x.length; i++) {
 			x[i] = CryptUtil._rhex(x[i]);
 		}
 		return x.join("");
-	},
+	};
 
-	hex2Dec (hex) {
+	static hex2Dec (hex) {
 		return parseInt(`0x${hex}`);
-	},
+	}
 
-	md5: (s) => {
+	static md5 = (s) => {
 		return CryptUtil.hex(CryptUtil._md51(s));
-	},
+	};
 
 	/**
 	 * Based on Java's implementation.
 	 * @param obj An object to hash.
 	 * @return {*} An integer hashcode for the object.
 	 */
-	hashCode (obj) {
+	static hashCode (obj) {
 		if (typeof obj === "string") {
 			if (!obj) return 0;
 			let h = 0;
@@ -41965,9 +42760,9 @@ globalThis.CryptUtil = {
 			return h;
 		} else if (typeof obj === "number") return obj;
 		else throw new Error(`No hashCode implementation for ${obj}`);
-	},
+	}
 
-	uid () { // https://stackoverflow.com/questions/105034/create-guid-uuid-in-javascript
+	static uid () { // https://stackoverflow.com/questions/105034/create-guid-uuid-in-javascript
 		if (RollerUtil.isCrypto()) {
 			return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
 		} else {
@@ -41981,12 +42776,12 @@ globalThis.CryptUtil = {
 				return (c === "x" ? r : (r & 0x3 | 0x8)).toString(16);
 			});
 		}
-	},
+	}
 };
 
 // COLLECTIONS =========================================================================================================
-globalThis.CollectionUtil = {
-	ObjectSet: class ObjectSet {
+globalThis.CollectionUtil = class {
+	static ObjectSet = class ObjectSet {
 		constructor () {
 			this.map = new Map();
 			this[Symbol.iterator] = this.values;
@@ -42000,15 +42795,15 @@ globalThis.CollectionUtil = {
 		values () {
 			return this.map.values();
 		}
-	},
+	};
 
-	setEq (a, b) {
+	static setEq (a, b) {
 		if (a.size !== b.size) return false;
 		for (const it of a) if (!b.has(it)) return false;
 		return true;
-	},
+	}
 
-	objectDiff (obj1, obj2) {
+	static objectDiff (obj1, obj2) {
 		const out = {};
 
 		[...new Set([...Object.keys(obj1), ...Object.keys(obj2)])]
@@ -42018,9 +42813,9 @@ globalThis.CollectionUtil = {
 			});
 
 		return out;
-	},
+	}
 
-	_objectDiff_recurse (a, b) {
+	static _objectDiff_recurse (a, b) {
 		if (CollectionUtil.deepEquals(a, b)) return undefined;
 
 		if (a && b && typeof a === "object" && typeof b === "object") {
@@ -42028,9 +42823,9 @@ globalThis.CollectionUtil = {
 		}
 
 		return b;
-	},
+	}
 
-	objectIntersect (obj1, obj2) {
+	static objectIntersect (obj1, obj2) {
 		const out = {};
 
 		[...new Set([...Object.keys(obj1), ...Object.keys(obj2)])]
@@ -42040,9 +42835,9 @@ globalThis.CollectionUtil = {
 			});
 
 		return out;
-	},
+	}
 
-	_objectIntersect_recurse (a, b) {
+	static _objectIntersect_recurse (a, b) {
 		if (CollectionUtil.deepEquals(a, b)) return a;
 
 		if (a && b && typeof a === "object" && typeof b === "object") {
@@ -42050,9 +42845,9 @@ globalThis.CollectionUtil = {
 		}
 
 		return undefined;
-	},
+	}
 
-	deepEquals (a, b) {
+	static deepEquals (a, b) {
 		if (Object.is(a, b)) return true;
 		if (a && b && typeof a === "object" && typeof b === "object") {
 			if (CollectionUtil._eq_isPlainObject(a) && CollectionUtil._eq_isPlainObject(b)) return CollectionUtil._eq_areObjectsEqual(a, b);
@@ -42065,10 +42860,11 @@ globalThis.CollectionUtil = {
 			return CollectionUtil._eq_areObjectsEqual(a, b);
 		}
 		return false;
-	},
+	}
 
-	_eq_isPlainObject: (value) => value.constructor === Object || value.constructor == null,
-	_eq_areObjectsEqual (a, b) {
+	static _eq_isPlainObject = (value) => value.constructor === Object || value.constructor == null;
+
+	static _eq_areObjectsEqual (a, b) {
 		const keysA = Object.keys(a);
 		const {length} = keysA;
 		if (Object.keys(b).length !== length) return false;
@@ -42077,16 +42873,16 @@ globalThis.CollectionUtil = {
 			if (!CollectionUtil.deepEquals(a[keysA[i]], b[keysA[i]])) return false;
 		}
 		return true;
-	},
-	_eq_areArraysEqual (a, b) {
+	}
+
+	static _eq_areArraysEqual (a, b) {
 		const {length} = a;
 		if (b.length !== length) return false;
 		for (let i = 0; i < length; i++) if (!CollectionUtil.deepEquals(a[i], b[i])) return false;
 		return true;
-	},
+	}
 
-	// region Find first <X>
-	dfs (obj, opts) {
+	static dfs (obj, opts) {
 		const {prop = null, fnMatch = null} = opts;
 		if (!prop && !fnMatch) throw new Error(`One of "prop" or "fnMatch" must be specified!`);
 
@@ -42107,9 +42903,9 @@ globalThis.CollectionUtil = {
 				if (n) return n;
 			}
 		}
-	},
+	}
 
-	bfs (obj, opts) {
+	static bfs (obj, opts) {
 		const {prop = null, fnMatch = null} = opts;
 		if (!prop && !fnMatch) throw new Error(`One of "prop" or "fnMatch" must be specified!`);
 
@@ -42135,8 +42931,7 @@ globalThis.CollectionUtil = {
 
 			return CollectionUtil.bfs(Object.values(obj));
 		}
-	},
-	// endregion
+	}
 };
 
 class _TrieNode {
@@ -42426,6 +43221,16 @@ Array.prototype.prevWrap || Object.defineProperty(Array.prototype, "prevWrap", {
 	},
 });
 
+Array.prototype.rotateRight || Object.defineProperty(Array.prototype, "rotateRight", {
+	enumerable: false,
+	writable: true,
+	value: function (n) {
+		n = n % this.length;
+		this.unshift.apply(this, this.splice(n, this.length));
+		return this;
+	},
+});
+
 Array.prototype.sum || Object.defineProperty(Array.prototype, "sum", {
 	enumerable: false,
 	writable: true,
@@ -42679,11 +43484,11 @@ globalThis.ExtensionUtil = class {
 	}
 
 	static _getElementData ({ele}) {
-		const $parent = $(ele).closest(`[data-page]`);
-		const page = $parent.attr("data-page");
-		const source = $parent.attr("data-source");
-		const hash = $parent.attr("data-hash");
-		const rawExtensionData = $parent.attr("data-extension");
+		const eleParent = e_({ele}).closeste(`[data-page]`);
+		const page = eleParent.attr("data-page");
+		const source = eleParent.attr("data-source");
+		const hash = eleParent.attr("data-hash");
+		const rawExtensionData = eleParent.attr("data-extension");
 		const extensionData = rawExtensionData ? JSON.parse(rawExtensionData) : null;
 
 		return {page, source, hash, extensionData};
@@ -42718,34 +43523,36 @@ globalThis.ExtensionUtil = class {
 if (typeof window !== "undefined") window.addEventListener("rivet.active", () => ExtensionUtil.ACTIVE = true);
 
 // LOCKS ===============================================================================================================
-/**
- * @param {string} name
- * @param {boolean} isDbg
- * @constructor
- */
-globalThis.VeLock = function ({name = null, isDbg = false} = {}) {
-	this._MSG_PAD_LEN = 8;
+globalThis.VeLock = class {
+	static _MSG_PAD_LEN = 8;
+	static _IS_DBG_ALL = false;
 
-	this._name = name;
-	this._isDbg = isDbg;
-	this._lockMeta = null;
+	/**
+	 * @param {?string} [name]
+	 * @param {boolean} [isDbg]
+	 */
+	constructor ({name = null, isDbg = false} = {}) {
+		this._name = name;
+		this._isDbg = isDbg;
+		this._lockMeta = null;
+	}
 
-	this._getCaller = () => {
+	_getCaller () {
 		return (new Error()).stack.split("\n")[3].trim();
-	};
+	}
 
-	this.pLock = async ({token = null} = {}) => {
+	async pLock ({token = null} = {}) {
 		if (token != null && this._lockMeta?.token === token) {
 			++this._lockMeta.depth;
 			// eslint-disable-next-line no-console
-			if (this._isDbg) console.warn(`Lock ${"add".padEnd(this._MSG_PAD_LEN, " ")} "${this._name || "(unnamed)"}" (now ${this._lockMeta.depth}) at ${this._getCaller()}`);
+			if (this._isDbg || this.constructor._IS_DBG_ALL) console.warn(`Lock ${"add".padEnd(this.constructor._MSG_PAD_LEN, " ")} "${this._name || "(unnamed)"}" (now ${this._lockMeta.depth}) at ${this._getCaller()}`);
 			return token;
 		}
 
 		while (this._lockMeta) await this._lockMeta.lock;
 
 		// eslint-disable-next-line no-console
-		if (this._isDbg) console.warn(`Lock ${"acquired".padEnd(this._MSG_PAD_LEN, " ")} "${this._name || "(unnamed)"}" at ${this._getCaller()}`);
+		if (this._isDbg || this.constructor._IS_DBG_ALL) console.warn(`Lock ${"acquired".padEnd(this.constructor._MSG_PAD_LEN, " ")} "${this._name || "(unnamed)"}" at ${this._getCaller()}`);
 
 		let unlock = null;
 		const lock = new Promise(resolve => unlock = resolve);
@@ -42757,43 +43564,54 @@ globalThis.VeLock = function ({name = null, isDbg = false} = {}) {
 		};
 
 		return this._lockMeta.token;
-	};
+	}
 
-	this.unlock = () => {
+	unlock () {
 		if (!this._lockMeta) return;
 
 		if (this._lockMeta.depth > 0) {
 			// eslint-disable-next-line no-console
-			if (this._isDbg) console.warn(`Lock ${"sub".padEnd(this._MSG_PAD_LEN, " ")} "${this._name || "(unnamed)"}" (now ${this._lockMeta.depth - 1}) at ${this._getCaller()}`);
+			if (this._isDbg || this.constructor._IS_DBG_ALL) console.warn(`Lock ${"sub".padEnd(this.constructor._MSG_PAD_LEN, " ")} "${this._name || "(unnamed)"}" (now ${this._lockMeta.depth - 1}) at ${this._getCaller()}`);
 			return --this._lockMeta.depth;
 		}
 
 		// eslint-disable-next-line no-console
-		if (this._isDbg) console.warn(`Lock ${"released".padEnd(this._MSG_PAD_LEN, " ")} "${this._name || "(unnamed)"}" at ${this._getCaller()}`);
+		if (this._isDbg || this.constructor._IS_DBG_ALL) console.warn(`Lock ${"released".padEnd(this.constructor._MSG_PAD_LEN, " ")} "${this._name || "(unnamed)"}" at ${this._getCaller()}`);
 
 		const lockMeta = this._lockMeta;
 		this._lockMeta = null;
 		lockMeta.unlock();
-	};
+	}
 };
 ExcludeUtil._lock = new VeLock({name: "blocklist"});
 
 // DATETIME ============================================================================================================
-globalThis.DatetimeUtil = {
-	getDateStr ({date, isShort = false, isPad = false} = {}) {
+globalThis.DatetimeUtil = class {
+	static _MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+	static getDateStr ({date, isShort = false, isPad = false} = {}) {
 		const month = DatetimeUtil._MONTHS[date.getMonth()];
 		return `${isShort ? month.substring(0, 3) : month} ${isPad && date.getDate() < 10 ? "\u00A0" : ""}${Parser.getOrdinalForm(date.getDate())}, ${date.getFullYear()}`;
-	},
+	}
 
-	getDatetimeStr ({date, isPlainText = false} = {}) {
+	/* -------------------------------------------- */
+
+	static _getPad2 (num) { return `${num}`.padStart(2, "0"); }
+
+	static getDatetimeStr ({date, isPlainText = false} = {}) {
 		date = date ?? new Date();
 		const monthName = DatetimeUtil._MONTHS[date.getMonth()];
 		return `${date.getDate()} ${!isPlainText ? `<span title="${monthName}">` : ""}${monthName.substring(0, 3)}.${!isPlainText ? `</span>` : ""} ${date.getFullYear()}, ${DatetimeUtil._getPad2(date.getHours())}:${DatetimeUtil._getPad2(date.getMinutes())}:${DatetimeUtil._getPad2(date.getSeconds())}`;
-	},
+	}
 
-	_getPad2 (num) { return `${num}`.padStart(2, "0"); },
+	/* -------------------------------------------- */
 
-	getIntervalStr (millis) {
+	static _SECS_PER_YEAR = 31536000;
+	static _SECS_PER_DAY = 86400;
+	static _SECS_PER_HOUR = 3600;
+	static _SECS_PER_MINUTE = 60;
+
+	static getIntervalStr (millis) {
 		if (millis < 0 || isNaN(millis)) return "(Unknown interval)";
 
 		const s = number => (number !== 1) ? "s" : "";
@@ -42830,13 +43648,8 @@ globalThis.DatetimeUtil = {
 		else if (!stack.length) stack.push("less than a second"); // avoid adding this if there's already info
 
 		return stack.join(", ");
-	},
+	}
 };
-DatetimeUtil._MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-DatetimeUtil._SECS_PER_YEAR = 31536000;
-DatetimeUtil._SECS_PER_DAY = 86400;
-DatetimeUtil._SECS_PER_HOUR = 3600;
-DatetimeUtil._SECS_PER_MINUTE = 60;
 
 globalThis.EditorUtil = class {
 	static getTheme () {
@@ -42934,14 +43747,14 @@ if (!globalThis.IS_VTT && typeof window !== "undefined") {
 				"div-gpt-ad-5etools36834", // mobile middle
 			].forEach(id => {
 				const iv = setInterval(() => {
-					const $wrp = $(`#${id}`);
-					if (!$wrp.length) return;
-					if (!$wrp.children().length) return;
-					if ($wrp.children()[0].tagName === "SCRIPT") return;
-					const $tgt = $wrp.closest(".cancer__anchor").find(".cancer__disp-cancer");
-					if ($tgt.length) {
+					const wrp = es(`#${id}`);
+					if (!wrp) return;
+					if (!wrp.childrene().length) return;
+					if (wrp.childrene()[0].tagName === "SCRIPT") return;
+					const tgt = wrp.closeste(".cancer__anchor")?.find(".cancer__disp-cancer");
+					if (tgt) {
 						anyFound = true;
-						$tgt.css({display: "flex"}).text("Advertisements");
+						tgt.css({display: "flex"}).text("Advertisements");
 						clearInterval(iv);
 					}
 				}, 250);
@@ -42954,19 +43767,19 @@ if (!globalThis.IS_VTT && typeof window !== "undefined") {
 				if (isPadded) return;
 				isPadded = true;
 				// Pad the bottom of the page so the adhesive unit doesn't overlap the content
-				$(`.view-col-group--cancer`).append(`<div class="w-100 no-shrink" style="height: 110px;"></div>`);
+				em(`.view-col-group--cancer`).forEach(ele => ele.appends(`<div class="ve-w-100 ve-no-shrink" style="height: 110px;"></div>`));
 			}, 300);
 			ivsCancer.push(ivPad);
 		});
 
 		// Hack to lock the ad space at a fixed size--prevents the screen from shifting around once loaded
 		setTimeout(() => {
-			const $wrp = $(`.cancer__wrp-leaderboard-inner`);
-			if (anyFound) $wrp.css({height: 90});
+			const wrps = em(`.cancer__wrp-leaderboard-inner`);
+			if (anyFound) wrps.forEach(ele => ele.css({height: 90}));
 			ivsCancer.forEach(iv => clearInterval(iv));
 		}, 6500);
 	} else {
-		window.addEventListener("load", () => $(`.cancer__anchor`).remove());
+		window.addEventListener("load", () => em(`.cancer__anchor`).forEach(ele => ele.remove()));
 	}
 	// endregion
 }
@@ -44537,7 +45350,7 @@ function normalizeCommandKeys(callback, e, keyCode) {
         if (e.defaultPrevented)
             return;
         else
-            hashId &= -9;
+            hashId &= ~8;
     }
     if (!hashId && !(keyCode in keys.FUNCTION_KEYS) && !(keyCode in keys.PRINTABLE_KEYS)) {
         return false;
@@ -46181,10 +46994,10 @@ function DragdropHandler(mouseHandler) {
         var nearestYOffset = Math.min(offsets.y.top, offsets.y.bottom);
         var scrollCursor = { row: cursor.row, column: cursor.column };
         if (nearestXOffset / characterWidth <= 2) {
-            scrollCursor.column += (offsets.x.left < offsets.x.right ? -3 : 2);
+            scrollCursor.column += (offsets.x.left < offsets.x.right ? -3 : +2);
         }
         if (nearestYOffset / lineHeight <= 1) {
-            scrollCursor.row += (offsets.y.top < offsets.y.bottom ? -1 : 1);
+            scrollCursor.row += (offsets.y.top < offsets.y.bottom ? -1 : +1);
         }
         var vScroll = cursor.row != scrollCursor.row;
         var hScroll = cursor.column != scrollCursor.column;
@@ -56652,7 +57465,7 @@ function swap(d1, d2) {
             shift(d2, d1, -1);
         }
         else if (cmp(d2.start, d1.start) <= 0) {
-            shift(d1, d2, 1);
+            shift(d1, d2, +1);
         }
         else {
             return null;
@@ -56671,10 +57484,10 @@ function swap(d1, d2) {
     }
     else if (!i1 && i2) {
         if (cmp(d2.start, d1.start) >= 0) {
-            shift(d2, d1, 1);
+            shift(d2, d1, +1);
         }
         else if (cmp(d2.start, d1.start) <= 0) {
-            shift(d1, d2, 1);
+            shift(d1, d2, +1);
         }
         else {
             return null;
@@ -56682,7 +57495,7 @@ function swap(d1, d2) {
     }
     else if (!i1 && !i2) {
         if (cmp(d2.start, d1.start) >= 0) {
-            shift(d2, d1, 1);
+            shift(d2, d1, +1);
         }
         else if (cmp(d2.end, d1.start) <= 0) {
             shift(d1, d2, -1);
@@ -56728,11 +57541,11 @@ function xform(d1, c1) {
             shift(d1, c1, -1);
         }
         else if (cmp(d1.start, c1.start) <= 0) {
-            shift(c1, d1, 1);
+            shift(c1, d1, +1);
         }
         else {
             shift(d1, Range.fromPoints(c1.start, d1.start), -1);
-            shift(c1, d1, 1);
+            shift(c1, d1, +1);
         }
     }
     else if (!i1 && i2) {
@@ -56740,11 +57553,11 @@ function xform(d1, c1) {
             shift(c1, d1, -1);
         }
         else if (cmp(c1.start, d1.start) <= 0) {
-            shift(d1, c1, 1);
+            shift(d1, c1, +1);
         }
         else {
             shift(c1, Range.fromPoints(d1.start, c1.start), -1);
-            shift(d1, c1, 1);
+            shift(d1, c1, +1);
         }
     }
     else if (!i1 && !i2) {
@@ -61894,6 +62707,8 @@ function MixinProxyBase (Cls) {
 			});
 		}
 
+		_isDisableEqualsSimpleArrayEmpty = false;
+
 		_isEqualSimple (a, b) {
 			if (Object.is(a, b)) return true;
 
@@ -61902,7 +62717,10 @@ function MixinProxyBase (Cls) {
 			const isArrayA = Array.isArray(a);
 			const isArrayB = Array.isArray(b);
 			if (isArrayA !== isArrayB) return false;
-			if (isArrayA) return a.length === 0 && b.length === 0;
+			if (isArrayA) {
+				if (this._isDisableEqualsSimpleArrayEmpty) return false;
+				return a.length === 0 && b.length === 0;
+			}
 
 			return false;
 		}
@@ -62062,6 +62880,24 @@ class ProxyBase extends MixinProxyBase(class {}) {}
 globalThis.ProxyBase = ProxyBase;
 
 class UiUtil {
+	static SEARCH_RESULTS_CAP = 75;
+	static TYPE_TIMEOUT_MS = 100; // auto-search after 100ms
+	static TYPE_TIMEOUT_LAZY_MS = 1500;
+
+	static getBtnClassName (btnType) {
+		if (!btnType) return "ve-btn-primary";
+		switch (btnType) {
+			case "default": return "ve-btn-default";
+			case "primary": return "ve-btn-primary";
+			case "success": return "ve-btn-success";
+			case "info": return "ve-btn-info";
+			case "warning": return "ve-btn-warning";
+			case "danger": return "ve-btn-danger";
+			case "link": return "ve-btn-link";
+			default: throw new Error(`Unhandled button type "${btnType}"!`);
+		}
+	}
+
 	/**
 	 * @param string String to parse.
 	 * @param [fallbackEmpty] Fallback number if string is empty.
@@ -62081,6 +62917,14 @@ class UiUtil {
 	 * @param [opts.fallbackOnNaN] Return value if not a number.
 	 */
 	static strToNumber (string, fallbackEmpty = 0, opts) { return UiUtil._strToNumber(string, fallbackEmpty, opts, false); }
+
+	static _parseStrAsNumber (str, isInt) {
+		const wrpTree = Renderer.dice.lang.getTree3(str);
+		if (!wrpTree) return NaN;
+		const out = wrpTree.tree.evl({});
+		if (!isNaN(out) && isInt) return Math.round(out);
+		return out;
+	}
 
 	static _strToNumber (string, fallbackEmpty = 0, opts, isInt) {
 		opts = opts || {};
@@ -62110,6 +62954,20 @@ class UiUtil {
 		string = string.trim().toLowerCase();
 		if (!string) return fallbackEmpty;
 		return string === "true" ? true : string === "false" ? false : opts.fallbackOnNaB;
+	}
+
+	static strToCr (string) {
+		string = string
+			.trim()
+			.replace(/[^0-9/.,]/g, "");
+		if (Parser.isValidCr(string)) return string;
+
+		if (isNaN(string)) return null;
+
+		const asFrac = Parser.numberToFractional(Number(string));
+		if (Parser.isValidCr(asFrac)) return asFrac;
+
+		return null;
 	}
 
 	static intToBonus (int, {isPretty = false} = {}) { return `${int >= 0 ? "+" : int < 0 ? (isPretty ? "\u2212" : "-") : ""}${Math.abs(int)}`; }
@@ -62159,6 +63017,11 @@ class UiUtil {
 		}
 	}
 
+	/* -------------------------------------------- */
+
+	static _MODAL_STACK = null;
+	static _MODAL_LAST_MOUSEDOWN = null;
+
 	/**
 	 * @param {Object} [opts] Options object.
 	 *
@@ -62194,8 +63057,10 @@ class UiUtil {
 
 		const doc = (opts.window || window).document;
 
+		/* eslint-disable vet-jquery/jquery */
 		if (opts.$titleSplit && opts.eleTitleSplit) throw new Error(`Only one of "$titleSplit" and "eleTitleSplit" may be specified!`);
-		const eleTitleSplit = opts.eleTitleSplit || opts.$titleSplit?.[0];
+		const eleTitleSplit = opts.eleTitleSplit || (opts.$titleSplit ? e_({ele: opts.$titleSplit?.[0]}) : undefined);
+		/* eslint-enable vet-jquery/jquery */
 
 		UiUtil._initModalEscapeHandler({doc});
 		UiUtil._initModalMouseupHandlers({doc});
@@ -62219,15 +63084,15 @@ class UiUtil {
 
 		const doTeardown = () => {
 			UiUtil._popFromModalStack(modalStackMeta);
-			if (!UiUtil._MODAL_STACK.length) doc.body.classList.remove(`ui-modal__body-active`);
+			if (!UiUtil._MODAL_STACK.length) doc.body.classList.remove(`ve-ui-modal__body-active`);
 		};
 
 		const doOpen = () => {
 			wrpOverlay.appendTo(doc.body);
-			doc.body.classList.add(`ui-modal__body-active`);
+			doc.body.classList.add(`ve-ui-modal__body-active`);
 		};
 
-		const wrpOverlay = e_({tag: "div", clazz: "ui-modal__overlay"});
+		const wrpOverlay = e_({tag: "div", clazz: "ve-ui-modal__overlay"});
 		if (opts.zIndex != null) wrpOverlay.style.zIndex = `${opts.zIndex}`;
 		if (opts.overlayColor != null) wrpOverlay.style.backgroundColor = `${opts.overlayColor}`;
 
@@ -62235,54 +63100,54 @@ class UiUtil {
 		const overlayBlind = opts.isFullscreenModal
 			? e_({
 				tag: "div",
-				clazz: `ui-modal__overlay-blind w-100 h-100 ve-flex-col`,
+				clazz: `ve-ui-modal__overlay-blind ve-w-100 ve-h-100 ve-flex-col`,
 			}).appendTo(wrpOverlay)
 			: null;
 
 		const wrpScroller = e_({
 			tag: "div",
-			clazz: `ui-modal__scroller ve-flex-col`,
+			clazz: `ve-ui-modal__scroller ve-flex-col`,
 		});
 
 		const modalWindowClasses = [
-			opts.isWidth100 ? `w-100` : "",
-			opts.isHeight100 ? "h-100" : "",
-			opts.isUncappedHeight ? "ui-modal__inner--uncap-height" : "",
-			opts.isUncappedWidth ? "ui-modal__inner--uncap-width" : "",
-			opts.isMinHeight0 ? `ui-modal__inner--no-min-height` : "",
-			opts.isMinWidth0 ? `ui-modal__inner--no-min-width` : "",
-			opts.isMaxWidth640p ? `ui-modal__inner--max-width-640p` : "",
-			opts.isFullscreenModal ? `ui-modal__inner--mode-fullscreen my-0 pt-0` : "",
-			opts.hasFooter ? `pb-0` : "",
+			opts.isWidth100 ? `ve-w-100` : "",
+			opts.isHeight100 ? "ve-h-100" : "",
+			opts.isUncappedHeight ? "ve-ui-modal__inner--uncap-height" : "",
+			opts.isUncappedWidth ? "ve-ui-modal__inner--uncap-width" : "",
+			opts.isMinHeight0 ? `ve-ui-modal__inner--no-min-height` : "",
+			opts.isMinWidth0 ? `ve-ui-modal__inner--no-min-width` : "",
+			opts.isMaxWidth640p ? `ve-ui-modal__inner--max-width-640p` : "",
+			opts.isFullscreenModal ? `ve-ui-modal__inner--mode-fullscreen ve-my-0 ve-pt-0` : "",
+			opts.hasFooter ? `ve-pb-0` : "",
 		].filter(Boolean);
 
 		const btnCloseModal = opts.isFullscreenModal ? e_({
 			tag: "button",
 			clazz: `ve-btn ve-btn-danger ve-btn-xs`,
-			html: `<span class="glyphicon glyphicon-remove></span>`,
+			html: `<span class="glyphicon glyphicon-remove"></span>`,
 			click: pHandleCloseClick(false),
 		}) : null;
 
 		const modalFooter = opts.hasFooter
 			? e_({
 				tag: "div",
-				clazz: `no-shrink w-100 ve-flex-col ui-modal__footer ${opts.isFullscreenModal ? `ui-modal__footer--fullscreen mt-1` : "mt-auto"}`,
+				clazz: `ve-no-shrink ve-w-100 ve-flex-col ve-ui-modal__footer ${opts.isFullscreenModal ? `ve-ui-modal__footer--fullscreen ve-mt-1` : "ve-mt-auto"}`,
 			})
 			: null;
 
 		const modal = e_({
 			tag: "div",
-			clazz: `ui-modal__inner ve-flex-col ${modalWindowClasses.join(" ")}`,
+			clazz: `ve-ui-modal__inner ve-flex-col ${modalWindowClasses.join(" ")}`,
 			children: [
 				!opts.isEmpty && opts.title
 					? e_({
 						tag: "div",
-						clazz: `split-v-center no-shrink ${opts.isHeaderBorder ? `ui-modal__header--border` : ""} ${opts.isFullscreenModal ? `ui-modal__header--fullscreen mb-1` : ""}`,
+						clazz: `ve-split-v-center ve-no-shrink ${opts.isHeaderBorder ? `ve-ui-modal__header--border` : ""} ${opts.isFullscreenModal ? `ve-ui-modal__header--fullscreen ve-mb-1` : ""}`,
 						children: [
 							opts.title
 								? e_({
 									tag: `h${opts.headerType || 4}`,
-									clazz: `my-2`,
+									clazz: `ve-my-2`,
 									html: opts.title.qq(),
 								})
 								: null,
@@ -62320,9 +63185,6 @@ class UiUtil {
 		if (!opts.isClosed) UiUtil._pushToModalStack(modalStackMeta);
 
 		const out = {
-			$modal: $(modal),
-			$modalInner: $(wrpScroller),
-			$modalFooter: $(modalFooter),
 			eleModal: modal,
 			eleModalInner: wrpScroller,
 			eleModalFooter: modalFooter,
@@ -62330,6 +63192,14 @@ class UiUtil {
 			doTeardown,
 			pGetResolved: () => pResolveModal,
 		};
+
+		/* eslint-disable vet-jquery/jquery */
+		if (globalThis.jQuery) {
+			out.$modal = globalThis.jQuery(modal);
+			out.$modalInner = globalThis.jQuery(wrpScroller);
+			out.$modalFooter = globalThis.jQuery(modalFooter);
+		}
+		/* eslint-enable vet-jquery/jquery */
 
 		if (opts.isIndestructible || opts.isClosed) {
 			out.doOpen = () => {
@@ -62385,68 +63255,67 @@ class UiUtil {
 		return !!UiUtil._MODAL_STACK?.length;
 	}
 
-	static addModalSep ($modalInner) {
-		$modalInner.append(`<hr class="hr-2">`);
+	static addModalSep (eleModalInner) {
+		eleModalInner.appends(`<hr class="ve-hr-2">`);
 	}
 
-	static $getAddModalRow ($modalInner, tag = "div") {
-		return $(`<${tag} class="ui-modal__row"></${tag}>`).appendTo($modalInner);
+	static getAddModalRow (eleModalInner, tag = "div") {
+		return ee`<${tag} class="ve-ui-modal__row"></${tag}>`.appendTo(eleModalInner);
 	}
 
 	/**
-	 * @param $modalInner Element this row should be added to.
+	 * @param eleModalInner Element this row should be added to.
 	 * @param headerText Header text.
 	 * @param [opts] Options object.
 	 * @param [opts.helpText] Help text (title) of select dropdown.
-	 * @param [opts.$eleRhs] Element to attach to the right-hand side of the header.
+	 * @param [opts.eleRhs] Element to attach to the right-hand side of the header.
 	 */
-	static $getAddModalRowHeader ($modalInner, headerText, opts) {
+	static getAddModalRowHeader (eleModalInner, headerText, opts) {
 		opts = opts || {};
-		const $row = UiUtil.$getAddModalRow($modalInner, "h5").addClass("bold");
-		if (opts.$eleRhs) $$`<div class="split ve-flex-v-center w-100 pr-1"><span>${headerText}</span>${opts.$eleRhs}</div>`.appendTo($row);
-		else $row.text(headerText);
-		if (opts.helpText) $row.title(opts.helpText);
-		return $row;
+		const row = UiUtil.getAddModalRow(eleModalInner, "h5").addClass("ve-bold");
+		if (opts.eleRhs) ee`<div class="ve-split ve-flex-v-center ve-w-100 ve-pr-1"><span>${headerText}</span>${opts.eleRhs}</div>`.appendTo(row);
+		else row.txt(headerText);
+		if (opts.helpText) row.tooltip(opts.helpText);
+		return row;
 	}
 
-	static $getAddModalRowCb ($modalInner, labelText, objectWithProp, propName, helpText) {
-		const $row = UiUtil.$getAddModalRow($modalInner, "label").addClass(`ui-modal__row--cb`);
-		if (helpText) $row.title(helpText);
-		$row.append(`<span>${labelText}</span>`);
-		const $cb = $(`<input type="checkbox">`).appendTo($row)
-			.keydown(evt => {
-				if (evt.key === "Escape") $cb.blur();
+	static getAddModalRowCb (eleModalInner, labelText, objectWithProp, propName, helpText) {
+		const row = UiUtil.getAddModalRow(eleModalInner, "label").addClass(`ve-ui-modal__row--cb`);
+		if (helpText) row.tooltip(helpText);
+		row.appends(`<span>${labelText}</span>`);
+		const cb = ee`<input type="checkbox">`.appendTo(row)
+			.onn("keydown", evt => {
+				if (evt.key === "Escape") cb.blure();
 			})
-			.prop("checked", objectWithProp[propName])
-			.on("change", () => objectWithProp[propName] = $cb.prop("checked"));
-		return $cb;
+			.prop("checked", !!objectWithProp[propName])
+			.onn("change", () => objectWithProp[propName] = cb.prop("checked"));
+		return cb;
 	}
 
 	/**
 	 *
-	 * @param $wrp
+	 * @param wrp
 	 * @param comp
 	 * @param prop
 	 * @param text
 	 * @param {?string} title
-	 * @return {jQuery}
+	 * @return {HTMLElementExtended}
 	 */
-	static $getAddModalRowCb2 ({$wrp, comp, prop, text, title = null }) {
-		const $cb = ComponentUiUtil.$getCbBool(comp, prop);
+	static getAddModalRowCb2 ({wrp, comp, prop, text, title = null }) {
+		const cb = ComponentUiUtil.getCbBool(comp, prop);
 
-		const $row = $$`<label class="split-v-center py-1 veapp__ele-hoverable">
+		const row = ee`<label class="ve-split-v-center ve-py-1 veapp__ele-hoverable">
 			<span>${text}</span>
-			${$cb}
+			${cb}
 		</label>`
-			.appendTo($wrp);
-		if (title) $row.title(title);
+			.appendTo(wrp);
+		if (title) row.tooltip(title);
 
-		return $cb;
+		return cb;
 	}
 
 	/**
-	 *
-	 * @param $modalInner Element this row should be added to.
+	 * @param eleModalInner Element this row should be added to.
 	 * @param labelText Row label.
 	 * @param objectWithProp Object to mutate when changing select values.
 	 * @param propName Property to set in `objectWithProp`.
@@ -62455,62 +63324,65 @@ class UiUtil {
 	 * @param [opts.helpText] Help text (title) of select dropdown.
 	 * @param [opts.fnDisplay] Function used to map values to displayable versions.
 	 */
-	static $getAddModalRowSel ($modalInner, labelText, objectWithProp, propName, values, opts) {
+	static getAddModalRowSel (eleModalInner, labelText, objectWithProp, propName, values, opts) {
 		opts = opts || {};
-		const $row = UiUtil.$getAddModalRow($modalInner, "label").addClass(`ui-modal__row--sel`);
-		if (opts.helpText) $row.title(opts.helpText);
-		$row.append(`<span>${labelText}</span>`);
-		const $sel = $(`<select class="form-control input-xs w-30">`).appendTo($row);
-		values.forEach((val, i) => $(`<option value="${i}"></option>`).text(opts.fnDisplay ? opts.fnDisplay(val) : val).appendTo($sel));
+		const row = UiUtil.getAddModalRow(eleModalInner, "label").addClass(`ve-ui-modal__row--sel`);
+		if (opts.helpText) row.tooltip(opts.helpText);
+		row.appends(`<span>${labelText}</span>`);
+		const sel = ee`<select class="ve-form-control ve-input-xs ve-w-30">`.appendTo(row);
+		values.forEach((val, i) => ee`<option value="${i}"></option>`.txt(opts.fnDisplay ? opts.fnDisplay(val) : val).appendTo(sel));
 		// N.B. this doesn't support null values
 		const ix = values.indexOf(objectWithProp[propName]);
-		$sel.val(`${~ix ? ix : 0}`)
-			.change(() => objectWithProp[propName] = values[$sel.val()]);
-		return $sel;
+		sel.val(`${~ix ? ix : 0}`)
+			.onn("change", () => objectWithProp[propName] = values[sel.val()]);
+		return sel;
 	}
 
-	static _parseStrAsNumber (str, isInt) {
-		const wrpTree = Renderer.dice.lang.getTree3(str);
-		if (!wrpTree) return NaN;
-		const out = wrpTree.tree.evl({});
-		if (!isNaN(out) && isInt) return Math.round(out);
-		return out;
-	}
+	/* -------------------------------------------- */
 
+	// eslint-disable-next-line vet-jquery/jquery
 	static bindTypingEnd ({ipt, $ipt, fnKeyup, fnKeypress, fnKeydown, fnClick, timeout} = {}) {
+		// eslint-disable-next-line vet-jquery/jquery
 		if (!ipt && !$ipt?.length) throw new Error(`"ipt" or "$ipt" must be provided!`);
 
-		$ipt = $ipt || $(ipt);
+		// eslint-disable-next-line vet-jquery/jquery
+		ipt ||= e_({ele: $ipt[0]});
+
+		const onInput = evt => {
+			clearTimeout(timerTyping);
+			if (evt.key === "Enter") return fnKeyup(evt);
+			timerTyping = setTimeout(() => { fnKeyup(evt); }, timeout ?? UiUtil.TYPE_TIMEOUT_MS);
+		};
 
 		let timerTyping;
-		$ipt
-			.on("keyup search paste", evt => {
-				clearTimeout(timerTyping);
-				if (evt.key === "Enter") return fnKeyup(evt);
-				timerTyping = setTimeout(() => { fnKeyup(evt); }, timeout ?? UiUtil.TYPE_TIMEOUT_MS);
-			})
+		ipt
+			.onn("keyup", evt => onInput(evt))
+			.onn("search", evt => onInput(evt))
+			.onn("paste", evt => onInput(evt))
 			// Trigger on blur, as tabbing out of a field triggers the keyup on the element which was tabbed into. Our
 			//   intent. however, is to trigger on any keyup which began in this field.
-			.on("blur", evt => {
+			.onn("blur", evt => {
 				clearTimeout(timerTyping);
 				fnKeyup(evt);
 			})
-			.on("keypress", evt => {
+			.onn("keypress", evt => {
 				if (fnKeypress) fnKeypress(evt);
 			})
-			.on("keydown", evt => {
+			.onn("keydown", evt => {
 				if (fnKeydown) fnKeydown(evt);
 				clearTimeout(timerTyping);
 			})
-			.on("click", () => {
+			.onn("click", () => {
 				if (fnClick) fnClick();
 			})
-			.on("instantKeyup", () => {
+			.onn("instantKeyup", () => {
 				clearTimeout(timerTyping);
 				fnKeyup();
 			})
 		;
 	}
+
+	/* -------------------------------------------- */
 
 	/** Brute-force select the input, in case something has delayed the rendering (e.g. a VTT application window) */
 	static async pDoForceFocus (ele, {timeout = 250} = {}) {
@@ -62523,12 +63395,60 @@ class UiUtil {
 			ele.focus();
 		}
 	}
+
+	/* -------------------------------------------- */
+
+	static getEleDragVerticalResize (
+		{
+			wrpContainer,
+			heightPxSaved,
+			fnSetHeightPxSaved,
+		},
+	) {
+		const eleResize = ee`<div class="ve-ui-resize__ele-resize ve-touch-action-none ve-absolute ve-w-100">...</div>`;
+
+		let mouseDownPosY;
+		let deltaY;
+		const resize = (evt) => {
+			evt.preventDefault();
+			evt.stopPropagation();
+
+			const dy = EventUtil.getClientY(evt) - mouseDownPosY + deltaY;
+
+			wrpContainer.style.height = `${dy}px`;
+		};
+
+		eleResize
+			.onn("mousedown", (evt) => {
+				if (evt.button !== 0) return;
+
+				evt.preventDefault();
+
+				mouseDownPosY = EventUtil.getClientY(evt);
+				deltaY = mouseDownPosY - wrpContainer.getBoundingClientRect().top + eleResize.getBoundingClientRect().height;
+
+				document.removeEventListener("mousemove", resize);
+				document.addEventListener("mousemove", resize);
+			});
+
+		document.addEventListener("mouseup", evt => {
+			if (evt.button !== 0) return;
+			if (mouseDownPosY == null) return;
+
+			document.removeEventListener("mousemove", resize);
+			mouseDownPosY = null;
+
+			const height = wrpContainer.getBoundingClientRect().height;
+			if (!height) return;
+
+			fnSetHeightPxSaved(Math.round(height));
+		});
+
+		if (heightPxSaved) wrpContainer.style.height = `${heightPxSaved}px`;
+
+		return eleResize;
+	}
 }
-UiUtil.SEARCH_RESULTS_CAP = 75;
-UiUtil.TYPE_TIMEOUT_MS = 100; // auto-search after 100ms
-UiUtil.TYPE_TIMEOUT_LAZY_MS = 1500;
-UiUtil._MODAL_STACK = null;
-UiUtil._MODAL_LAST_MOUSEDOWN = null;
 
 class ListSelectClickHandlerBase {
 	static _EVT_PASS_THOUGH_TAGS = new Set(["A", "BUTTON", "INPUT", "TEXTAREA"]);
@@ -62695,8 +63615,12 @@ class ListSelectClickHandlerBase {
 		});
 	}
 
-	bindSelectAllCheckbox ($_cbAll) {
-		const cbAll = $_cbAll instanceof jQuery ? $_cbAll[0] : $_cbAll;
+	bindSelectAllCheckbox (cbAll) {
+		// eslint-disable-next-line vet-jquery/jquery
+		if (globalThis.jQuery && cbAll instanceof globalThis.jQuery) {
+			if (!cbAll.length) return;
+			cbAll = e_({ele: cbAll[0]});
+		}
 		if (!cbAll) return;
 		cbAll
 			.addEventListener("change", () => {
@@ -62742,8 +63666,13 @@ class ListSelectClickHandler extends ListSelectClickHandlerBase {
 	}
 
 	_setHighlighted (item, {toVal = false} = {}) {
-		if (toVal) item.ele instanceof $ ? item.ele.addClass("list-multi-selected") : item.ele.classList.add("list-multi-selected");
-		else item.ele instanceof $ ? item.ele.removeClass("list-multi-selected") : item.ele.classList.remove("list-multi-selected");
+		// eslint-disable-next-line vet-jquery/jquery
+		const eleTgt = globalThis.jQuery && item.ele instanceof globalThis.jQuery
+			? item.ele[0]
+			: item.ele;
+
+		if (toVal) eleTgt.classList.add("list-multi-selected");
+		else eleTgt.classList.remove("list-multi-selected");
 	}
 
 	/* -------------------------------------------- */
@@ -62760,6 +63689,11 @@ class ListSelectClickHandler extends ListSelectClickHandlerBase {
 globalThis.ListSelectClickHandler = ListSelectClickHandler;
 
 class RenderableCollectionSelectClickHandler extends ListSelectClickHandlerBase {
+	/**
+	 * @param {BaseComponent} comp
+	 * @param {string} prop
+	 * @param {?string} namespace
+	 */
 	constructor ({comp, prop, namespace = null}) {
 		super();
 		this._comp = comp;
@@ -62776,7 +63710,7 @@ class RenderableCollectionSelectClickHandler extends ListSelectClickHandlerBase 
 	}
 
 	_setHighlighted (item, {toVal = false} = {}) {
-		item.$wrpRow.toggleClass("list-multi-selected", toVal);
+		item.wrpRow.toggleClass("list-multi-selected", toVal);
 	}
 
 	get _allItems () {
@@ -62788,111 +63722,19 @@ class RenderableCollectionSelectClickHandler extends ListSelectClickHandlerBase 
 	get _visibleItems () {
 		return this._allItems;
 	}
+
+	/* -------------------------------------------- */
+
+	getSelectedIds () {
+		return Object.entries(this._comp._getRenderedCollection({prop: this._prop, namespace: this._namespace}))
+			.filter(([, rendered]) => rendered.cbSel.checked)
+			.map(([id]) => id);
+	}
 }
 
 globalThis.RenderableCollectionSelectClickHandler = RenderableCollectionSelectClickHandler;
 
 class ListUiUtil {
-	static bindPreviewButton (page, allData, item, btnShowHidePreview, {$fnGetPreviewStats} = {}) {
-		btnShowHidePreview.addEventListener("click", evt => {
-			const entity = allData[item.ix];
-			page = page || entity?.__prop;
-
-			const elePreviewWrp = this.getOrAddListItemPreviewLazy(item);
-
-			this.handleClickBtnShowHideListPreview(evt, page, entity, btnShowHidePreview, elePreviewWrp, {$fnGetPreviewStats});
-		});
-	}
-
-	static handleClickBtnShowHideListPreview (evt, page, entity, btnShowHidePreview, elePreviewWrp, {nxtText = null, $fnGetPreviewStats} = {}) {
-		evt.stopPropagation();
-		evt.preventDefault();
-
-		nxtText = nxtText ?? btnShowHidePreview.innerHTML.trim() === this.HTML_GLYPHICON_EXPAND ? this.HTML_GLYPHICON_CONTRACT : this.HTML_GLYPHICON_EXPAND;
-		const isHidden = nxtText === this.HTML_GLYPHICON_EXPAND;
-		const isFluff = !!evt.shiftKey;
-
-		elePreviewWrp.classList.toggle("ve-hidden", isHidden);
-		btnShowHidePreview.innerHTML = nxtText;
-
-		const elePreviewWrpInner = elePreviewWrp.lastElementChild;
-
-		const isForce = (elePreviewWrp.dataset.dataType === "stats" && isFluff) || (elePreviewWrp.dataset.dataType === "fluff" && !isFluff);
-		if (!isForce && elePreviewWrpInner.innerHTML) return;
-
-		$(elePreviewWrpInner).empty().off("click").on("click", evt => { evt.stopPropagation(); });
-
-		if (isHidden) return;
-
-		elePreviewWrp.dataset.dataType = isFluff ? "fluff" : "stats";
-
-		const doAppendStatView = () => ($fnGetPreviewStats || Renderer.hover.$getHoverContent_stats)(page, entity, {isStatic: true}).appendTo(elePreviewWrpInner);
-
-		if (!evt.shiftKey || !UrlUtil.URL_TO_HASH_BUILDER[page]) {
-			doAppendStatView();
-			return;
-		}
-
-		Renderer.utils.pGetProxyFluff({entity})
-			.then(fluffEntity => {
-				// Avoid clobbering existing elements, as other events might have updated the preview area while we were
-				//  loading the fluff.
-				if (elePreviewWrpInner.innerHTML) return;
-
-				if (!fluffEntity) return doAppendStatView();
-				Renderer.hover.$getHoverContent_fluff(page, fluffEntity).appendTo(elePreviewWrpInner);
-			});
-	}
-
-	static getOrAddListItemPreviewLazy (item) {
-		// We lazily add the preview UI, to mitigate rendering performance issues
-		let elePreviewWrp;
-		if (item.ele.children.length === 1) {
-			elePreviewWrp = e_({
-				tag: "div",
-				clazz: "ve-hidden ve-flex",
-				children: [
-					e_({tag: "div", clazz: "ve-col-0-5"}),
-					e_({tag: "div", clazz: "ve-col-11-5 ui-list__wrp-preview py-2 pr-2"}),
-				],
-			}).appendTo(item.ele);
-		} else elePreviewWrp = item.ele.lastElementChild;
-		return elePreviewWrp;
-	}
-
-	static bindPreviewAllButton ($btnAll, list) {
-		const btnAll = $btnAll?.[0];
-		if (!btnAll) return;
-
-		btnAll
-			.addEventListener("click", async () => {
-				const nxtHtml = btnAll.innerHTML === ListUiUtil.HTML_GLYPHICON_EXPAND
-					? ListUiUtil.HTML_GLYPHICON_CONTRACT
-					: ListUiUtil.HTML_GLYPHICON_EXPAND;
-
-				if (nxtHtml === ListUiUtil.HTML_GLYPHICON_CONTRACT && list.visibleItems.length > 500) {
-					const isSure = await InputUiUtil.pGetUserBoolean({
-						title: "Are You Sure?",
-						htmlDescription: `You are about to expand ${list.visibleItems.length} rows. This may seriously degrade performance.<br>Are you sure you want to continue?`,
-					});
-					if (!isSure) return;
-				}
-
-				btnAll.innerHTML = nxtHtml;
-
-				list.visibleItems.forEach(listItem => {
-					if (listItem.data.btnShowHidePreview.innerHTML !== nxtHtml) listItem.data.btnShowHidePreview.click();
-				});
-			});
-
-		list.on("updated", () => {
-			const isShowExpand = list.visibleItems.every(listItem => listItem.data.btnShowHidePreview.innerHTML === ListUiUtil.HTML_GLYPHICON_EXPAND);
-			btnAll.innerHTML = isShowExpand ? ListUiUtil.HTML_GLYPHICON_EXPAND : ListUiUtil.HTML_GLYPHICON_CONTRACT;
-		});
-	}
-
-	// ==================
-
 	static ListSyntax = class {
 		static _READONLY_WALKER = null;
 
@@ -62910,22 +63752,24 @@ class ListUiUtil {
 
 		build () {
 			return {
+				reCommand: /^(?<command>name|stats|info|text)/,
+
 				name: {
-					help: `"name:<query>" ("/query/" for regex; "!query" and "!/query/" to invert) to search by name.`,
+					help: `\`name:"query"\` (/query/ for regex; \`name:! ...\` to invert) to search by name.`,
 					fn: (listItem, searchTerm) => {
 						if (listItem.data._textCacheName == null) listItem.data._textCacheName = listItem.name.toLowerCase().trim();
 						return this._listSyntax_isTextMatch(listItem.data._textCacheName, searchTerm);
 					},
 				},
 				stats: {
-					help: `"stats:<query>" ("/query/" for regex; "!query" and "!/query/" to invert) to search within stat blocks.`,
+					help: `\`stats:"query"\` (/query/ for regex; \`stats:! ...\` to invert) to search within stat blocks.`,
 					fn: (listItem, searchTerm) => {
 						if (listItem.data._textCacheStats == null) listItem.data._textCacheStats = this._getSearchCacheStats(this._dataList[listItem.ix]);
 						return this._listSyntax_isTextMatch(listItem.data._textCacheStats, searchTerm);
 					},
 				},
 				info: {
-					help: `"info:<query>" ("/query/" for regex; "!query" and "!/query/" to invert) to search within info.`,
+					help: `\`info:"query" (/query/ for regex; \`info:! ...\` to invert) to search within info.`,
 					fn: async (listItem, searchTerm) => {
 						if (listItem.data._textCacheFluff == null) listItem.data._textCacheFluff = await this._pGetSearchCacheFluff(this._dataList[listItem.ix]);
 						return this._listSyntax_isTextMatch(listItem.data._textCacheFluff, searchTerm);
@@ -62933,7 +63777,7 @@ class ListUiUtil {
 					isAsync: true,
 				},
 				text: {
-					help: `"text:<query>" ("/query/" for regex; "!query" and "!/query/" to invert) to search within stat blocks plus info.`,
+					help: `\`text:"query" (/query/ for regex; \`text:! ...\` to invert) to search within stat blocks plus info.`,
 					fn: async (listItem, searchTerm) => {
 						if (listItem.data._textCacheAll == null) {
 							const {textCacheStats, textCacheFluff, textCacheAll} = await this._pGetSearchCacheAll(this._dataList[listItem.ix], {textCacheStats: listItem.data._textCacheStats, textCacheFluff: listItem.data._textCacheFluff});
@@ -63019,12 +63863,184 @@ class ListUiUtil {
 
 	// ==================
 }
-ListUiUtil.HTML_GLYPHICON_EXPAND = `[+]`;
-ListUiUtil.HTML_GLYPHICON_CONTRACT = `[\u2212]`;
 
 globalThis.ListUiUtil = ListUiUtil;
 
+/**
+ * @abstract
+ */
+class ListUiPreviewButtonHandlerBase {
+	static HTML_GLYPHICON_EXPAND = `[+]`;
+	static HTML_GLYPHICON_CONTRACT = `[\u2212]`;
+
+	/* -------------------------------------------- */
+
+	_hasAltMode = false;
+
+	/* -------------------------------------------- */
+
+	bindPreviewButton ({entity, listItem, btnShowHidePreview}) {
+		btnShowHidePreview
+			.addEventListener("click", evt => {
+				evt.stopPropagation();
+				evt.preventDefault();
+
+				const elePreviewWrp = this._getOrAddListItemPreviewLazy({listItem});
+
+				this._handleClickBtnShowHideListPreview({evt, entity, btnShowHidePreview, elePreviewWrp});
+			});
+	}
+
+	_getOrAddListItemPreviewLazy ({listItem}) {
+		// We lazily add the preview UI, to mitigate rendering performance issues
+		if (listItem.ele.children.length === 1) {
+			return e_({
+				tag: "div",
+				clazz: "ve-hidden ve-flex",
+				children: [
+					e_({tag: "div", clazz: "ve-col-0-5"}),
+					e_({tag: "div", clazz: "ve-col-11-5 ve-ui-list__wrp-preview ve-py-2 ve-pr-2"}),
+				],
+			})
+				.appendTo(listItem.ele);
+		}
+
+		return listItem.ele.lastElementChild;
+	}
+
+	_handleClickBtnShowHideListPreview ({evt, entity, btnShowHidePreview, elePreviewWrp}) {
+		const nxtText = btnShowHidePreview.innerHTML.trim() === this.constructor.HTML_GLYPHICON_EXPAND
+			? this.constructor.HTML_GLYPHICON_CONTRACT
+			: this.constructor.HTML_GLYPHICON_EXPAND;
+		const isHidden = nxtText === this.constructor.HTML_GLYPHICON_EXPAND;
+		const isAltMode = this._hasAltMode && !!evt.shiftKey;
+
+		elePreviewWrp.classList.toggle("ve-hidden", isHidden);
+		btnShowHidePreview.innerHTML = nxtText;
+
+		const elePreviewWrpInner = elePreviewWrp.lastElementChild;
+
+		const isForce = (elePreviewWrp.dataset.dataType === "primary" && isAltMode) || (elePreviewWrp.dataset.dataType === "secondary" && !isAltMode);
+		if (!isForce && elePreviewWrpInner.innerHTML) return;
+
+		elePreviewWrpInner
+			.empty()
+			.off("click")
+			.onn("click", evt => {
+				evt.stopPropagation();
+			});
+
+		if (isHidden) return;
+
+		elePreviewWrp.dataset.dataType = isAltMode ? "secondary" : "primary";
+
+		if (!isAltMode) return this._doAppendPrimaryView({entity, elePreviewWrpInner});
+		return this._doAppendSecondaryView({entity, elePreviewWrpInner});
+	}
+
+	/* ----- */
+
+	/**
+	 * @abstract
+	 * @return {void}
+	 */
+	_doAppendPrimaryView ({entity, elePreviewWrpInner}) {
+		throw new Error(`Unimplemented!`);
+	}
+
+	/**
+	 * @abstract
+	 * @return {void}
+	 */
+	_doAppendSecondaryView ({entity, elePreviewWrpInner}) {
+		throw new Error(`Unimplemented!`);
+	}
+
+	/* -------------------------------------------- */
+
+	bindPreviewAllButton ({btnAll, list}) {
+		if (!btnAll) return;
+
+		btnAll
+			.addEventListener("click", async () => {
+				const nxtHtml = btnAll.innerHTML === this.constructor.HTML_GLYPHICON_EXPAND
+					? this.constructor.HTML_GLYPHICON_CONTRACT
+					: this.constructor.HTML_GLYPHICON_EXPAND;
+
+				if (nxtHtml === this.constructor.HTML_GLYPHICON_CONTRACT && list.visibleItems.length > 500) {
+					const isSure = await InputUiUtil.pGetUserBoolean({
+						title: "Are You Sure?",
+						htmlDescription: `You are about to expand ${list.visibleItems.length} rows. This may seriously degrade performance.<br>Are you sure you want to continue?`,
+					});
+					if (!isSure) return;
+				}
+
+				btnAll.innerHTML = nxtHtml;
+
+				list.visibleItems.forEach(listItem => {
+					if (listItem.data.btnShowHidePreview.innerHTML !== nxtHtml) listItem.data.btnShowHidePreview.click();
+				});
+			});
+
+		list.on("updated", () => {
+			const isShowExpand = list.visibleItems.every(listItem => listItem.data.btnShowHidePreview.innerHTML === this.constructor.HTML_GLYPHICON_EXPAND);
+			btnAll.innerHTML = isShowExpand ? this.constructor.HTML_GLYPHICON_EXPAND : this.constructor.HTML_GLYPHICON_CONTRACT;
+		});
+	}
+}
+
+globalThis.ListUiPreviewButtonHandlerBase = ListUiPreviewButtonHandlerBase;
+
+class ListUiPreviewButtonHandlerStatsFluff extends ListUiPreviewButtonHandlerBase {
+	_hasAltMode = true;
+
+	constructor ({page}) {
+		super();
+		this._page = page;
+	}
+
+	_doAppendPrimaryView ({entity, elePreviewWrpInner}) {
+		Renderer.hover.getHoverContent_stats(this._page, entity, {isStatic: true})
+			.appendTo(elePreviewWrpInner);
+	}
+
+	_doAppendSecondaryView ({entity, elePreviewWrpInner}) {
+		if (!UrlUtil.URL_TO_HASH_BUILDER[this._page]) return this._doAppendPrimaryView({entity, elePreviewWrpInner});
+
+		Renderer.utils.pGetProxyFluff({entity})
+			.then(fluffEntity => {
+				// Avoid clobbering existing elements, as other events might have updated the preview area while we were
+				//  loading the fluff.
+				if (elePreviewWrpInner.innerHTML) return;
+
+				if (!fluffEntity) return this._doAppendPrimaryView({entity, elePreviewWrpInner});
+				Renderer.hover.getHoverContent_fluff(this._page, fluffEntity).appendTo(elePreviewWrpInner);
+			});
+	}
+}
+
+globalThis.ListUiPreviewButtonHandlerStatsFluff = ListUiPreviewButtonHandlerStatsFluff;
+
 class ProfUiUtil {
+	static _PROF_TO_FULL = {
+		"0": {
+			name: "No proficiency",
+			mult: 0,
+		},
+		"1": {
+			name: "Proficiency",
+			mult: 1,
+		},
+		"2": {
+			name: "Expertise",
+			mult: 2,
+		},
+		"3": {
+			name: "Half proficiency",
+			mult: 0.5,
+		},
+	};
+
 	/**
 	 * @param state Initial state.
 	 * @param [opts] Options object.
@@ -63033,7 +64049,7 @@ class ProfUiUtil {
 	static getProfCycler (state = 0, opts) {
 		opts = opts || {};
 
-		const STATES = opts.isSimple ? Object.keys(ProfUiUtil.PROF_TO_FULL).slice(0, 2) : Object.keys(ProfUiUtil.PROF_TO_FULL);
+		const STATES = opts.isSimple ? Object.keys(this._PROF_TO_FULL).slice(0, 2) : Object.keys(this._PROF_TO_FULL);
 
 		const NUM_STATES = Object.keys(STATES).length;
 
@@ -63042,51 +64058,33 @@ class ProfUiUtil {
 		if (state >= NUM_STATES) state = NUM_STATES - 1;
 		else if (state < 0) state = 0;
 
-		const $btnCycle = $(`<button class="ui-prof__btn-cycle"></button>`)
-			.click(() => {
-				$btnCycle
+		const btnCycle = ee`<button class="ve-ui-prof__btn-cycle"></button>`
+			.onn("click", () => {
+				btnCycle
 					.attr("data-state", ++state >= NUM_STATES ? state = 0 : state)
-					.title(ProfUiUtil.PROF_TO_FULL[state].name)
+					.tooltip(this._PROF_TO_FULL[state].name)
 					.trigger("change");
 			})
-			.contextmenu(evt => {
+			.onn("contextmenu", evt => {
 				evt.preventDefault();
-				$btnCycle
+				btnCycle
 					.attr("data-state", --state < 0 ? state = NUM_STATES - 1 : state)
-					.title(ProfUiUtil.PROF_TO_FULL[state].name)
+					.tooltip(this._PROF_TO_FULL[state].name)
 					.trigger("change");
 			});
 		const setState = (nuState) => {
 			state = nuState;
 			if (state > NUM_STATES) state = 0;
 			else if (state < 0) state = NUM_STATES - 1;
-			$btnCycle.attr("data-state", state).title(ProfUiUtil.PROF_TO_FULL[state].name);
+			btnCycle.attr("data-state", state).tooltip(this._PROF_TO_FULL[state].name);
 		};
 		return {
-			$ele: $btnCycle,
+			ele: btnCycle,
 			setState,
 			getState: () => state,
 		};
 	}
 }
-ProfUiUtil.PROF_TO_FULL = {
-	"0": {
-		name: "No proficiency",
-		mult: 0,
-	},
-	"1": {
-		name: "Proficiency",
-		mult: 1,
-	},
-	"2": {
-		name: "Expertise",
-		mult: 2,
-	},
-	"3": {
-		name: "Half proficiency",
-		mult: 0.5,
-	},
-};
 
 class TabUiUtilBase {
 	static decorate (obj, {isInitMeta = false} = {}) {
@@ -63110,7 +64108,6 @@ class TabUiUtilBase {
 		obj._renderTabs = function (
 			tabMetas,
 			{
-				$parent = null,
 				eleParent = null,
 				propProxy = TabUiUtilBase._DEFAULT_PROP_PROXY,
 				tabGroup = TabUiUtilBase._DEFAULT_TAB_GROUP,
@@ -63120,9 +64117,6 @@ class TabUiUtilBase {
 			} = {},
 		) {
 			if (!tabMetas.length) throw new Error(`One or more tab meta must be specified!`);
-			if ($parent && eleParent) throw new Error(`Only one of "$parent" and "eleParent" may be specified!`);
-
-			$parent ||= eleParent ? $(eleParent) : null;
 
 			obj._resetTabs({tabGroup});
 
@@ -63132,10 +64126,10 @@ class TabUiUtilBase {
 
 			this[__propProxy][propActive] = this[__propProxy][propActive] || 0;
 
-			const $dispTabTitle = obj.__$getDispTabTitle({isSingleTab});
+			const dispTabTitle = obj.__getDispTabTitle({isSingleTab});
 
 			const renderTabMetas_standard = (it, i) => {
-				const $btnTab = obj.__$getBtnTab({
+				const btnTab = obj.__getBtnTab({
 					isSingleTab,
 					tabMeta: it,
 					_propProxy,
@@ -63144,15 +64138,20 @@ class TabUiUtilBase {
 					isStacked,
 				});
 
-				const $wrpTab = obj.__$getWrpTab({tabMeta: it, ixTab: i});
+				const wrpTab = obj.__getWrpTab({tabMeta: it, ixTab: i});
 
 				return {
 					...it,
 					ix: i,
-					$btnTab,
-					btnTab: $btnTab?.[0] ? e_($btnTab?.[0]) : null, // No button if `isSingleTab`
-					$wrpTab,
-					wrpTab: e_($wrpTab[0]),
+					btnTab,
+					wrpTab: wrpTab,
+
+					/* eslint-disable vet-jquery/jquery */
+					...globalThis.jQuery ? {
+						$btnTab: globalThis.jQuery(btnTab),
+						$wrpTab: globalThis.jQuery(wrpTab),
+					} : {},
+					/* eslint-enable vet-jquery/jquery */
 				};
 			};
 
@@ -63161,16 +64160,16 @@ class TabUiUtilBase {
 				return renderTabMetas_standard(it, i);
 			}).filter(Boolean);
 
-			if ($parent) obj.__renderTabs_addToParent({$dispTabTitle, $parent, tabMetasOut, additionalClassesWrpHeads, isStacked});
+			if (eleParent) obj.__renderTabs_addToParent({dispTabTitle, eleParent, tabMetasOut, additionalClassesWrpHeads, isStacked});
 
 			const hkActiveTab = () => {
 				tabMetasOut.forEach(it => {
 					if (it.type) return; // For specially typed tabs (e.g. buttons), do nothing
 
 					const isActive = it.ix === this[_propProxy][propActive];
-					if (isActive && $dispTabTitle) $dispTabTitle.text(isSingleTab ? "" : it.name);
-					if (it.$btnTab) it.$btnTab.toggleClass("active", isActive);
-					it.$wrpTab.toggleVe(isActive);
+					if (isActive && dispTabTitle) dispTabTitle.txt(isSingleTab ? "" : it.name);
+					if (it.btnTab) it.btnTab.toggleClass("ve-active", isActive);
+					it.wrpTab.toggleVe(isActive);
 				});
 
 				if (cbTabChange) cbTabChange();
@@ -63217,15 +64216,15 @@ class TabUiUtilBase {
 			);
 		};
 
-		obj.__renderTabs_addToParent = function ({$dispTabTitle, $parent, tabMetasOut, additionalClassesWrpHeads, isStacked}) {
+		obj.__renderTabs_addToParent = function ({dispTabTitle, eleParent, tabMetasOut, additionalClassesWrpHeads, isStacked}) {
 			const hasBorder = tabMetasOut.some(it => it.hasBorder);
-			$$`<div class="ve-flex-col w-100 h-100">
-				${$dispTabTitle}
-				<div class="ve-flex-col w-100 h-100 min-h-0">
-					<div class="ve-flex ${isStacked ? `ve-flex-wrap ui-tab__wrp-tab-heads--stacked` : ""} ${hasBorder ? `ui-tab__wrp-tab-heads--border` : ""} ${additionalClassesWrpHeads || ""}">${tabMetasOut.map(it => it.$btnTab)}</div>
-					<div class="ve-flex w-100 h-100 min-h-0">${tabMetasOut.map(it => it.$wrpTab).filter(Boolean)}</div>
+			ee`<div class="ve-flex-col ve-w-100 ve-h-100">
+				${dispTabTitle}
+				<div class="ve-flex-col ve-w-100 ve-h-100 ve-min-h-0">
+					<div class="ve-flex ${isStacked ? `ve-flex-wrap ve-ui-tab__wrp-tab-heads--stacked` : ""} ${hasBorder ? `ve-ui-tab__wrp-tab-heads--border` : ""} ${additionalClassesWrpHeads || ""}">${tabMetasOut.map(it => it.btnTab)}</div>
+					<div class="ve-flex ve-w-100 ve-h-100 ve-min-h-0">${tabMetasOut.map(it => it.wrpTab).filter(Boolean)}</div>
 				</div>
-			</div>`.appendTo($parent);
+			</div>`.appendTo(eleParent);
 		};
 
 		obj._resetTabs = function ({tabGroup = TabUiUtilBase._DEFAULT_TAB_GROUP} = {}) {
@@ -63287,10 +64286,10 @@ class TabUiUtilBase {
 			obj._setIxActiveTab({propProxy, tabGroup, ixActiveTab: ix});
 		};
 
-		obj.__$getBtnTab = function () { throw new Error("Unimplemented!"); };
-		obj.__$getWrpTab = function () { throw new Error("Unimplemented!"); };
+		obj.__getBtnTab = function () { throw new Error("Unimplemented!"); };
+		obj.__getWrpTab = function () { throw new Error("Unimplemented!"); };
 		obj.__renderTypedTabMeta = function () { throw new Error("Unimplemented!"); };
-		obj.__$getDispTabTitle = function () { throw new Error("Unimplemented!"); };
+		obj.__getDispTabTitle = function () { throw new Error("Unimplemented!"); };
 	}
 }
 TabUiUtilBase._DEFAULT_TAB_GROUP = "_default";
@@ -63310,13 +64309,13 @@ class TabUiUtil extends TabUiUtilBase {
 	static decorate (obj, {isInitMeta = false} = {}) {
 		super.decorate(obj, {isInitMeta});
 
-		obj.__$getBtnTab = function ({tabMeta, _propProxy, propActive, ixTab, isStacked = false}) {
-			return $(`<button class="ve-btn ve-btn-default ui-tab__btn-tab-head ${isStacked ? `ui-tab__btn-tab-head--stacked` : ""} pt-2p px-4p pb-0 ${tabMeta.isHeadHidden ? "ve-hidden" : ""}" ${tabMeta.title ? `title="${tabMeta.title.qq()}"` : ""}>${tabMeta.name.qq()}</button>`)
-				.click(() => obj[_propProxy][propActive] = ixTab);
+		obj.__getBtnTab = function ({tabMeta, _propProxy, propActive, ixTab, isStacked = false}) {
+			return ee`<button class="ve-btn ve-btn-default ve-ui-tab__btn-tab-head ${isStacked ? `ve-ui-tab__btn-tab-head--stacked` : ""} ve-pt-2p ve-px-4p ve-pb-0 ${tabMeta.isHeadHidden ? "ve-hidden" : ""}" ${tabMeta.title ? `title="${tabMeta.title.qq()}"` : ""}>${tabMeta.name.qq()}</button>`
+				.onn("click", () => obj[_propProxy][propActive] = ixTab);
 		};
 
-		obj.__$getWrpTab = function ({tabMeta}) {
-			return $(`<div class="ui-tab__wrp-tab-body ve-flex-col ve-hidden ${tabMeta.hasBorder ? "ui-tab__wrp-tab-body--border" : ""} ${tabMeta.hasBackground ? "ui-tab__wrp-tab-body--background" : ""}"></div>`);
+		obj.__getWrpTab = function ({tabMeta}) {
+			return ee`<div class="ve-ui-tab__wrp-tab-body ve-flex-col ve-hidden ${tabMeta.hasBorder ? "ve-ui-tab__wrp-tab-body--border" : ""} ${tabMeta.hasBackground ? "ve-ui-tab__wrp-tab-body--background" : ""}"></div>`;
 		};
 
 		obj.__renderTypedTabMeta = function ({tabMeta, ixTab, isStacked = false}) {
@@ -63327,25 +64326,42 @@ class TabUiUtil extends TabUiUtilBase {
 		};
 
 		obj.__renderTypedTabMeta_buttons = function ({tabMeta, ixTab, isStacked = false}) {
-			const $btns = tabMeta.buttons.map((meta, j) => {
-				const $btn = $(`<button class="ve-btn ui-tab__btn-tab-head ${isStacked ? `ui-tab__btn-tab-head--stacked` : ""} pt-2p px-4p pb-0 bbr-0 bbl-0 ${meta.type ? `ve-btn-${meta.type}` : "ve-btn-primary"}" ${meta.title ? `title="${meta.title.qq()}"` : ""}>${meta.html}</button>`)
-					.on("click", evt => meta.pFnClick({evt, $btn, btn: $btn[0]}));
-				return $btn;
-			});
+			const btns = tabMeta.buttons
+				.map((meta, j) => {
+					const btn = ee`<button class="ve-btn ve-ui-tab__btn-tab-head ${isStacked ? `ve-ui-tab__btn-tab-head--stacked` : ""} ve-pt-2p ve-px-4p ve-pb-0 ve-bbr-0 ve-bbl-0 ${UiUtil.getBtnClassName(meta.type)}" ${meta.title ? `title="${meta.title.qq()}"` : ""}>${meta.html}</button>`
+						.onn("click", evt => {
+							meta.pFnClick({
+								evt,
+								btn,
 
-			const $btnTab = $$`<div class="ve-btn-group ve-flex-v-center ${tabMeta.isSplitStart ? "ml-auto" : "ml-2"}">${$btns}</div>`;
+								/* eslint-disable vet-jquery/jquery */
+								...globalThis.jQuery ? {
+									$btn: globalThis.jQuery(btn),
+								} : {},
+								/* eslint-enable vet-jquery/jquery */
+							});
+						});
+					return btn;
+				});
+
+			const btnTab = ee`<div class="ve-btn-group ve-flex-v-center ${tabMeta.isSplitStart ? "ve-ml-auto" : "ve-ml-2"}">${btns}</div>`;
 
 			return {
 				...tabMeta,
 				ix: ixTab,
-				$btns,
-				$btnTab,
-				btns: $btns.map($btn => e_($btn[0])),
-				btnTab: e_($btnTab[0]),
+				btns,
+				btnTab,
+
+				/* eslint-disable vet-jquery/jquery */
+				...globalThis.jQuery ? {
+					$btns: btns.map(btn => globalThis.jQuery(btn)),
+					$btnTab: globalThis.jQuery(btnTab),
+				} : {},
+				/* eslint-enable vet-jquery/jquery */
 			};
 		};
 
-		obj.__$getDispTabTitle = function () { return null; };
+		obj.__getDispTabTitle = function () { return null; };
 	}
 }
 
@@ -63366,23 +64382,23 @@ class TabUiUtilSide extends TabUiUtilBase {
 	static decorate (obj, {isInitMeta = false} = {}) {
 		super.decorate(obj, {isInitMeta});
 
-		obj.__$getBtnTab = function ({isSingleTab, tabMeta, _propProxy, propActive, ixTab}) {
-			return isSingleTab ? null : $(`<button class="ve-btn ve-btn-default ve-btn-sm ui-tab-side__btn-tab mb-2 br-0 btr-0 bbr-0 ve-text-left ve-flex-v-center" title="${tabMeta.title ? tabMeta.title.qq() : tabMeta.name.qq()}"><div class="${tabMeta.icon} ui-tab-side__icon-tab mr-2 mobile-lg__mr-0 ve-text-center"></div><div class="mobile-lg__hidden">${tabMeta.name.qq()}</div></button>`)
-				.click(() => this[_propProxy][propActive] = ixTab);
+		obj.__getBtnTab = function ({isSingleTab, tabMeta, _propProxy, propActive, ixTab}) {
+			return isSingleTab ? null : ee`<button class="ve-btn ve-btn-default ve-btn-sm ve-ui-tab-side__btn-tab ve-mb-2 ve-br-0 ve-btr-0 ve-bbr-0 ve-text-left ve-flex-v-center" title="${tabMeta.title ? tabMeta.title.qq() : tabMeta.name.qq()}"><div class="${tabMeta.icon} ve-ui-tab-side__icon-tab ve-mr-2 ve-mobile-lg__mr-0 ve-text-center"></div><div class="ve-mobile-lg__hidden">${tabMeta.name.qq()}</div></button>`
+				.onn("click", () => this[_propProxy][propActive] = ixTab);
 		};
 
-		obj.__$getWrpTab = function ({tabMeta}) {
-			return $(`<div class="ve-flex-col w-100 h-100 ui-tab-side__wrp-tab ${tabMeta.isNoPadding ? "" : "px-3 py-2"} ve-overflow-y-auto"></div>`);
+		obj.__getWrpTab = function ({tabMeta}) {
+			return ee`<div class="ve-flex-col ve-w-100 ve-h-100 ve-ui-tab-side__wrp-tab ${tabMeta.isNoPadding ? "" : "ve-px-3 ve-py-2"} ve-overflow-y-auto"></div>`;
 		};
 
-		obj.__renderTabs_addToParent = function ({$dispTabTitle, $parent, tabMetasOut}) {
-			$$`<div class="ve-flex-col w-100 h-100">
-				${$dispTabTitle}
-				<div class="ve-flex w-100 h-100 min-h-0">
-					<div class="ve-flex-col h-100 pt-2">${tabMetasOut.map(it => it.$btnTab)}</div>
-					<div class="ve-flex-col w-100 h-100 min-w-0">${tabMetasOut.map(it => it.$wrpTab).filter(Boolean)}</div>
+		obj.__renderTabs_addToParent = function ({dispTabTitle, eleParent, tabMetasOut}) {
+			ee`<div class="ve-flex-col ve-w-100 ve-h-100">
+				${dispTabTitle}
+				<div class="ve-flex ve-w-100 ve-h-100 ve-min-h-0">
+					<div class="ve-flex-col ve-h-100 ve-pt-2">${tabMetasOut.map(it => it.btnTab)}</div>
+					<div class="ve-flex-col ve-w-100 ve-h-100 ve-min-w-0">${tabMetasOut.map(it => it.wrpTab).filter(Boolean)}</div>
 				</div>
-			</div>`.appendTo($parent);
+			</div>`.appendTo(eleParent);
 		};
 
 		obj.__renderTypedTabMeta = function ({tabMeta, ixTab}) {
@@ -63393,26 +64409,47 @@ class TabUiUtilSide extends TabUiUtilBase {
 		};
 
 		obj.__renderTypedTabMeta_buttons = function ({tabMeta, ixTab}) {
-			const $btns = tabMeta.buttons.map((meta, j) => {
-				const $btn = $(`<button class="ve-btn ${meta.type ? `ve-btn-${meta.type}` : "ve-btn-primary"} ve-btn-sm" ${meta.title ? `title="${meta.title.qq()}"` : ""}>${meta.html}</button>`)
-					.on("click", evt => meta.pFnClick({evt, $btn, btn: $btn[0]}));
+			const btns = tabMeta.buttons.map((meta, j) => {
+				const btn = ee`<button class="ve-btn ${UiUtil.getBtnClassName(meta.type)} ve-btn-sm" ${meta.title ? `title="${meta.title.qq()}"` : ""}>${meta.html}</button>`
+					.onn("click", evt => {
+						meta.pFnClick({
+							evt,
+							btn,
 
-				if (j === tabMeta.buttons.length - 1) $btn.addClass(`br-0 btr-0 bbr-0`);
+							/* eslint-disable vet-jquery/jquery */
+							...globalThis.jQuery ? {
+								$btn: globalThis.jQuery(btn),
+							} : {},
+							/* eslint-enable vet-jquery/jquery */
+						});
+					});
 
-				return $btn;
+				if (j === tabMeta.buttons.length - 1) {
+					btn.addClass(`ve-br-0`)
+						.addClass(`ve-btr-0`)
+						.addClass(`ve-bbr-0`);
+				}
+
+				return btn;
 			});
 
-			const $btnTab = $$`<div class="ve-btn-group ve-flex-v-center ve-flex-h-right mb-2">${$btns}</div>`;
+			const btnTab = ee`<div class="ve-btn-group ve-flex-v-center ve-flex-h-right ve-mb-2">${btns}</div>`;
 
 			return {
 				...tabMeta,
 				ix: ixTab,
-				$btnTab,
+				btnTab,
+
+				/* eslint-disable vet-jquery/jquery */
+				...globalThis.jQuery ? {
+					$btnTab: globalThis.jQuery($btnTab),
+				} : {},
+				/* eslint-enable vet-jquery/jquery */
 			};
 		};
 
-		obj.__$getDispTabTitle = function ({isSingleTab}) {
-			return $(`<div class="ui-tab-side__disp-active-tab-name ${isSingleTab ? `ui-tab-side__disp-active-tab-name--single` : ""} bold"></div>`);
+		obj.__getDispTabTitle = function ({isSingleTab}) {
+			return ee`<div class="ve-ui-tab-side__disp-active-tab-name ${isSingleTab ? `ve-ui-tab-side__disp-active-tab-name--single` : ""} ve-bold"></div>`;
 		};
 	}
 }
@@ -63512,7 +64549,7 @@ class SearchUiUtil {
 		Object.values(alternateData).forEach(arr => arr.forEach(d => handleDataItem(d, true)));
 
 		const pAddPrereleaseBrewIndex = async ({brewUtil}) => {
-			const brewIndex = await brewUtil.pGetSearchIndex({id: availContent.ALL.documentStore.length});
+			const brewIndex = await brewUtil.pGetSearchIndex({id: ixMax + 1});
 
 			brewIndex.forEach(d => {
 				if (SearchUiUtil._isNoHoverCat(d.c) || fromDeepIndex(d)) return;
@@ -63521,6 +64558,7 @@ class SearchUiUtil {
 				initIndexForFullCat(d);
 				availContent.ALL.addDoc(d);
 				availContent[d.cf].addDoc(d);
+				ixMax = Math.max(ixMax, d.id);
 			});
 		};
 
@@ -63540,19 +64578,19 @@ SearchUiUtil.NO_HOVER_CATEGORIES = new Set([
 // based on DM screen's AddMenuSearchTab
 class SearchWidget {
 	static getSearchNoResults () {
-		return `<div class="ui-search__message"><i>No results.</i></div>`;
+		return `<div class="ve-ui-search__message"><i>No results.</i></div>`;
 	}
 
 	static getSearchLoading () {
-		return `<div class="ui-search__message"><i>\u2022\u2022\u2022</i></div>`;
+		return `<div class="ve-ui-search__message"><i>\u2022\u2022\u2022</i></div>`;
 	}
 
 	static getSearchEnter () {
-		return `<div class="ui-search__message"><i>Enter a search.</i></div>`;
+		return `<div class="ve-ui-search__message"><i>Enter a search.</i></div>`;
 	}
 
 	/**
-	 * @param iptOr$iptSearch input element
+	 * @param iptSearch input element
 	 * @param opts Options object.
 	 * @param opts.fnSearch Function which runs the search.
 	 * @param opts.pFnSearch Function which runs the search.
@@ -63561,12 +64599,12 @@ class SearchWidget {
 	 * @param opts.flags.isWait Flag tracking "waiting for user to stop typing"
 	 * @param opts.flags.doClickFirst Flag tracking "should first result get clicked"
 	 * @param opts.flags.doClickFirst Flag tracking "should first result get clicked"
-	 * @param opts.$ptrRows Pointer to array of rows.
+	 * @param opts.ptrRows Pointer to array of rows.
 	 */
-	static bindAutoSearch (iptOr$iptSearch, opts) {
+	static bindAutoSearch (iptSearch, opts) {
 		if (opts.fnSearch && opts.pFnSearch) throw new Error(`Options "fnSearch" and "pFnSearch" are mutually exclusive!`);
 
-		const $iptSearch = $(iptOr$iptSearch);
+		iptSearch = e_({ele: iptSearch});
 
 		// Chain each search from the previous, to ensure the last search wins
 		let pSearching = null;
@@ -63576,7 +64614,7 @@ class SearchWidget {
 		};
 
 		UiUtil.bindTypingEnd({
-			$ipt: $iptSearch,
+			ipt: iptSearch,
 			fnKeyup: evt => {
 				if (evt.type === "blur") return;
 
@@ -63614,17 +64652,17 @@ class SearchWidget {
 
 				switch (evt.key) {
 					case "ArrowDown": {
-						if (opts.$ptrRows && opts.$ptrRows._[0]) {
+						if (opts.ptrRows && opts.ptrRows._[0]) {
 							evt.stopPropagation();
 							evt.preventDefault();
-							opts.$ptrRows._[0][0].focus();
+							opts.ptrRows._[0].focuse();
 						}
 						break;
 					}
 					case "Enter": {
-						if (opts.$ptrRows && opts.$ptrRows._[0]) {
+						if (opts.ptrRows && opts.ptrRows._[0]) {
 							evt.preventDefault();
-							opts.$ptrRows._[0].click();
+							opts.ptrRows._[0].trigger("click");
 						}
 						break;
 					}
@@ -63632,7 +64670,7 @@ class SearchWidget {
 			},
 			fnClick: () => {
 				if (!opts.fnSearch && !opts.pFnSearch) return;
-				if (!$iptSearch.val() && !$iptSearch.val().trim().length) return;
+				if (!iptSearch.val().trim()) return;
 
 				if (opts.fnSearch) opts.fnSearch();
 				if (opts.pFnSearch) addSearchPromiseTask();
@@ -63640,31 +64678,31 @@ class SearchWidget {
 		});
 	}
 
-	static bindRowHandlers ({result, $row, $ptrRows, fnHandleClick, $iptSearch}) {
-		return $row
-			.keydown(evt => {
+	static bindRowHandlers ({result, row, ptrRows, fnHandleClick, iptSearch}) {
+		return row
+			.onn("keydown", evt => {
 				switch (evt.key) {
 					case "Enter": {
 						return fnHandleClick(result);
 					}
 					case "ArrowUp": {
 						evt.preventDefault();
-						const ixRow = $ptrRows._.indexOf($row);
-						const $prev = $ptrRows._[ixRow - 1];
-						if ($prev) $prev.focus();
-						else $iptSearch.focus();
+						const ixRow = ptrRows._.indexOf(row);
+						const prev = ptrRows._[ixRow - 1];
+						if (prev) prev.focuse();
+						else iptSearch.focuse();
 						break;
 					}
 					case "ArrowDown": {
 						evt.preventDefault();
-						const ixRow = $ptrRows._.indexOf($row);
-						const $nxt = $ptrRows._[ixRow + 1];
-						if ($nxt) $nxt.focus();
+						const ixRow = ptrRows._.indexOf(row);
+						const nxt = ptrRows._[ixRow + 1];
+						if (nxt) nxt.focuse();
 						break;
 					}
 				}
 			})
-			.click(() => fnHandleClick(result));
+			.onn("click", () => fnHandleClick(result));
 	}
 
 	static docToPageSourceHash (doc) {
@@ -63698,13 +64736,13 @@ class SearchWidget {
 			doClickFirst: false,
 			isWait: false,
 		};
-		this._$ptrRows = {_: []};
+		this._ptrRows = {_: []};
 
-		this._$selCat = null;
-		this._$iptSearch = null;
-		this._$wrpResults = null;
+		this._selCat = null;
+		this._iptSearch = null;
+		this._wrpResults = null;
 
-		this._$rendered = null;
+		this._rendered = null;
 	}
 
 	static pDoGlobalInit () {
@@ -63727,11 +64765,11 @@ class SearchWidget {
 		};
 	}
 
-	__$getRow (r) {
-		return $(`<div class="ui-search__row" tabindex="0">
+	__getRow (r) {
+		return ee`<div class="ve-ui-search__row" tabindex="0">
 			<span>${r.doc.n}</span>
 			<span>${r.doc.s ? `<i title="${Parser.sourceJsonToFull(r.doc.s)}">${Parser.sourceJsonToAbv(r.doc.s)}${r.doc.p ? ` p${r.doc.p}` : ""}</i>` : ""}</span>
-		</div>`);
+		</div>`;
 	}
 
 	static __getAllTitle () {
@@ -63742,33 +64780,33 @@ class SearchWidget {
 		return it;
 	}
 
-	get $wrpSearch () {
-		if (!this._$rendered) {
+	getWrpSearch () {
+		if (!this._rendered) {
 			this._render();
 			this.__pDoSearch().then(null);
 		}
-		return this._$rendered;
+		return this._rendered;
 	}
 
 	__showMsgInputRequired () {
 		this._flags.isWait = true;
-		this._$wrpResults.empty().append(SearchWidget.getSearchEnter());
+		this._wrpResults.empty().appends(SearchWidget.getSearchEnter());
 	}
 
 	__showMsgWait () {
-		this._$wrpResults.empty().append(SearchWidget.getSearchLoading());
+		this._wrpResults.empty().appends(SearchWidget.getSearchLoading());
 	}
 
 	__showMsgNoResults () {
 		this._flags.isWait = true;
-		this._$wrpResults.empty().append(SearchWidget.getSearchNoResults());
+		this._wrpResults.empty().appends(SearchWidget.getSearchNoResults());
 	}
 
 	async __pDoSearch () {
-		const searchInput = this._$iptSearch.val().trim();
+		const searchTerm = this._iptSearch.val().trim();
 
 		const index = this._indexes[this._cat];
-		const results = await globalThis.OmnisearchBacking.pGetFilteredResults(index.search(searchInput, this.__getSearchOptions()));
+		const results = await globalThis.OmnisearchBacking.pGetFilteredResults(index.search(searchTerm, this.__getSearchOptions()), {searchTerm});
 
 		const {toProcess, resultCount} = (() => {
 			if (results.length) {
@@ -63786,7 +64824,7 @@ class SearchWidget {
 				}
 			} else {
 				// If the user has entered a search and we found nothing, return no results
-				if (searchInput.trim()) {
+				if (searchTerm.trim()) {
 					return {
 						toProcess: [],
 						resultCount: 0,
@@ -63809,8 +64847,8 @@ class SearchWidget {
 			}
 		})();
 
-		this._$wrpResults.empty();
-		this._$ptrRows._ = [];
+		this._wrpResults.empty();
+		this._ptrRows._ = [];
 
 		if (resultCount) {
 			const handleClick = (r) => {
@@ -63827,61 +64865,66 @@ class SearchWidget {
 			const res = toProcess.slice(0, UiUtil.SEARCH_RESULTS_CAP);
 
 			res.forEach(r => {
-				const $row = this.__$getRow(r).appendTo(this._$wrpResults);
-				SearchWidget.bindRowHandlers({result: r, $row, $ptrRows: this._$ptrRows, fnHandleClick: handleClick, $iptSearch: this._$iptSearch});
-				this._$ptrRows._.push($row);
+				const row = this.__getRow(r).appendTo(this._wrpResults);
+				SearchWidget.bindRowHandlers({result: r, row, ptrRows: this._ptrRows, fnHandleClick: handleClick, iptSearch: this._iptSearch});
+				this._ptrRows._.push(row);
 			});
 
 			if (resultCount > UiUtil.SEARCH_RESULTS_CAP) {
 				const diff = resultCount - UiUtil.SEARCH_RESULTS_CAP;
-				this._$wrpResults.append(`<div class="ui-search__row ui-search__row--readonly">...${diff} more result${diff === 1 ? " was" : "s were"} hidden. Refine your search!</div>`);
+				this._wrpResults.appends(`<div class="ve-ui-search__row ve-ui-search__row--readonly">...${diff} more result${diff === 1 ? " was" : "s were"} hidden. Refine your search!</div>`);
 			}
 		} else {
-			if (!searchInput.trim()) this.__showMsgInputRequired();
+			if (!searchTerm.trim()) this.__showMsgInputRequired();
 			else this.__showMsgNoResults();
 		}
 	}
 
 	_render () {
-		if (!this._$rendered) {
-			this._$rendered = $(`<div class="ui-search__wrp-output"></div>`);
-			const $wrpControls = $(`<div class="ui-search__wrp-controls"></div>`).appendTo(this._$rendered);
+		if (this._rendered) return;
 
-			this._$selCat = $(`<select class="form-control ui-search__sel-category">
-				<option value="ALL">${SearchWidget.__getAllTitle()}</option>
-				${Object.keys(this._indexes).sort().filter(it => it !== "ALL").map(it => `<option value="${it}">${SearchWidget.__getCatOptionText(it)}</option>`).join("")}
-			</select>`)
-				.appendTo($wrpControls).toggle(Object.keys(this._indexes).length !== 1)
-				.on("change", async () => {
-					this._cat = this._$selCat.val();
-					await this.__pDoSearch();
-				});
+		this._iptSearch = ee`<input class="ve-ui-search__ipt-search search ve-form-control" autocomplete="off" placeholder="Search...">`;
+		this._wrpResults = ee`<div class="ve-ui-search__wrp-results"></div>`;
 
-			this._$iptSearch = $(`<input class="ui-search__ipt-search search form-control" autocomplete="off" placeholder="Search...">`).appendTo($wrpControls);
-			this._$wrpResults = $(`<div class="ui-search__wrp-results"></div>`).appendTo(this._$rendered);
-
-			let lastSearchTerm = "";
-			SearchWidget.bindAutoSearch(this._$iptSearch, {
-				flags: this._flags,
-				pFnSearch: this.__pDoSearch.bind(this),
-				fnShowWait: this.__showMsgWait.bind(this),
-				$ptrRows: this._$ptrRows,
+		this._selCat = ee`<select class="ve-form-control ve-ui-search__sel-category">
+			<option value="ALL">${SearchWidget.__getAllTitle()}</option>
+			${Object.keys(this._indexes).sort().filter(it => it !== "ALL").map(it => `<option value="${it}">${SearchWidget.__getCatOptionText(it)}</option>`).join("")}
+		</select>`
+			.toggleVe(Object.keys(this._indexes).length !== 1)
+			.onn("change", async () => {
+				this._cat = this._selCat.val();
+				await this.__pDoSearch();
 			});
 
-			// On the first keypress, switch to loading dots
-			this._$iptSearch.keydown(evt => {
-				if (evt.key === "Escape") this._$iptSearch.blur();
-				if (!this._$iptSearch.val().trim().length) return;
-				if (evt.key !== "Enter") {
-					if (lastSearchTerm === "") this.__showMsgWait();
-					lastSearchTerm = this._$iptSearch.val();
-				}
-			});
-		}
+		this._rendered = ee`<div class="ve-ui-search__wrp-output">
+			<div class="ve-ui-search__wrp-controls">
+				${this._iptSearch}
+				${this._selCat}
+			</div>
+			${this._wrpResults}
+		</div>`;
+
+		let lastSearchTerm = "";
+		SearchWidget.bindAutoSearch(this._iptSearch, {
+			flags: this._flags,
+			pFnSearch: this.__pDoSearch.bind(this),
+			fnShowWait: this.__showMsgWait.bind(this),
+			ptrRows: this._ptrRows,
+		});
+
+		// On the first keypress, switch to loading dots
+		this._iptSearch.onn("keydown", evt => {
+			if (evt.key === "Escape") this._iptSearch.blure();
+			if (!this._iptSearch.val().trim().length) return;
+			if (evt.key !== "Enter") {
+				if (lastSearchTerm === "") this.__showMsgWait();
+				lastSearchTerm = this._iptSearch.val();
+			}
+		});
 	}
 
 	doFocus () {
-		this._$iptSearch.focus();
+		this._iptSearch.focuse();
 	}
 
 	static async pAddToIndexes (prop, entry) {
@@ -64248,14 +65291,14 @@ class SearchWidget {
 				},
 				searchOpts,
 			);
-			const {$modalInner, doClose} = UiUtil.getShowModal({
+			const {eleModalInner, doClose} = UiUtil.getShowModal({
 				title,
 				cbClose: (doResolve) => {
-					searchWidget.$wrpSearch.detach();
+					searchWidget.getWrpSearch().detach();
 					if (doResolve) resolve(null); // ensure resolution
 				},
 			});
-			$modalInner.append(searchWidget.$wrpSearch);
+			eleModalInner.appends(searchWidget.getWrpSearch());
 			searchWidget.doFocus();
 		});
 	}
@@ -64333,8 +65376,8 @@ class SearchWidget {
 	}
 
 	static _showLoadingModal () {
-		const {$modalInner, doClose} = UiUtil.getShowModal({isPermanent: true});
-		$(`<div class="ve-flex-vh-center w-100 h-100"><span class="dnd-font italic ve-muted">Loading...</span></div>`).appendTo($modalInner);
+		const {eleModalInner, doClose} = UiUtil.getShowModal({isPermanent: true});
+		ee`<div class="ve-flex-vh-center ve-w-100 ve-h-100"><span class="ve-dnd-font ve-italic ve-muted">Loading...</span></div>`.appendTo(eleModalInner);
 		return doClose;
 	}
 	// endregion
@@ -64349,7 +65392,7 @@ class InputUiUtil {
 	}
 
 	static _getBtnOk ({comp = null, opts, doClose}) {
-		return ee`<button class="ve-btn ve-btn-primary mr-2">${opts.buttonText || "OK"}</button>`
+		return ee`<button class="ve-btn ve-btn-primary ve-mr-2">${opts.buttonText || "OK"}</button>`
 			.onn("click", evt => {
 				evt.stopPropagation();
 				if (comp && !comp._state.isValid) return JqueryUtil.doToast({content: `Please enter valid input!`, type: "warning"});
@@ -64366,23 +65409,11 @@ class InputUiUtil {
 	}
 
 	static _getBtnSkip ({comp = null, opts, doClose}) {
-		return !opts.isSkippable ? null : ee`<button class="ve-btn ve-btn-default ml-3">Skip</button>`
+		return !opts.isSkippable ? null : ee`<button class="ve-btn ve-btn-default ve-ml-3">Skip</button>`
 			.onn("click", evt => {
 				evt.stopPropagation();
 				doClose(VeCt.SYM_UI_SKIP);
 			});
-	}
-
-	static _$getBtnOk ({comp = null, opts, doClose}) {
-		return $(this._getBtnOk({comp, opts, doClose}));
-	}
-
-	static _$getBtnCancel ({comp = null, opts, doClose}) {
-		return $(this._getBtnCancel({comp, opts, doClose}));
-	}
-
-	static _$getBtnSkip ({comp = null, opts, doClose}) {
-		return $(this._getBtnSkip({comp, opts, doClose}));
 	}
 
 	/* -------------------------------------------- */
@@ -64408,13 +65439,13 @@ class InputUiUtil {
 
 		get isPrimary () { return !!this._isPrimary; }
 
-		$getBtn ({doClose, fnRemember, isGlobal, storageKey}) {
+		getBtn ({doClose, fnRemember, isGlobal, storageKey}) {
 			if (this._isRemember && !storageKey && !fnRemember) throw new Error(`No "storageKey" or "fnRemember" provided for button with saveable value!`);
 
-			return $(`<button class="ve-btn ${this._isPrimary ? "ve-btn-primary" : "ve-btn-default"} ${this._isSmall ? "ve-btn-sm" : ""} ve-flex-v-center mr-3">
-				<span class="${this._clazzIcon} mr-2"></span><span>${this._text}</span>
-			</button>`)
-				.on("click", evt => {
+			return ee`<button class="ve-btn ${this._isPrimary ? "ve-btn-primary" : "ve-btn-default"} ${this._isSmall ? "ve-btn-sm" : ""} ve-flex-v-center ve-mr-3">
+				<span class="${this._clazzIcon} ve-mr-2"></span><span>${this._text}</span>
+			</button>`
+				.onn("click", evt => {
 					evt.stopPropagation();
 					doClose(true, this._value);
 
@@ -64437,7 +65468,7 @@ class InputUiUtil {
 			buttons,
 			textSkip,
 			htmlDescription,
-			$eleDescription,
+			eleDescription,
 			storageKey,
 			isGlobal,
 			fnRemember,
@@ -64450,29 +65481,30 @@ class InputUiUtil {
 			if (prev != null) return prev;
 		}
 
-		const {$modalInner, doClose, pGetResolved, doAutoResize: doAutoResizeModal} = await InputUiUtil._pGetShowModal({
+		const {eleModalInner, doClose, pGetResolved, doAutoResize: doAutoResizeModal} = await InputUiUtil._pGetShowModal({
 			title: title || "Choose",
 			isMinHeight0: true,
 		});
 
-		const $btns = buttons.map(btnInfo => btnInfo.$getBtn({doClose, fnRemember, isGlobal, storageKey}));
+		const btns = buttons.map(btnInfo => btnInfo.getBtn({doClose, fnRemember, isGlobal, storageKey}));
 
-		const $btnSkip = !isSkippable ? null : $(`<button class="ve-btn ve-btn-default ve-btn-sm ml-3"><span class="glyphicon glyphicon-forward"></span><span>${textSkip || "Skip"}</span></button>`)
-			.click(evt => {
-				evt.stopPropagation();
-				doClose(VeCt.SYM_UI_SKIP);
-			});
+		const btnSkip = !isSkippable
+			? null
+			: ee`<button class="ve-btn ve-btn-default ve-btn-sm ve-ml-3"><span class="glyphicon glyphicon-forward"></span><span>${textSkip || "Skip"}</span></button>`
+				.onn("click", evt => {
+					evt.stopPropagation();
+					doClose(VeCt.SYM_UI_SKIP);
+				});
 
-		if ($eleDescription?.length) $$`<div class="ve-flex w-100 mb-1">${$eleDescription}</div>`.appendTo($modalInner);
-		else if (htmlDescription && htmlDescription.trim()) $$`<div class="ve-flex w-100 mb-1">${htmlDescription}</div>`.appendTo($modalInner);
-		$$`<div class="ve-flex-v-center ve-flex-h-right py-1 px-1">${$btns}${$btnSkip}</div>`.appendTo($modalInner);
+		if (eleDescription) ee`<div class="ve-flex ve-w-100 ve-mb-1">${eleDescription}</div>`.appendTo(eleModalInner);
+		else if (htmlDescription && htmlDescription.trim()) ee`<div class="ve-flex ve-w-100 ve-mb-1">${htmlDescription}</div>`.appendTo(eleModalInner);
+		ee`<div class="ve-flex-v-center ve-flex-h-right ve-py-1 ve-px-1">${btns}${btnSkip}</div>`.appendTo(eleModalInner);
 
 		if (doAutoResizeModal) doAutoResizeModal();
 
 		const ixPrimary = buttons.findIndex(btn => btn.isPrimary);
 		if (~ixPrimary) {
-			$btns[ixPrimary].focus();
-			$btns[ixPrimary].select();
+			btns[ixPrimary].focuse();
 		}
 
 		// region Output
@@ -64493,7 +65525,7 @@ class InputUiUtil {
 	 * @param [textNo] Text for "no" button.
 	 * @param [textSkip] Text for "skip" button.
 	 * @param [htmlDescription] Description HTML for the modal.
-	 * @param [$eleDescription] Description element for the modal.
+	 * @param [eleDescription] Description element for the modal.
 	 * @param [storageKey] Storage key to use when "remember" options are passed.
 	 * @param [isGlobal] If the stored setting is global when "remember" options are passed.
 	 * @param [fnRemember] Custom function to run when saving the "yes and remember" option.
@@ -64510,7 +65542,7 @@ class InputUiUtil {
 			textNo,
 			textSkip,
 			htmlDescription,
-			$eleDescription,
+			eleDescription,
 			storageKey,
 			isGlobal,
 			fnRemember,
@@ -64559,7 +65591,7 @@ class InputUiUtil {
 			buttons,
 			textSkip,
 			htmlDescription,
-			$eleDescription,
+			eleDescription,
 			storageKey,
 			isGlobal,
 			fnRemember,
@@ -64579,8 +65611,6 @@ class InputUiUtil {
 	 * @param opts.default Default value.
 	 * @param [opts.elePre] Element to add before the number input.
 	 * @param [opts.elePost] Element to add after the number input.
-	 * @param [opts.$elePre] Element to add before the number input.
-	 * @param [opts.$elePost] Element to add after the number input.
 	 * @param [opts.isPermanent] If the prompt can only be closed by entering a number.
 	 * @param [opts.isSkippable] If the prompt is skippable.
 	 * @param [opts.storageKey_default] Storage key for a "default" value override using the user's last/previous input.
@@ -64590,18 +65620,13 @@ class InputUiUtil {
 	static async pGetUserNumber (opts) {
 		opts = opts || {};
 
-		if (opts.elePre && opts.$elePre) throw new Error(`Only one of "elePre" and "$elePre" may be specified!`);
-		if (opts.elePost && opts.$elePost) throw new Error(`Only one of "elePost" and "$elePost" may be specified!`);
-		opts.elePre ??= opts.$elePre?.[0];
-		opts.elePost ??= opts.$elePost?.[0];
-
 		let defaultVal = opts.default !== undefined ? opts.default : null;
 		if (opts.storageKey_default) {
 			const prev = await (opts.isGlobal_default ? StorageUtil.pGet(opts.storageKey_default) : StorageUtil.pGetForPage(opts.storageKey_default));
 			if (prev != null) defaultVal = prev;
 		}
 
-		const iptNumber = ee`<input class="form-control mb-2 ve-text-right" ${opts.min ? `min="${opts.min}"` : ""} ${opts.max ? `max="${opts.max}"` : ""}>`
+		const iptNumber = ee`<input class="ve-form-control ve-mb-2 ve-text-right" ${opts.min ? `min="${opts.min}"` : ""} ${opts.max ? `max="${opts.max}"` : ""}>`
 			.onn("keydown", evt => {
 				if (evt.key === "Escape") { iptNumber.blure(); return; }
 
@@ -64625,7 +65650,7 @@ class InputUiUtil {
 		if (opts.elePre) eleModalInner.appends(opts.elePre);
 		eleModalInner.appends(iptNumber);
 		if (opts.elePost) eleModalInner.appends(opts.elePost);
-		ee`<div class="ve-flex-v-center ve-flex-h-right pb-1 px-1">${btnOk}${btnCancel}${btnSkip}</div>`.appendTo(eleModalInner);
+		ee`<div class="ve-flex-v-center ve-flex-h-right ve-pb-1 ve-px-1">${btnOk}${btnCancel}${btnSkip}</div>`.appendTo(eleModalInner);
 
 		if (doAutoResizeModal) doAutoResizeModal();
 
@@ -64663,7 +65688,7 @@ class InputUiUtil {
 	 * @param [opts.default] Default selected index.
 	 * @param [opts.fnDisplay] Function which takes a value and returns display text.
 	 * @param [opts.isResolveItem] True if the promise should resolve the item instead of the index.
-	 * @param [opts.$elePost] Element to add below the select box.
+	 * @param [opts.elePost] Element to add below the select box.
 	 * @param [opts.fnGetExtraState] Function which returns additional state from, generally, other elements in the modal.
 	 * @param [opts.isAllowNull] If an empty input should be treated as null.
 	 * @param [opts.isSkippable] If the prompt is skippable.
@@ -64672,8 +65697,8 @@ class InputUiUtil {
 	static async pGetUserEnum (opts) {
 		opts = opts || {};
 
-		const $selEnum = $(`<select class="form-control mb-2"><option value="-1" disabled>${opts.placeholder || "Select..."}</option></select>`)
-			.keydown(async evt => {
+		const selEnum = ee`<select class="ve-form-control ve-mb-2"><option value="-1" disabled>${opts.placeholder || "Select..."}</option></select>`
+			.onn("keydown", async evt => {
 				evt.stopPropagation();
 				if (evt.key === "Enter") {
 					evt.preventDefault();
@@ -64681,35 +65706,39 @@ class InputUiUtil {
 				}
 			});
 
-		if (opts.isAllowNull) $(`<option value="-1"></option>`).text(opts.fnDisplay ? opts.fnDisplay(null, -1) : "(None)").appendTo($selEnum);
+		if (opts.isAllowNull) ee`<option value="-1"></option>`.txt(opts.fnDisplay ? opts.fnDisplay(null, -1) : "(None)").appendTo(selEnum);
 
-		opts.values.forEach((v, i) => $(`<option value="${i}"></option>`).text(opts.fnDisplay ? opts.fnDisplay(v, i) : v).appendTo($selEnum));
-		if (opts.default != null) $selEnum.val(opts.default);
-		else $selEnum[0].selectedIndex = 0;
+		opts.values.forEach((v, i) => ee`<option value="${i}"></option>`.txt(opts.fnDisplay ? opts.fnDisplay(v, i) : v).appendTo(selEnum));
+		if (opts.default != null) {
+			if (opts.isResolveItem) {
+				const ix = opts.values.indexOf(opts.default);
+				selEnum.val(`${~ix ? ix : 0}`);
+			} else selEnum.val(`${opts.default}`);
+		} else selEnum.selectedIndex = 0;
 
-		const {$modalInner, doClose, pGetResolved, doAutoResize: doAutoResizeModal} = await InputUiUtil._pGetShowModal({
+		const {eleModalInner, doClose, pGetResolved, doAutoResize: doAutoResizeModal} = await InputUiUtil._pGetShowModal({
 			title: opts.title || "Select an Option",
 			isMinHeight0: true,
 		});
 
-		const $btnOk = this._$getBtnOk({opts, doClose});
-		const $btnCancel = this._$getBtnCancel({opts, doClose});
-		const $btnSkip = this._$getBtnSkip({opts, doClose});
+		const btnOk = this._getBtnOk({opts, doClose});
+		const btnCancel = this._getBtnCancel({opts, doClose});
+		const btnSkip = this._getBtnSkip({opts, doClose});
 
-		$selEnum.appendTo($modalInner);
-		if (opts.$elePost) opts.$elePost.appendTo($modalInner);
-		$$`<div class="ve-flex-v-center ve-flex-h-right pb-1 px-1">${$btnOk}${$btnCancel}${$btnSkip}</div>`.appendTo($modalInner);
+		selEnum.appendTo(eleModalInner);
+		if (opts.elePost) opts.elePost.appendTo(eleModalInner);
+		ee`<div class="ve-flex-v-center ve-flex-h-right ve-pb-1 ve-px-1">${btnOk}${btnCancel}${btnSkip}</div>`.appendTo(eleModalInner);
 
 		if (doAutoResizeModal) doAutoResizeModal();
 
-		$selEnum.focus();
+		selEnum.focus();
 
 		// region Output
 		const [isDataEntered] = await pGetResolved();
 		if (typeof isDataEntered === "symbol") return isDataEntered;
 
 		if (!isDataEntered) return null;
-		const ix = Number($selEnum.val());
+		const ix = Number(selEnum.val());
 		if (!~ix) return null;
 		if (opts.fnGetExtraState) {
 			const out = {extraState: opts.fnGetExtraState()};
@@ -64763,36 +65792,37 @@ class InputUiUtil {
 			else title = `Choose At Most ${Parser.numberToText(opts.max).uppercaseFirst()}`;
 		}
 
-		const {$ele: $wrpList, $iptSearch, propIsAcceptable} = ComponentUiUtil.getMetaWrpMultipleChoice(comp, prop, opts);
-		$wrpList.addClass(`mb-1`);
+		const {ele: wrpList, iptSearch, propIsAcceptable} = ComponentUiUtil.getMetaWrpMultipleChoice(comp, prop, opts);
+		wrpList.addClass("ve-mb-1");
 
-		const {$modalInner, doClose, pGetResolved, doAutoResize: doAutoResizeModal} = await InputUiUtil._pGetShowModal({
+		const {eleModalInner, doClose, pGetResolved, doAutoResize: doAutoResizeModal} = await InputUiUtil._pGetShowModal({
 			...(opts.modalOpts || {}),
 			title,
 			isMinHeight0: true,
 			isUncappedHeight: true,
 		});
 
-		const $btnOk = this._$getBtnOk({opts, doClose});
-		const $btnCancel = this._$getBtnCancel({opts, doClose});
-		const $btnSkip = this._$getBtnSkip({opts, doClose});
+		const btnOk = this._getBtnOk({opts, doClose});
+		const btnCancel = this._getBtnCancel({opts, doClose});
+		const btnSkip = this._getBtnSkip({opts, doClose});
 
-		const hkIsAcceptable = () => $btnOk.attr("disabled", !comp._state[propIsAcceptable]);
+		const hkIsAcceptable = () => btnOk.attr("disabled", !comp._state[propIsAcceptable]);
 		comp._addHookBase(propIsAcceptable, hkIsAcceptable);
 		hkIsAcceptable();
 
-		if (opts.htmlDescription) $modalInner.append(opts.htmlDescription);
-		if ($iptSearch) {
-			$$`<label class="mb-1">
-				${$iptSearch}
-			</label>`.appendTo($modalInner);
+		if (opts.htmlDescription) eleModalInner.appends(opts.htmlDescription);
+		if (iptSearch) {
+			ee`<label class="ve-mb-1">
+				${iptSearch}
+			</label>`
+				.appendTo(eleModalInner);
 		}
-		$wrpList.appendTo($modalInner);
-		$$`<div class="ve-flex-v-center ve-flex-h-right no-shrink pb-1 px-1">${$btnOk}${$btnCancel}${$btnSkip}</div>`.appendTo($modalInner);
+		wrpList.appendTo(eleModalInner);
+		ee`<div class="ve-flex-v-center ve-flex-h-right ve-no-shrink ve-pb-1 ve-px-1">${btnOk}${btnCancel}${btnSkip}</div>`.appendTo(eleModalInner);
 
 		if (doAutoResizeModal) doAutoResizeModal();
 
-		$wrpList.focus();
+		wrpList.focuse();
 
 		// region Output
 		const [isDataEntered] = await pGetResolved();
@@ -64820,7 +65850,7 @@ class InputUiUtil {
 	 * NOTE: designed to work with FontAwesome.
 	 *
 	 * @param opts Options.
-	 * @param opts.values Array of icon metadata. Items should be of the form: `{name: "<n>", iconClass: "<c>", buttonClass: "<cs>", buttonClassActive: "<cs>"}`
+	 * @param opts.values Array of icon metadata. Items should be of the form: `{name: "<n>", iconClass: "<c>", buttonClass: "<cs>", buttonClassesActive: "<cs>"}`
 	 * @param opts.title Prompt title.
 	 * @param opts.default Default selected index.
 	 * @param [opts.isSkippable] If the prompt is skippable.
@@ -64832,38 +65862,45 @@ class InputUiUtil {
 		let lastIx = opts.default != null ? opts.default : -1;
 		const onclicks = [];
 
-		const {$modalInner, doClose, pGetResolved, doAutoResize: doAutoResizeModal} = await InputUiUtil._pGetShowModal({
+		const {eleModalInner, doClose, pGetResolved, doAutoResize: doAutoResizeModal} = await InputUiUtil._pGetShowModal({
 			title: opts.title || "Select an Option",
 			isMinHeight0: true,
 		});
 
-		$$`<div class="ve-flex ve-flex-wrap ve-flex-h-center mb-2">${opts.values.map((v, i) => {
-			const $btn = $$`<div class="m-2 ve-btn ${v.buttonClass || "ve-btn-default"} ui__btn-xxl-square ve-flex-col ve-flex-h-center">
-					${v.iconClass ? `<div class="ui-icn__wrp-icon ${v.iconClass} mb-1"></div>` : ""}
+		ee`<div class="ve-flex ve-flex-wrap ve-flex-h-center ve-mb-2">${opts.values.map((v, i) => {
+			const buttonClassesActiveToggle = v.buttonClassesActive || ["ve-active"];
+
+			const btn = ee`<div class="ve-m-2 ve-btn ${v.buttonClass || "ve-btn-default"} ve-ui__btn-xxl-square ve-flex-col ve-flex-h-center">
+					${v.iconClass ? `<div class="ve-ui-icn__wrp-icon ${v.iconClass} ve-mb-1"></div>` : ""}
 					${v.iconContent ? v.iconContent : ""}
-					<div class="whitespace-normal w-100">${v.name}</div>
+					<div class="ve-whitespace-normal ve-w-100">${v.name}</div>
 				</div>`
-				.click(() => {
+				.onn("click", () => {
 					lastIx = i;
 					onclicks.forEach(it => it());
-				})
-				.toggleClass(v.buttonClassActive || "active", opts.default === i);
-			if (v.buttonClassActive && opts.default === i) {
-				$btn.removeClass("ve-btn-default").addClass(v.buttonClassActive);
+				});
+			buttonClassesActiveToggle
+				.forEach(clazz => btn.toggleClass(clazz, opts.default === i));
+
+			if (v.buttonClassesActive && opts.default === i) {
+				btn.removeClass("ve-btn-default");
+				buttonClassesActiveToggle
+					.forEach(clazz => btn.addClass(clazz));
 			}
 
 			onclicks.push(() => {
-				$btn.toggleClass(v.buttonClassActive || "active", lastIx === i);
-				if (v.buttonClassActive) $btn.toggleClass("ve-btn-default", lastIx !== i);
+				buttonClassesActiveToggle
+					.forEach(clazz => btn.toggleClass(clazz, lastIx === i));
+				if (v.buttonClassesActive) btn.toggleClass("ve-btn-default", lastIx !== i);
 			});
-			return $btn;
-		})}</div>`.appendTo($modalInner);
+			return btn;
+		})}</div>`.appendTo(eleModalInner);
 
-		const $btnOk = this._$getBtnOk({opts, doClose});
-		const $btnCancel = this._$getBtnCancel({opts, doClose});
-		const $btnSkip = this._$getBtnSkip({opts, doClose});
+		const btnOk = this._getBtnOk({opts, doClose});
+		const btnCancel = this._getBtnCancel({opts, doClose});
+		const btnSkip = this._getBtnSkip({opts, doClose});
 
-		$$`<div class="ve-flex-v-center ve-flex-h-right pb-1 px-1">${$btnOk}${$btnCancel}${$btnSkip}</div>`.appendTo($modalInner);
+		ee`<div class="ve-flex-v-center ve-flex-h-right ve-pb-1 ve-px-1">${btnOk}${btnCancel}${btnSkip}</div>`.appendTo(eleModalInner);
 
 		// region Output
 		const [isDataEntered] = await pGetResolved();
@@ -64878,15 +65915,15 @@ class InputUiUtil {
 	 * @param [opts] Options.
 	 * @param [opts.title] Prompt title.
 	 * @param [opts.htmlDescription] Description HTML for the modal.
-	 * @param [opts.$eleDescription] Description element for the modal.
+	 * @param [opts.eleDescription] Description element for the modal.
 	 * @param [opts.default] Default value.
 	 * @param [opts.autocomplete] Array of autocomplete strings. REQUIRES INCLUSION OF THE TYPEAHEAD LIBRARY.
 	 * @param [opts.isCode] If the text is code.
 	 * @param [opts.isSkippable] If the prompt is skippable.
 	 * @param [opts.fnIsValid] A function which checks if the current input is valid, and prevents the user from
 	 *        submitting the value if it is.
-	 * @param [opts.$elePre] Element to add before the input.
-	 * @param [opts.$elePost] Element to add after the input.
+	 * @param [opts.elePre] Element to add before the input.
+	 * @param [opts.elePost] Element to add after the input.
 	 * @param [opts.cbPostRender] Callback to call after rendering the modal
 	 * @return {Promise<String>} A promise which resolves to the string if the user entered one, or null otherwise.
 	 */
@@ -64899,22 +65936,16 @@ class InputUiUtil {
 			isValid: true,
 		});
 
-		const $iptStr = ComponentUiUtil.$getIptStr(
+		const iptStr = ComponentUiUtil.getIptStr(
 			comp,
 			propValue,
 			{
-				html: `<input class="form-control mb-2" type="text">`,
+				html: `<input class="ve-form-control ve-mb-2" type="text">`,
 				autocomplete: opts.autocomplete,
 			},
 		)
-			.keydown(async evt => {
+			.onn("keydown", async evt => {
 				if (evt.key === "Escape") return; // Already handled
-
-				if (opts.autocomplete) {
-					// prevent double-binding the return key if we have autocomplete enabled
-					await MiscUtil.pDelay(17); // arbitrary delay to allow dropdown to render (~1000/60, i.e. 1 60 FPS frame)
-					if ($modalInner.find(`.typeahead.ve-dropdown-menu`).is(":visible")) return;
-				}
 
 				evt.stopPropagation();
 				if (evt.key === "Enter") {
@@ -64922,44 +65953,44 @@ class InputUiUtil {
 					doClose(true);
 				}
 			});
-		if (opts.isCode) $iptStr.addClass("code");
+		if (opts.isCode) iptStr.addClass("ve-code");
 
 		if (opts.fnIsValid) {
 			const hkText = () => comp._state.isValid = !comp._state.text.trim() || !!opts.fnIsValid(comp._state.text);
 			comp._addHookBase(propValue, hkText);
 			hkText();
 
-			const hkIsValid = () => $iptStr.toggleClass("form-control--error", !comp._state.isValid);
+			const hkIsValid = () => iptStr.toggleClass("form-control--error", !comp._state.isValid);
 			comp._addHookBase("isValid", hkIsValid);
 			hkIsValid();
 		}
 
-		const {$modalInner, doClose, pGetResolved, doAutoResize: doAutoResizeModal} = await InputUiUtil._pGetShowModal({
+		const {eleModalInner, doClose, pGetResolved, doAutoResize: doAutoResizeModal} = await InputUiUtil._pGetShowModal({
 			title: opts.title || "Enter Text",
 			isMinHeight0: true,
 			isWidth100: true,
 		});
 
-		const $btnOk = this._$getBtnOk({comp, opts, doClose});
-		const $btnCancel = this._$getBtnCancel({comp, opts, doClose});
-		const $btnSkip = this._$getBtnSkip({comp, opts, doClose});
+		const btnOk = this._getBtnOk({comp, opts, doClose});
+		const btnCancel = this._getBtnCancel({comp, opts, doClose});
+		const btnSkip = this._getBtnSkip({comp, opts, doClose});
 
-		if (opts.$elePre) opts.$elePre.appendTo($modalInner);
-		if (opts.$eleDescription?.length) $$`<div class="ve-flex w-100 mb-1">${opts.$eleDescription}</div>`.appendTo($modalInner);
-		else if (opts.htmlDescription && opts.htmlDescription.trim()) $$`<div class="ve-flex w-100 mb-1">${opts.htmlDescription}</div>`.appendTo($modalInner);
-		$iptStr.appendTo($modalInner);
-		if (opts.$elePost) opts.$elePost.appendTo($modalInner);
-		$$`<div class="ve-flex-v-center ve-flex-h-right pb-1 px-1">${$btnOk}${$btnCancel}${$btnSkip}</div>`.appendTo($modalInner);
+		if (opts.elePre) opts.elePre.appendTo(eleModalInner);
+		if (opts.eleDescription) ee`<div class="ve-flex ve-w-100 ve-mb-1">${opts.eleDescription}</div>`.appendTo(eleModalInner);
+		else if (opts.htmlDescription && opts.htmlDescription.trim()) ee`<div class="ve-flex ve-w-100 ve-mb-1">${opts.htmlDescription}</div>`.appendTo(eleModalInner);
+		iptStr.appendTo(eleModalInner);
+		if (opts.elePost) opts.elePost.appendTo(eleModalInner);
+		ee`<div class="ve-flex-v-center ve-flex-h-right ve-pb-1 ve-px-1">${btnOk}${btnCancel}${btnSkip}</div>`.appendTo(eleModalInner);
 
 		if (doAutoResizeModal) doAutoResizeModal();
 
-		$iptStr.focus();
-		$iptStr.select();
+		iptStr.focuse();
+		iptStr.selecte();
 
 		if (opts.cbPostRender) {
 			opts.cbPostRender({
 				comp,
-				$iptStr,
+				iptStr,
 				propValue,
 			});
 		}
@@ -64969,7 +66000,7 @@ class InputUiUtil {
 
 		if (typeof isDataEntered === "symbol") return isDataEntered;
 		if (!isDataEntered) return null;
-		const raw = $iptStr.val();
+		const raw = iptStr.val();
 		return raw;
 		// endregion
 	}
@@ -64987,33 +66018,33 @@ class InputUiUtil {
 	static async pGetUserText (opts) {
 		opts = opts || {};
 
-		const $iptStr = $(`<textarea class="form-control mb-2 resize-vertical w-100" ${opts.disabled ? "disabled" : ""}></textarea>`)
+		const iptStr = ee`<textarea class="ve-form-control ve-mb-2 ve-resize-vertical ve-w-100" ${opts.disabled ? "disabled" : ""}></textarea>`
 			.val(opts.default);
-		if (opts.isCode) $iptStr.addClass("code");
+		if (opts.isCode) iptStr.addClass("ve-code");
 
-		const {$modalInner, doClose, pGetResolved, doAutoResize: doAutoResizeModal} = await InputUiUtil._pGetShowModal({
+		const {eleModalInner, doClose, pGetResolved, doAutoResize: doAutoResizeModal} = await InputUiUtil._pGetShowModal({
 			title: opts.title || "Enter Text",
 			isMinHeight0: true,
 		});
 
-		const $btnOk = this._$getBtnOk({opts, doClose});
-		const $btnCancel = this._$getBtnCancel({opts, doClose});
-		const $btnSkip = this._$getBtnSkip({opts, doClose});
+		const btnOk = this._getBtnOk({opts, doClose});
+		const btnCancel = this._getBtnCancel({opts, doClose});
+		const btnSkip = this._getBtnSkip({opts, doClose});
 
-		$iptStr.appendTo($modalInner);
-		$$`<div class="ve-flex-v-center ve-flex-h-right pb-1 px-1">${$btnOk}${$btnCancel}${$btnSkip}</div>`.appendTo($modalInner);
+		iptStr.appendTo(eleModalInner);
+		ee`<div class="ve-flex-v-center ve-flex-h-right ve-pb-1 ve-px-1">${btnOk}${btnCancel}${btnSkip}</div>`.appendTo(eleModalInner);
 
 		if (doAutoResizeModal) doAutoResizeModal();
 
-		$iptStr.focus();
-		$iptStr.select();
+		iptStr.focuse();
+		iptStr.selecte();
 
 		// region Output
 		const [isDataEntered] = await pGetResolved();
 
 		if (typeof isDataEntered === "symbol") return isDataEntered;
 		if (!isDataEntered) return null;
-		const raw = $iptStr.val();
+		const raw = iptStr.val();
 		if (!raw.trim()) return null;
 		else return raw;
 		// endregion
@@ -65029,31 +66060,31 @@ class InputUiUtil {
 	static async pGetUserColor (opts) {
 		opts = opts || {};
 
-		const $iptRgb = $(`<input class="form-control mb-2" ${opts.default != null ? `value="${opts.default}"` : ""} type="color">`);
+		const iptRgb = ee`<input class="ve-form-control ve-mb-2" ${opts.default != null ? `value="${opts.default}"` : ""} type="color">`;
 
-		const {$modalInner, doClose, pGetResolved, doAutoResize: doAutoResizeModal} = await InputUiUtil._pGetShowModal({
+		const {eleModalInner, doClose, pGetResolved, doAutoResize: doAutoResizeModal} = await InputUiUtil._pGetShowModal({
 			title: opts.title || "Choose Color",
 			isMinHeight0: true,
 		});
 
-		const $btnOk = this._$getBtnOk({opts, doClose});
-		const $btnCancel = this._$getBtnCancel({opts, doClose});
-		const $btnSkip = this._$getBtnSkip({opts, doClose});
+		const btnOk = this._getBtnOk({opts, doClose});
+		const btnCancel = this._getBtnCancel({opts, doClose});
+		const btnSkip = this._getBtnSkip({opts, doClose});
 
-		$iptRgb.appendTo($modalInner);
-		$$`<div class="ve-flex-v-center ve-flex-h-right pb-1 px-1">${$btnOk}${$btnCancel}${$btnSkip}</div>`.appendTo($modalInner);
+		iptRgb.appendTo(eleModalInner);
+		ee`<div class="ve-flex-v-center ve-flex-h-right ve-pb-1 ve-px-1">${btnOk}${btnCancel}${btnSkip}</div>`.appendTo(eleModalInner);
 
 		if (doAutoResizeModal) doAutoResizeModal();
 
-		$iptRgb.focus();
-		$iptRgb.select();
+		iptRgb.focuse();
+		iptRgb.selecte();
 
 		// region Output
 		const [isDataEntered] = await pGetResolved();
 
 		if (typeof isDataEntered === "symbol") return isDataEntered;
 		if (!isDataEntered) return null;
-		const raw = $iptRgb.val();
+		const raw = iptRgb.val();
 		if (!raw.trim()) return null;
 		else return raw;
 		// endregion
@@ -65085,31 +66116,46 @@ class InputUiUtil {
 		let active = false;
 		let curAngle = Math.min(DEG_CIRCLE, opts.default) || 0;
 
-		const $arm = $(`<div class="ui-dir__arm"></div>`);
-		const handleAngle = () => $arm.css({transform: `rotate(${curAngle + 180}deg)`});
+		const eleArm = ee`<div class="ve-ui-dir__arm"></div>`;
+		const handleAngle = () => eleArm.css({transform: `rotate(${curAngle + 180}deg)`});
 		handleAngle();
 
-		const $pad = $$`<div class="ui-dir__face">${$arm}</div>`.on("mousedown touchstart", evt => {
-			active = true;
-			handleEvent(evt);
-		});
+		const elePad = ee`<div class="ve-ui-dir__face">${eleArm}</div>`
+			.onn("mousedown", evt => {
+				active = true;
+				handleEvent(evt);
+			})
+			.onn("touchstart", evt => {
+				active = true;
+				handleEvent(evt);
+			});
 
-		const $document = $(document);
-		const evtId = `ui_user_dir_${CryptUtil.uid()}`;
-		$document.on(`mousemove.${evtId} touchmove${evtId}`, evt => {
+		const eleDocument = e_({ele: document});
+
+		const onDocumentMove = evt => {
 			handleEvent(evt);
-		}).on(`mouseup.${evtId} touchend${evtId} touchcancel${evtId}`, evt => {
+		};
+		eleDocument
+			.onn("mousemove", onDocumentMove)
+			.onn("touchmove", onDocumentMove);
+
+		const onDocumentUp = evt => {
 			evt.preventDefault();
 			evt.stopPropagation();
 			active = false;
-		});
+		};
+		eleDocument
+			.onn("mouseup", onDocumentUp)
+			.onn("touchend", onDocumentUp)
+			.onn("touchcancel", onDocumentUp);
+
 		const handleEvent = (evt) => {
 			if (!active) return;
 
 			const coords = [EventUtil.getClientX(evt), EventUtil.getClientY(evt)];
 
-			const {top, left} = $pad.offset();
-			const center = [left + ($pad.width() / 2), top + ($pad.height() / 2)];
+			const {top, left} = elePad.getBoundingClientRect().toJSON();
+			const center = [left + (elePad.outerWidthe() / 2), top + (elePad.outerHeighte() / 2)];
 			curAngle = getAngle(center, coords) + 90;
 			if (step !== DEG_CIRCLE) curAngle = Math.round(curAngle / stepDeg) * stepDeg;
 			else curAngle = Math.round(curAngle);
@@ -65119,58 +66165,58 @@ class InputUiUtil {
 		const BTN_STEP_SIZE = 26;
 		const BORDER_PAD = 16;
 		const CONTROLS_RADIUS = (92 + BTN_STEP_SIZE + BORDER_PAD) / 2;
-		const $padOuter = opts.stepButtons ? (() => {
+		const elePadOuter = opts.stepButtons ? (() => {
 			const steps = opts.stepButtons;
 			const SEG_ANGLE = 360 / steps.length;
 
-			const $btns = [];
+			const btns = [];
 
 			for (let i = 0; i < steps.length; ++i) {
 				const theta = (SEG_ANGLE * i * (Math.PI / 180)) - (1.5708); // offset by -90 degrees
 				const x = CONTROLS_RADIUS * Math.cos(theta);
 				const y = CONTROLS_RADIUS * Math.sin(theta);
-				$btns.push(
-					$(`<button class="ve-btn ve-btn-default ve-btn-xxs absolute">${steps[i]}</button>`)
+				btns.push(
+					ee`<button class="ve-btn ve-btn-default ve-btn-xxs ve-absolute">${steps[i]}</button>`
 						.css({
-							top: y + CONTROLS_RADIUS - (BTN_STEP_SIZE / 2),
-							left: x + CONTROLS_RADIUS - (BTN_STEP_SIZE / 2),
-							width: BTN_STEP_SIZE,
-							height: BTN_STEP_SIZE,
+							top: `${y + CONTROLS_RADIUS - (BTN_STEP_SIZE / 2)}px`,
+							left: `${x + CONTROLS_RADIUS - (BTN_STEP_SIZE / 2)}px`,
+							width: `${BTN_STEP_SIZE}px`,
+							height: `${BTN_STEP_SIZE}px`,
 							zIndex: 1002,
 						})
-						.click(() => {
+						.onn("click", () => {
 							curAngle = SEG_ANGLE * i;
 							handleAngle();
 						}),
 				);
 			}
 
-			const $wrpInner = $$`<div class="ve-flex-vh-center relative">${$btns}${$pad}</div>`
+			const wrpInner = ee`<div class="ve-flex-vh-center ve-relative">${btns}${elePad}</div>`
 				.css({
-					width: CONTROLS_RADIUS * 2,
-					height: CONTROLS_RADIUS * 2,
+					width: `${CONTROLS_RADIUS * 2}px`,
+					height: `${CONTROLS_RADIUS * 2}px`,
 				});
 
-			return $$`<div class="ve-flex-vh-center">${$wrpInner}</div>`
+			return ee`<div class="ve-flex-vh-center">${wrpInner}</div>`
 				.css({
-					width: (CONTROLS_RADIUS * 2) + BTN_STEP_SIZE + BORDER_PAD,
-					height: (CONTROLS_RADIUS * 2) + BTN_STEP_SIZE + BORDER_PAD,
+					width: `${(CONTROLS_RADIUS * 2) + BTN_STEP_SIZE + BORDER_PAD}px`,
+					height: `${(CONTROLS_RADIUS * 2) + BTN_STEP_SIZE + BORDER_PAD}px`,
 				});
 		})() : null;
 
-		const {$modalInner, doClose, pGetResolved, doAutoResize: doAutoResizeModal} = await InputUiUtil._pGetShowModal({
+		const {eleModalInner, doClose, pGetResolved, doAutoResize: doAutoResizeModal} = await InputUiUtil._pGetShowModal({
 			title: opts.title || "Select Direction",
 			isMinHeight0: true,
 		});
 
-		const $btnOk = this._$getBtnOk({opts, doClose});
-		const $btnCancel = this._$getBtnCancel({opts, doClose});
-		const $btnSkip = this._$getBtnSkip({opts, doClose});
+		const btnOk = this._getBtnOk({opts, doClose});
+		const btnCancel = this._getBtnCancel({opts, doClose});
+		const btnSkip = this._getBtnSkip({opts, doClose});
 
-		$$`<div class="ve-flex-vh-center mb-3">
-				${$padOuter || $pad}
-			</div>`.appendTo($modalInner);
-		$$`<div class="ve-flex-v-center ve-flex-h-right pb-1 px-1">${$btnOk}${$btnCancel}${$btnSkip}</div>`.appendTo($modalInner);
+		ee`<div class="ve-flex-vh-center ve-mb-3">
+				${elePadOuter || elePad}
+			</div>`.appendTo(eleModalInner);
+		ee`<div class="ve-flex-v-center ve-flex-h-right ve-pb-1 ve-px-1">${btnOk}${btnCancel}${btnSkip}</div>`.appendTo(eleModalInner);
 
 		if (doAutoResizeModal) doAutoResizeModal();
 
@@ -65178,7 +66224,15 @@ class InputUiUtil {
 		const [isDataEntered] = await pGetResolved();
 
 		if (typeof isDataEntered === "symbol") return isDataEntered;
-		$document.off(`mousemove.${evtId} touchmove${evtId} mouseup.${evtId} touchend${evtId} touchcancel${evtId}`);
+
+		eleDocument
+			.off("mousemove", onDocumentMove)
+			.off("touchmove", onDocumentMove);
+		eleDocument
+			.off("mouseup", onDocumentUp)
+			.off("touchend", onDocumentUp)
+			.off("touchcancel", onDocumentUp);
+
 		if (!isDataEntered) return null;
 		if (curAngle < 0) curAngle += 360;
 		return curAngle; // TODO returning the step number is more useful if step is specified?
@@ -65201,49 +66255,51 @@ class InputUiUtil {
 			bonus: (opts.default && opts.default.bonus) || null,
 		});
 
-		comp.render = function ($parent) {
-			$parent.empty();
+		comp.render = function (eleParent) {
+			eleParent.empty();
 
-			const $iptNum = ComponentUiUtil.$getIptInt(this, "num", 0, {$ele: $(`<input class="form-control input-xs form-control--minimal ve-text-center mr-1">`)})
-				.appendTo($parent)
-				.keydown(evt => {
-					if (evt.key === "Escape") { $iptNum.blur(); return; }
+			const iptNum = ComponentUiUtil.getIptInt(this, "num", 0, {ele: ee`<input class="ve-form-control ve-input-xs form-control--minimal ve-text-center ve-mr-1">`})
+				.appendTo(eleParent)
+				.onn("keydown", evt => {
+					if (evt.key === "Escape") { iptNum.blure(); return; }
 					if (evt.key === "Enter") doClose(true);
 					evt.stopPropagation();
 				});
-			const $selFaces = ComponentUiUtil.$getSelEnum(this, "faces", {values: Renderer.dice.DICE})
-				.addClass("mr-2").addClass("ve-text-center").css("textAlignLast", "center");
+			const selFaces = ComponentUiUtil.getSelEnum(this, "faces", {values: Renderer.dice.DICE})
+				.addClass("ve-mr-2")
+				.addClass("ve-text-center")
+				.css({"textAlignLast": "center"});
 
-			const $iptBonus = $(`<input class="form-control input-xs form-control--minimal ve-text-center">`)
-				.change(() => this._state.bonus = UiUtil.strToInt($iptBonus.val(), null, {fallbackOnNaN: null}))
-				.keydown(evt => {
-					if (evt.key === "Escape") { $iptBonus.blur(); return; }
+			const iptBonus = ee`<input class="ve-form-control ve-input-xs form-control--minimal ve-text-center">`
+				.onn("change", () => this._state.bonus = UiUtil.strToInt(iptBonus.val(), null, {fallbackOnNaN: null}))
+				.onn("keydown", evt => {
+					if (evt.key === "Escape") { iptBonus.blure(); return; }
 					if (evt.key === "Enter") doClose(true);
 					evt.stopPropagation();
 				});
-			const hook = () => $iptBonus.val(this._state.bonus != null ? UiUtil.intToBonus(this._state.bonus) : this._state.bonus);
+			const hook = () => iptBonus.val(this._state.bonus != null ? UiUtil.intToBonus(this._state.bonus) : this._state.bonus);
 			comp._addHookBase("bonus", hook);
 			hook();
 
-			$$`<div class="ve-flex-vh-center">${$iptNum}<div class="mr-1">d</div>${$selFaces}${$iptBonus}</div>`.appendTo($parent);
+			ee`<div class="ve-flex-vh-center">${iptNum}<div class="ve-mr-1">d</div>${selFaces}${iptBonus}</div>`.appendTo(eleParent);
 		};
 
 		comp.getAsString = function () {
 			return `${this._state.num}d${this._state.faces}${this._state.bonus ? UiUtil.intToBonus(this._state.bonus) : ""}`;
 		};
 
-		const {$modalInner, doClose, pGetResolved, doAutoResize: doAutoResizeModal} = await InputUiUtil._pGetShowModal({
+		const {eleModalInner, doClose, pGetResolved, doAutoResize: doAutoResizeModal} = await InputUiUtil._pGetShowModal({
 			title: opts.title || "Enter Dice",
 			isMinHeight0: true,
 		});
 
-		const $btnOk = this._$getBtnOk({opts, doClose});
-		const $btnCancel = this._$getBtnCancel({opts, doClose});
-		const $btnSkip = this._$getBtnSkip({opts, doClose});
+		const btnOk = this._getBtnOk({opts, doClose});
+		const btnCancel = this._getBtnCancel({opts, doClose});
+		const btnSkip = this._getBtnSkip({opts, doClose});
 
-		comp.render($modalInner);
+		comp.render(eleModalInner);
 
-		$$`<div class="ve-flex-v-center ve-flex-h-right pb-1 px-1 mt-2">${$btnOk}${$btnCancel}${$btnSkip}</div>`.appendTo($modalInner);
+		ee`<div class="ve-flex-v-center ve-flex-h-right ve-pb-1 ve-px-1 ve-mt-2">${btnOk}${btnCancel}${btnSkip}</div>`.appendTo(eleModalInner);
 
 		if (doAutoResizeModal) doAutoResizeModal();
 
@@ -65270,7 +66326,7 @@ class InputUiUtil {
 
 		let slider;
 
-		const {$modalInner, doClose, pGetResolved, doAutoResize: doAutoResizeModal} = await InputUiUtil._pGetShowModal({
+		const {eleModalInner, doClose, pGetResolved, doAutoResize: doAutoResizeModal} = await InputUiUtil._pGetShowModal({
 			title: opts.title || "Select Challenge Rating",
 			isMinHeight0: true,
 			cbClose: () => {
@@ -65293,13 +66349,13 @@ class InputUiUtil {
 			propCurMin: "cur",
 			fnDisplay: ix => Parser.CRS[ix],
 		});
-		$$`<div class="ve-flex-col w-640p">${slider.$get()}</div>`.appendTo($modalInner);
+		ee`<div class="ve-flex-col ve-w-640p">${slider.get()}</div>`.appendTo(eleModalInner);
 
-		const $btnOk = this._$getBtnOk({opts, doClose});
-		const $btnCancel = this._$getBtnCancel({opts, doClose});
-		const $btnSkip = this._$getBtnSkip({opts, doClose});
+		const btnOk = this._getBtnOk({opts, doClose});
+		const btnCancel = this._getBtnCancel({opts, doClose});
+		const btnSkip = this._getBtnSkip({opts, doClose});
 
-		$$`<div class="ve-flex-v-center ve-flex-h-right pb-1 px-1">${$btnOk}${$btnCancel}${$btnSkip}</div>`.appendTo($modalInner);
+		ee`<div class="ve-flex-v-center ve-flex-h-right ve-pb-1 ve-px-1">${btnOk}${btnCancel}${btnSkip}</div>`.appendTo(eleModalInner);
 
 		if (doAutoResizeModal) doAutoResizeModal();
 
@@ -65327,8 +66383,8 @@ class InputUiUtil {
 		} = {},
 	) {
 		return new Promise(resolve => {
-			const $iptAdd = $(`<input type="file" ${isMultiple ? "multiple" : ""} class="ve-hidden" accept=".json">`)
-				.on("change", (evt) => {
+			const iptAdd = ee`<input type="file" ${isMultiple ? "multiple" : ""} class="ve-hidden" accept=".json">`
+				.onn("change", (evt) => {
 					const input = evt.target;
 
 					const reader = new FileReader();
@@ -65385,126 +66441,65 @@ class InputUiUtil {
 				})
 				.appendTo(document.body);
 
-			$iptAdd.click();
+			iptAdd.click();
 		});
 	}
 }
 
 class DragReorderUiUtil {
 	/**
-	 * Create a draggable pad capable of re-ordering rendered components. This requires to components to have:
-	 *  - an `id` getter
-	 *  - a `pos` getter and setter
-	 *  - a `height` getter
-	 *
+	 * @param fnGetRow Function which returns a `row` element. Is a function instead of a value so it can be lazy-loaded later.
 	 * @param opts Options object.
-	 * @param opts.$parent The parent element containing the rendered components.
-	 * @param opts.componentsParent The object which has the array of components as a property.
-	 * @param opts.componentsProp The property name of the components array.
-	 * @param opts.componentId This component ID.
-	 * @param [opts.marginSide] The margin side; "r" or "l" (defaults to "l").
-	 */
-	static $getDragPad (opts) {
-		opts = opts || {};
-
-		const getComponentById = (id) => opts.componentsParent[opts.componentsProp].find(it => it.id === id);
-
-		const dragMeta = {};
-		const doDragCleanup = () => {
-			dragMeta.on = false;
-			dragMeta.$wrap.remove();
-			dragMeta.$dummies.forEach($d => $d.remove());
-			$(document.body).off(`mouseup.drag__stop`);
-		};
-
-		const doDragRender = () => {
-			if (dragMeta.on) doDragCleanup();
-
-			$(document.body).on(`mouseup.drag__stop`, () => {
-				if (dragMeta.on) doDragCleanup();
-			});
-
-			dragMeta.on = true;
-			dragMeta.$wrap = $(`<div class="ve-flex-col ui-drag__wrp-drag-block"></div>`).appendTo(opts.$parent);
-			dragMeta.$dummies = [];
-
-			const ids = opts.componentsParent[opts.componentsProp].map(it => it.id);
-
-			ids.forEach(id => {
-				const $dummy = $(`<div class="w-100 ${id === opts.componentId ? "ui-drag__wrp-drag-dummy--highlight" : "ui-drag__wrp-drag-dummy--lowlight"}"></div>`)
-					.height(getComponentById(id).height)
-					.mouseup(() => {
-						if (dragMeta.on) doDragCleanup();
-					})
-					.appendTo(dragMeta.$wrap);
-				dragMeta.$dummies.push($dummy);
-
-				if (id !== opts.componentId) { // on entering other areas, swap positions
-					$dummy.mouseenter(() => {
-						const cachedPos = getComponentById(id).pos;
-
-						getComponentById(id).pos = getComponentById(opts.componentId).pos;
-						getComponentById(opts.componentId).pos = cachedPos;
-
-						doDragRender();
-					});
-				}
-			});
-		};
-
-		return $(`<div class="m${opts.marginSide || "l"}-2 ui-drag__patch" title="Drag to Reorder">
-		<div class="ui-drag__patch-col"><div>&#8729</div><div>&#8729</div><div>&#8729</div></div>
-		<div class="ui-drag__patch-col"><div>&#8729</div><div>&#8729</div><div>&#8729</div></div>
-		</div>`).mousedown(() => doDragRender());
-	}
-
-	/**
-	 * @param $fnGetRow Function which returns a $row element. Is a function instead of a value so it can be lazy-loaded later.
-	 * @param opts Options object.
-	 * @param opts.$parent
+	 * @param opts.eleParent
 	 * @param opts.swapRowPositions
-	 * @param [opts.$children] An array of row elements.
-	 * @param [opts.$getChildren] Should return an array as described in the "$children" option.
+	 * @param [opts.elesChildren] An array of row elements.
+	 * @param [opts.getElesChildren] Should return an array as described in the "elesChildren" option.
 	 * @param [opts.fnOnDragComplete] A function to run when dragging is completed.
 	 */
-	static $getDragPadOpts ($fnGetRow, opts) {
-		if (!opts.$parent || !opts.swapRowPositions || (!opts.$children && !opts.$getChildren)) throw new Error("Missing required option(s)!");
+	static getDragPadOpts (fnGetRow, opts) {
+		if (!opts.eleParent || !opts.swapRowPositions || (!opts.elesChildren && !opts.getElesChildren)) throw new Error("Missing required option(s)!");
+
+		const eleBody = e_({ele: document.body});
 
 		const dragMeta = {};
 		const doDragCleanup = () => {
 			dragMeta.on = false;
-			dragMeta.$wrap.remove();
-			dragMeta.$dummies.forEach($d => $d.remove());
-			$(document.body).off(`mouseup.drag__stop`);
+			dragMeta.wrp.remove();
+			dragMeta.elesDummy.forEach(d => d.remove());
+			if (dragMeta.fnMouseUpBody) eleBody.off("mouseup", dragMeta.fnMouseUpBody);
 			if (opts.fnOnDragComplete) opts.fnOnDragComplete();
 		};
 
 		const doDragRender = () => {
 			if (dragMeta.on) doDragCleanup();
 
-			$(document.body).on(`mouseup.drag__stop`, () => {
-				if (dragMeta.on) doDragCleanup();
-			});
-
 			dragMeta.on = true;
-			dragMeta.$wrap = $(`<div class="ve-flex-col ui-drag__wrp-drag-block"></div>`).appendTo(opts.$parent);
-			dragMeta.$dummies = [];
+			dragMeta.wrp = ee`<div class="ve-flex-col ve-ui-drag__wrp-drag-block"></div>`.appendTo(opts.eleParent);
+			dragMeta.elesDummy = [];
+			dragMeta.fnMouseUpBody = () => {
+				if (dragMeta.on) doDragCleanup();
+			};
 
-			const $children = opts.$getChildren ? opts.$getChildren() : opts.$children;
-			const ixRow = $children.indexOf($fnGetRow());
+			eleBody.onn(`mouseup`, dragMeta.fnMouseUpBody);
 
-			$children.forEach(($child, i) => {
-				const dimensions = {w: $child.outerWidth(), h: $child.outerHeight()};
-				const $dummy = $(`<div class="no-shrink ${i === ixRow ? "ui-drag__wrp-drag-dummy--highlight" : "ui-drag__wrp-drag-dummy--lowlight"}"></div>`)
-					.width(dimensions.w).height(dimensions.h)
-					.mouseup(() => {
+			const elesChildren = (opts.getElesChildren ? opts.getElesChildren() : opts.elesChildren).map(ele => e_({ele}));
+			const ixRow = elesChildren.indexOf(fnGetRow());
+
+			elesChildren.forEach((child, i) => {
+				const dimensions = {w: child.outerWidthe(), h: child.outerHeighte()};
+				const eleDummy = ee`<div class="ve-no-shrink ${i === ixRow ? "ve-ui-drag__wrp-drag-dummy--highlight" : "ve-ui-drag__wrp-drag-dummy--lowlight"}"></div>`
+					.css({
+						width: `${dimensions.w}px`,
+						height: `${dimensions.h}px`,
+					})
+					.onn("mouseup", () => {
 						if (dragMeta.on) doDragCleanup();
 					})
-					.appendTo(dragMeta.$wrap);
-				dragMeta.$dummies.push($dummy);
+					.appendTo(dragMeta.wrp);
+				dragMeta.elesDummy.push(eleDummy);
 
 				if (i !== ixRow) { // on entering other areas, swap positions
-					$dummy.mouseenter(() => {
+					eleDummy.onn("mouseenter", () => {
 						opts.swapRowPositions(i, ixRow);
 						doDragRender();
 					});
@@ -65512,230 +66507,22 @@ class DragReorderUiUtil {
 			});
 		};
 
-		return $(`<div class="mr-2 ui-drag__patch" title="Drag to Reorder">
-		<div class="ui-drag__patch-col"><div>&#8729</div><div>&#8729</div><div>&#8729</div></div>
-		<div class="ui-drag__patch-col"><div>&#8729</div><div>&#8729</div><div>&#8729</div></div>
-		</div>`).mousedown(() => doDragRender());
+		return ee`<div class="ve-mr-2 ve-ui-drag__patch" title="Drag to Reorder">
+		<div class="ve-ui-drag__patch-col"><div>&#8729</div><div>&#8729</div><div>&#8729</div></div>
+		<div class="ve-ui-drag__patch-col"><div>&#8729</div><div>&#8729</div><div>&#8729</div></div>
+		</div>`.onn("mousedown", () => doDragRender());
 	}
 
 	/**
-	 * @param $fnGetRow Function which returns a $row element. Is a function instead of a value so it can be lazy-loaded later.
-	 * @param $parent Parent elements to attach row elements to. Should have (e.g.) "relative" CSS positioning.
-	 * @param parent Parent component which has a pod decomposable as {swapRowPositions, <$children|$getChildren>}.
+	 * @param fnGetRow Function which returns a $row element. Is a function instead of a value so it can be lazy-loaded later.
+	 * @param eleParent Parent elements to attach row elements to. Should have (e.g.) "relative" CSS positioning.
+	 * @param parent Parent component which has a pod decomposable as {swapRowPositions, <elesChildren|getElesChildren>}.
 	 * @return jQuery
 	 */
-	static $getDragPad2 ($fnGetRow, $parent, parent) {
-		const {swapRowPositions, $children, $getChildren} = parent;
-		const nxtOpts = {$parent, swapRowPositions, $children, $getChildren};
-		return this.$getDragPadOpts($fnGetRow, nxtOpts);
-	}
-}
-
-class SourceUiUtil {
-	static _getValidOptions (options) {
-		if (!options) throw new Error(`No options were specified!`);
-		if (!(options.$parent || options.eleParent) || !options.cbConfirm || !options.cbConfirmExisting || !options.cbCancel) throw new Error(`Missing options!`);
-		if (options.$parent && options.eleParent) throw new Error(`Only one of "$parent" and "eleParent" may be specified!`);
-		options.mode = options.mode || "add";
-		return options;
-	}
-
-	/**
-	 * @param options Options object.
-	 * @param options.$parent Parent element.
-	 * @param options.eleParent Parent element.
-	 * @param options.cbConfirm Confirmation callback for inputting new sources.
-	 * @param options.cbConfirmExisting Confirmation callback for selecting existing sources.
-	 * @param options.cbCancel Cancellation callback.
-	 * @param options.mode (Optional) Mode to build in, "select", "edit" or "add". Defaults to "select".
-	 * @param options.source (Optional) Homebrew source object.
-	 * @param options.isRequired (Optional) True if a source must be selected.
-	 */
-	static render (options) {
-		options = SourceUiUtil._getValidOptions(options);
-		const $parent = options.$parent || $(options.eleParent);
-		$parent.empty();
-		options.mode = options.mode || "select";
-
-		const isEditMode = options.mode === "edit";
-
-		let jsonDirty = false;
-		const $iptName = $(`<input class="form-control ui-source__ipt-named">`)
-			.keydown(evt => { if (evt.key === "Escape") $iptName.blur(); })
-			.change(() => {
-				if (!jsonDirty && !isEditMode) $iptJson.val($iptName.val().replace(/[^-0-9a-zA-Z]/g, ""));
-				$iptName.removeClass("form-control--error");
-			});
-		if (options.source) $iptName.val(options.source.full);
-		const $iptAbv = $(`<input class="form-control ui-source__ipt-named">`)
-			.keydown(evt => { if (evt.key === "Escape") $iptAbv.blur(); })
-			.change(() => {
-				$iptAbv.removeClass("form-control--error");
-			});
-		if (options.source) $iptAbv.val(options.source.abbreviation);
-		const $iptJson = $(`<input class="form-control ui-source__ipt-named" ${isEditMode ? "disabled" : ""}>`)
-			.keydown(evt => { if (evt.key === "Escape") $iptJson.blur(); })
-			.change(() => {
-				jsonDirty = true;
-				$iptJson.removeClass("form-control--error");
-			});
-		if (options.source) $iptJson.val(options.source.json);
-		const $iptVersion = $(`<input class="form-control ui-source__ipt-named">`)
-			.keydown(evt => { if (evt.key === "Escape") $iptUrl.blur(); });
-		if (options.source) $iptVersion.val(options.source.version);
-
-		let hasColor = false;
-		const $iptColor = $(`<input type="color" class="w-100 b-0">`)
-			.keydown(evt => { if (evt.key === "Escape") $iptColor.blur(); })
-			.change(() => hasColor = true);
-		if (options.source?.color != null) { hasColor = true; $iptColor.val(`#${options.source.color}`); }
-
-		let hasColorNight = false;
-		const $iptColorNight = $(`<input type="color" class="w-100 b-0">`)
-			.keydown(evt => { if (evt.key === "Escape") $iptColorNight.blur(); })
-			.change(() => hasColorNight = true);
-		if (options.source?.colorNight != null) { hasColorNight = true; $iptColorNight.val(`#${options.source.colorNight}`); }
-
-		const $iptUrl = $(`<input class="form-control ui-source__ipt-named">`)
-			.keydown(evt => { if (evt.key === "Escape") $iptUrl.blur(); });
-		if (options.source) $iptUrl.val(options.source.url);
-		const $iptAuthors = $(`<input class="form-control ui-source__ipt-named">`)
-			.keydown(evt => { if (evt.key === "Escape") $iptAuthors.blur(); });
-		if (options.source) $iptAuthors.val((options.source.authors || []).join(", "));
-		const $iptConverters = $(`<input class="form-control ui-source__ipt-named">`)
-			.keydown(evt => { if (evt.key === "Escape") $iptConverters.blur(); });
-		if (options.source) $iptConverters.val((options.source.convertedBy || []).join(", "));
-
-		const $btnOk = $(`<button class="ve-btn ve-btn-primary">OK</button>`)
-			.click(async () => {
-				let incomplete = false;
-				[$iptName, $iptAbv, $iptJson].forEach($ipt => {
-					const val = $ipt.val();
-					if (!val || !val.trim()) { incomplete = true; $ipt.addClass("form-control--error"); }
-				});
-				if (incomplete) return;
-
-				const jsonVal = $iptJson.val().trim();
-				if (!isEditMode && BrewUtil2.hasSourceJson(jsonVal)) {
-					$iptJson.addClass("form-control--error");
-					JqueryUtil.doToast({content: `The JSON identifier "${jsonVal}" already exists!`, type: "danger"});
-					return;
-				}
-
-				const source = {
-					json: jsonVal,
-					abbreviation: $iptAbv.val().trim(),
-					full: $iptName.val().trim(),
-					version: $iptVersion.val().trim() || "1.0.0",
-				};
-
-				const url = $iptUrl.val().trim();
-				if (url) source.url = url;
-
-				const authors = $iptAuthors.val().trim().split(",").map(it => it.trim()).filter(Boolean);
-				if (authors.length) source.authors = authors;
-
-				const convertedBy = $iptConverters.val().trim().split(",").map(it => it.trim()).filter(Boolean);
-				if (convertedBy.length) source.convertedBy = convertedBy;
-
-				if (hasColor) source.color = $iptColor.val().trim().replace(/^#/, "");
-				if (hasColorNight) source.colorNight = $iptColorNight.val().trim().replace(/^#/, "");
-
-				await options.cbConfirm(source, options.mode !== "edit");
-			});
-
-		const $btnCancel = options.isRequired && !isEditMode
-			? null
-			: $(`<button class="ve-btn ve-btn-default ml-2">Cancel</button>`).click(() => options.cbCancel());
-
-		const $btnUseExisting = $(`<button class="ve-btn ve-btn-default">Use an Existing Source</button>`)
-			.click(() => {
-				$stageInitial.hideVe();
-				$stageExisting.showVe();
-
-				// cleanup
-				[$iptName, $iptAbv, $iptJson].forEach($ipt => $ipt.removeClass("form-control--error"));
-			});
-
-		const $stageInitial = $$`<div class="h-100 w-100 ve-flex-vh-center"><div class="ve-flex-col">
-			<h3 class="ve-text-center">${isEditMode ? "Edit Homebrew Source" : "Add a Homebrew Source"}</h3>
-			<div class="ui-source__row mb-2"><div class="ve-col-12 ve-flex-v-center">
-				<span class="mr-2 ui-source__name help" title="The name or title for the homebrew you wish to create. This could be the name of a book or PDF; for example, 'Monster Manual'">Title</span>
-				${$iptName}
-			</div></div>
-			<div class="ui-source__row mb-2"><div class="ve-col-12 ve-flex-v-center">
-				<span class="mr-2 ui-source__name help" title="An abbreviated form of the title. This will be shown in lists on the site, and in the top-right corner of stat blocks or data entries; for example, 'MM'">Abbreviation</span>
-				${$iptAbv}
-			</div></div>
-			<div class="ui-source__row mb-2"><div class="ve-col-12 ve-flex-v-center">
-				<span class="mr-2 ui-source__name help" title="This will be used to identify your homebrew universally, so should be unique to you and you alone">JSON Identifier</span>
-				${$iptJson}
-			</div></div>
-			<div class="ui-source__row mb-2"><div class="ve-col-12 ve-flex-v-center">
-				<span class="mr-2 ui-source__name help" title="A version identifier, e.g. &quot;1.0.0&quot; or &quot;draft 1&quot;">Version</span>
-				${$iptVersion}
-			</div></div>
-			<div class="ui-source__row mb-2"><div class="ve-col-12 ve-flex-v-center">
-				<span class="mr-2 ui-source__name help" title="A color which should be used when displaying the source abbreviation">Color</span>
-				${$iptColor}
-			</div></div>
-			<div class="ui-source__row mb-2"><div class="ve-col-12 ve-flex-v-center">
-				<span class="mr-2 ui-source__name help" title="A color which should be used when displaying the source abbreviation, when using a &quot;Night&quot; theme. If unspecified, &quot;Color&quot; will be used for both &quot;Day&quot; and &quot;Night&quot; themes.">Color (Night)</span>
-				${$iptColorNight}
-			</div></div>
-			<div class="ui-source__row mb-2"><div class="ve-col-12 ve-flex-v-center">
-				<span class="mr-2 ui-source__name help" title="A link to the original homebrew, e.g. a GM Binder page">Source URL</span>
-				${$iptUrl}
-			</div></div>
-			<div class="ui-source__row mb-2"><div class="ve-col-12 ve-flex-v-center">
-				<span class="mr-2 ui-source__name help" title="A comma-separated list of authors, e.g. 'John Doe, Joe Bloggs'">Author(s)</span>
-				${$iptAuthors}
-			</div></div>
-			<div class="ui-source__row mb-2"><div class="ve-col-12 ve-flex-v-center">
-				<span class="mr-2 ui-source__name help" title="A comma-separated list of people who converted the homebrew to 5etools' format, e.g. 'John Doe, Joe Bloggs'">Converted By</span>
-				${$iptConverters}
-			</div></div>
-			<div class="ve-text-center mb-2">${$btnOk}${$btnCancel}</div>
-
-			${!isEditMode && BrewUtil2.getMetaLookup("sources")?.length ? $$`<div class="ve-flex-vh-center mb-3 mt-3"><span class="ui-source__divider"></span>or<span class="ui-source__divider"></span></div>
-			<div class="ve-flex-vh-center">${$btnUseExisting}</div>` : ""}
-		</div></div>`.appendTo($parent);
-
-		const $selExisting = $$`<select class="form-control input-sm">
-			<option disabled>Select</option>
-			${(BrewUtil2.getMetaLookup("sources") || []).sort((a, b) => SortUtil.ascSortLower(a.full, b.full)).map(s => `<option value="${s.json.escapeQuotes()}">${s.full.escapeQuotes()}</option>`)}
-		</select>`.change(() => $selExisting.removeClass("form-control--error"));
-		$selExisting[0].selectedIndex = 0;
-
-		const $btnConfirmExisting = $(`<button class="ve-btn ve-btn-default ve-btn-sm">Confirm</button>`)
-			.click(async () => {
-				if ($selExisting[0].selectedIndex === 0) {
-					$selExisting.addClass("form-control--error");
-					return;
-				}
-
-				const sourceJson = $selExisting.val();
-				const source = BrewUtil2.sourceJsonToSource(sourceJson);
-				await options.cbConfirmExisting(source);
-
-				// cleanup
-				$selExisting[0].selectedIndex = 0;
-				$stageExisting.hideVe();
-				$stageInitial.showVe();
-			});
-
-		const $btnBackExisting = $(`<button class="ve-btn ve-btn-default ve-btn-sm mr-2">Back</button>`)
-			.click(() => {
-				$selExisting[0].selectedIndex = 0;
-				$stageExisting.hideVe();
-				$stageInitial.showVe();
-			});
-
-		const $stageExisting = $$`<div class="h-100 w-100 ve-flex-vh-center ve-hidden"><div>
-			<h3 class="ve-text-center">Select a Homebrew Source</h3>
-			<div class="mb-2"><div class="ve-col-12 ve-flex-vh-center">${$selExisting}</div></div>
-			<div class="ve-col-12 ve-flex-vh-center">${$btnBackExisting}${$btnConfirmExisting}</div>
-		</div></div>`.appendTo($parent);
+	static getDragPad2 (fnGetRow, eleParent, parent) {
+		const {swapRowPositions, elesChildren, getElesChildren} = parent;
+		const nxtOpts = {eleParent, swapRowPositions, elesChildren, getElesChildren};
+		return this.getDragPadOpts(fnGetRow, nxtOpts);
 	}
 }
 
@@ -65861,40 +66648,24 @@ function MixinBaseComponent (Cls) {
 
 			const toDelete = new Set(Object.keys(rendered));
 
+			// region Validation/setup
 			for (let i = 0; i < entities.length; ++i) {
-				const it = entities[i];
+				const entity = entities[i];
 
-				if (it.id == null) throw new Error(`Collection item did not have an ID!`);
-				// N.B.: Meta can be an array, if one item maps to multiple renders (e.g. the same is shown in two places)
-				const meta = rendered[it.id];
+				if (entity.id == null) throw new Error(`Collection item did not have an ID!`);
+				if (typeof entity.id !== "string") throw new Error(`Collection item ID was not a string!`);
 
-				toDelete.delete(it.id);
-				if (meta) {
-					if (opts.isDiffMode) {
-						const nxtHash = this._getCollectionEntityHash(it);
-						if (nxtHash !== meta.__hash) meta.__hash = nxtHash;
-						else continue;
-					}
-
-					meta.data = it; // update any existing pointers
-					opts.fnUpdateExisting(meta, it, i);
-				} else {
-					const meta = opts.fnGetNew(it, i);
-
-					// If the "get new" function returns null, skip rendering this entity
-					if (meta == null) continue;
-
-					meta.data = it; // update any existing pointers
-					if (!meta.wrpRow && !meta.$wrpRow && !meta.fnRemoveEles) throw new Error(`A "wrpRow", "$wrpRow", or a "fnRemoveEles" property is required for deletes!`);
-
-					if (opts.isDiffMode) meta.__hash = this._getCollectionEntityHash(it);
-
-					rendered[it.id] = meta;
-				}
+				toDelete.delete(entity.id);
 			}
+			// endregion
 
+			// region Deletes
+			// Do deletes first, to prevent the case where e.g. a `fnUpdateExisting` triggers a recursive
+			//   update to the collection as an inner loop, which leaves the outer loop with already-deleted
+			//   renders which it will be unable to act upon.
 			const doRemoveElements = meta => {
 				if (meta.wrpRow) meta.wrpRow.remove();
+				// eslint-disable-next-line vet-jquery/jquery
 				if (meta.$wrpRow) meta.$wrpRow.remove();
 				if (meta.fnRemoveEles) meta.fnRemoveEles();
 			};
@@ -65905,6 +66676,39 @@ function MixinBaseComponent (Cls) {
 				delete rendered[id];
 				if (opts.fnDeleteExisting) opts.fnDeleteExisting(meta);
 			});
+			// endregion
+
+			// region New/existing
+			for (let i = 0; i < entities.length; ++i) {
+				const entity = entities[i];
+
+				// N.B.: Meta can be an array, if one item maps to multiple renders (e.g. the same is shown in two places)
+				const meta = rendered[entity.id];
+
+				if (meta) {
+					if (opts.isDiffMode) {
+						const nxtHash = this._getCollectionEntityHash(entity);
+						if (nxtHash !== meta.__hash) meta.__hash = nxtHash;
+						else continue;
+					}
+
+					meta.data = entity; // update any existing pointers
+					opts.fnUpdateExisting(meta, entity, i);
+				} else {
+					const meta = opts.fnGetNew(entity, i);
+
+					// If the "get new" function returns null, skip rendering this entity
+					if (meta == null) continue;
+
+					meta.data = entity; // update any existing pointers
+					// eslint-disable-next-line vet-jquery/jquery
+					if (!meta.wrpRow && !meta.$wrpRow && !meta.fnRemoveEles) throw new Error(`A "wrpRow", "$wrpRow", or a "fnRemoveEles" property is required for deletes!`);
+
+					if (opts.isDiffMode) meta.__hash = this._getCollectionEntityHash(entity);
+
+					rendered[entity.id] = meta;
+				}
+			}
 
 			if (opts.fnReorderExisting) {
 				entities.forEach((it, i) => {
@@ -65912,6 +66716,7 @@ function MixinBaseComponent (Cls) {
 					opts.fnReorderExisting(meta, it, i);
 				});
 			}
+			// endregion
 		}
 
 		/**
@@ -65943,41 +66748,44 @@ function MixinBaseComponent (Cls) {
 
 			// Run the external functions in serial, to prevent element re-ordering
 			for (let i = 0; i < entities.length; ++i) {
-				const it = entities[i];
+				const entity = entities[i];
 
-				if (!it.id) throw new Error(`Collection item did not have an ID!`);
+				if (!entity.id) throw new Error(`Collection item did not have an ID!`);
 				// N.B.: Meta can be an array, if one item maps to multiple renders (e.g. the same is shown in two places)
-				const meta = rendered[it.id];
+				const meta = rendered[entity.id];
 
-				toDelete.delete(it.id);
+				toDelete.delete(entity.id);
 				if (meta) {
 					if (opts.isDiffMode) {
-						const nxtHash = this._getCollectionEntityHash(it);
+						const nxtHash = this._getCollectionEntityHash(entity);
 						if (nxtHash !== meta.__hash) meta.__hash = nxtHash;
 						else continue;
 					}
 
-					const nxtMeta = await opts.pFnUpdateExisting(meta, it);
+					const nxtMeta = await opts.pFnUpdateExisting(meta, entity);
 					// Overwrite the existing renders in multi-render mode
 					//    Otherwise, just ignore the result--single renders never modify their render
-					if (opts.isMultiRender) rendered[it.id] = nxtMeta;
+					if (opts.isMultiRender) rendered[entity.id] = nxtMeta;
 				} else {
-					const meta = await opts.pFnGetNew(it);
+					const meta = await opts.pFnGetNew(entity);
 
 					// If the "get new" function returns null, skip rendering this entity
 					if (meta == null) continue;
 
+					// eslint-disable-next-line vet-jquery/jquery
 					if (!opts.isMultiRender && !meta.wrpRow && !meta.$wrpRow && !meta.fnRemoveEles) throw new Error(`A "wrpRow", "$wrpRow", or a "fnRemoveEles" property is required for deletes!`);
+					// eslint-disable-next-line vet-jquery/jquery
 					if (opts.isMultiRender && meta.some(it => !it.wrpRow && !it.$wrpRow && !it.fnRemoveEles)) throw new Error(`A "wrpRow", "$wrpRow", or a "fnRemoveEles" property is required for deletes!`);
 
-					if (opts.isDiffMode) meta.__hash = this._getCollectionEntityHash(it);
+					if (opts.isDiffMode) meta.__hash = this._getCollectionEntityHash(entity);
 
-					rendered[it.id] = meta;
+					rendered[entity.id] = meta;
 				}
 			}
 
 			const doRemoveElements = meta => {
 				if (meta.wrpRow) meta.wrpRow.remove();
+				// eslint-disable-next-line vet-jquery/jquery
 				if (meta.$wrpRow) meta.$wrpRow.remove();
 				if (meta.fnRemoveEles) meta.fnRemoveEles();
 			};
@@ -66008,6 +66816,7 @@ function MixinBaseComponent (Cls) {
 		_detachCollection (prop, namespace = null) {
 			const renderedLookupProp = namespace ? `${namespace}.${prop}` : prop;
 			const rendered = (this.__rendered[renderedLookupProp] = this.__rendered[renderedLookupProp] || {});
+			// eslint-disable-next-line vet-jquery/jquery
 			Object.values(rendered).forEach(it => (it.wrpRow || it.$wrpRow).detach());
 		}
 
@@ -66020,6 +66829,7 @@ function MixinBaseComponent (Cls) {
 		_resetCollectionRenders (prop, namespace = null) {
 			const renderedLookupProp = namespace ? `${namespace}.${prop}` : prop;
 			const rendered = (this.__rendered[renderedLookupProp] = this.__rendered[renderedLookupProp] || {});
+			// eslint-disable-next-line vet-jquery/jquery
 			Object.values(rendered).forEach(it => (it.wrpRow || it.$wrpRow).remove());
 			delete this.__rendered[renderedLookupProp];
 		}
@@ -66033,7 +66843,7 @@ function MixinBaseComponent (Cls) {
 
 		// to be overridden as required
 		getSaveableState () { return {...this.getBaseSaveableState()}; }
-		setStateFrom (toLoad, isOverwrite = false) { this.setBaseSaveableStateFrom(toLoad, isOverwrite); }
+		setStateFrom (toLoad, isOverwrite = false) { return this.setBaseSaveableStateFrom(toLoad, isOverwrite); }
 
 		async _pLock (lockName, {lockToken = null, isDbg = false} = {}) {
 			this.__locks[lockName] ||= new VeLock({name: lockName, isDbg});
@@ -66054,7 +66864,12 @@ function MixinBaseComponent (Cls) {
 
 		_triggerCollectionUpdate (prop) {
 			if (!this._state[prop]) return;
-			this._state[prop] = [...this._state[prop]];
+			try {
+				this._isDisableEqualsSimpleArrayEmpty = true;
+				this._state[prop] = [...this._state[prop]];
+			} finally {
+				this._isDisableEqualsSimpleArrayEmpty = false;
+			}
 		}
 
 		static _toCollection (array) {
@@ -66159,13 +66974,10 @@ class RenderableCollectionBase {
 globalThis.RenderableCollectionBase = RenderableCollectionBase;
 
 class _RenderableCollectionGenericRowsSyncAsyncUtils {
-	constructor ({comp, prop, wrpRows, $wrpRows, namespace}) {
+	constructor ({comp, prop, wrpRows, namespace = null}) {
 		this._comp = comp;
 		this._prop = prop;
-		// TODO(jquery) migrate
-		if (wrpRows && $wrpRows) throw new Error(`Only one of "wrpRows" and "$wrpRows" may be specified!`);
-		this._$wrpRows = $wrpRows || $(wrpRows);
-		this._wrpRows = this._$wrpRows[0];
+		this._wrpRows = wrpRows;
 		this._namespace = namespace;
 	}
 
@@ -66186,43 +66998,52 @@ class _RenderableCollectionGenericRowsSyncAsyncUtils {
 
 	doUpdateExistingRender (renderedMeta, entity, i) {
 		renderedMeta.comp._proxyAssignSimple("state", entity.entity, true);
-		if (!renderedMeta.$wrpRow.parent().is(this._$wrpRows)) renderedMeta.$wrpRow.appendTo(this._$wrpRows);
+		if (!renderedMeta.wrpRow.parente() === this._wrpRows) renderedMeta.wrpRow.appendTo(this._wrpRows);
 	}
 
-	static _doSwapJqueryElements ($eles, ixA, ixB) {
+	static _doSwapJqueryElements (eles, ixA, ixB) {
+		if (ixA === ixB) return;
+
 		if (ixA > ixB) [ixA, ixB] = [ixB, ixA];
 
-		const eleA = $eles.get(ixA);
-		const eleB = $eles.get(ixB);
+		const eleA = eles[ixA];
+		const eleB = eles[ixB];
 
 		const eleActive = document.activeElement;
 
-		$(eleA).insertAfter(eleB);
-		$(eleB).insertBefore($eles.get(ixA + 1));
+		eleA.insertAfter(eleB);
+		eleB.insertBeforee(eles[ixA + 1]);
 
-		if (eleActive) eleActive.focus();
+		if (eleActive) e_({ele: eleActive}).focuse();
 	}
 
 	doReorderExistingComponent (renderedMeta, entity, i) {
 		const ix = this._comp._state[this._prop].map(it => it.id).indexOf(entity.id);
-		const $rows = this._$wrpRows.find(`> *`);
-		const curIx = $rows.index(renderedMeta.$wrpRow);
 
-		const isMove = !this._$wrpRows.length || curIx !== ix;
+		if (!this._wrpRows.contains(renderedMeta.wrpRow)) this._wrpRows.appends(renderedMeta.wrpRow);
+
+		const rows = this._wrpRows.childrene();
+		const curIx = rows.indexOf(renderedMeta.wrpRow);
+
+		const isMove = curIx !== ix;
 		if (!isMove) return;
 
-		this.constructor._doSwapJqueryElements($rows, curIx, ix);
+		this.constructor._doSwapJqueryElements(rows, curIx, ix);
 	}
 
 	/* -------------------------------------------- */
 
-	$getBtnDelete ({entity, title = "Delete"}) {
-		return $(this.getBtnDelete(...arguments));
-	}
-
-	getBtnDelete ({entity, title = "Delete"}) {
+	getBtnDelete ({entity, title = "Delete", pFnGetIsConfirm = null}) {
 		return ee`<button class="ve-btn ve-btn-xxs ve-btn-danger" title="${title.qq()}"><span class="glyphicon glyphicon-trash"></span></button>`
-			.onn("click", () => this.doDelete({entity}));
+			.onn("click", async () => {
+				if (
+					pFnGetIsConfirm
+					&& await pFnGetIsConfirm()
+					&& !await InputUiUtil.pGetUserBoolean({title: "Delete", htmlDescription: "Are you sure?", textYes: "Yes", textNo: "Cancel"})
+				) return;
+
+				this.doDelete({entity});
+			});
 	}
 
 	doDelete ({entity}) {
@@ -66236,20 +67057,20 @@ class _RenderableCollectionGenericRowsSyncAsyncUtils {
 
 	/* -------------------------------------------- */
 
-	$getPadDrag ({$wrpRow}) {
-		return DragReorderUiUtil.$getDragPadOpts(
-			() => $wrpRow,
+	getPadDrag ({wrpRow}) {
+		return DragReorderUiUtil.getDragPadOpts(
+			() => wrpRow,
 			{
 				swapRowPositions: (ixA, ixB) => {
 					[this._comp._state[this._prop][ixA], this._comp._state[this._prop][ixB]] = [this._comp._state[this._prop][ixB], this._comp._state[this._prop][ixA]];
 					this._comp._triggerCollectionUpdate(this._prop);
 				},
-				$getChildren: () => {
+				getElesChildren: () => {
 					const rendered = this._comp._getRenderedCollection({prop: this._prop, namespace: this._namespace});
 					return this._comp._state[this._prop]
-						.map(it => rendered[it.id].$wrpRow);
+						.map(it => rendered[it.id].wrpRow);
 				},
-				$parent: this._$wrpRows,
+				eleParent: this._wrpRows,
 			},
 		);
 	}
@@ -66260,20 +67081,21 @@ class RenderableCollectionGenericRows extends RenderableCollectionBase {
 	/**
 	 * @param comp
 	 * @param prop
-	 * @param $wrpRows
+	 * @param wrpRows
 	 * @param [opts]
 	 * @param [opts.namespace]
 	 * @param [opts.isDiffMode]
+	 * @param [opts.selectClickHandler]
 	 */
-	constructor (comp, prop, $wrpRows, opts) {
+	constructor (comp, prop, wrpRows, opts) {
 		super(comp, prop, opts);
-		this._$wrpRows = $wrpRows instanceof $ ? $wrpRows : $($wrpRows);
-		this._wrpRows = this._$wrpRows[0];
+		this._wrpRows = wrpRows;
+		this._selectClickHandler = opts?.selectClickHandler;
 
 		this._utils = new _RenderableCollectionGenericRowsSyncAsyncUtils({
 			comp,
 			prop,
-			$wrpRows: this._$wrpRows,
+			wrpRows: this._wrpRows,
 			namespace: opts?.namespace,
 		});
 	}
@@ -66289,34 +67111,45 @@ class RenderableCollectionGenericRows extends RenderableCollectionBase {
 	getNewRender (entity, i) {
 		const comp = this._utils.getNewRenderComp(entity, i);
 
-		const $wrpRow = this._$getWrpRow()
-			.appendTo(this._$wrpRows);
-		const wrpRow = e_($wrpRow[0]);
+		const wrpRow = this._getWrpRow()
+			.appendTo(this._wrpRows);
 
-		const renderAdditional = this._populateRow({comp, $wrpRow, wrpRow, entity});
+		const renderAdditional = this._populateRow({comp, wrpRow, entity});
 
-		return {
+		const rendered = {
 			...(renderAdditional || {}),
 			id: entity.id,
 			comp,
 			wrpRow,
-			$wrpRow,
 		};
-	}
 
-	_$getWrpRow () {
-		return $(this._getWrpRow());
+		if (this._selectClickHandler) {
+			if (!rendered.cbSel) throw new Error(`Renderable collection with select-click handler failed to return "cbSel"! This is a bug!`);
+			if (!rendered.wrpCbSel) throw new Error(`Renderable collection with select-click handler failed to return "wrpCbSel"! This is a bug!`);
+
+			rendered.wrpRow
+				.onn("click", evt => this._selectClickHandler.handleSelectClick(rendered, evt, {isPassThroughEvents: true}));
+
+			rendered.wrpCbSel
+				.onn("mousedown", evt => {
+					evt.preventDefault();
+					evt.stopPropagation();
+				})
+			;
+		}
+
+		return rendered;
 	}
 
 	_getWrpRow () {
-		return ee`<div class="ve-flex-v-center w-100"></div>`;
+		return ee`<div class="ve-flex-v-center ve-w-100"></div>`;
 	}
 
 	/**
 	 * @abstract
 	 * @return {?object}
 	 */
-	_populateRow ({comp, $wrpRow, wrpRow, entity}) {
+	_populateRow ({comp, wrpRow, entity}) {
 		throw new Error(`Unimplemented!`);
 	}
 }
@@ -66432,7 +67265,7 @@ MixinComponentGlobalState._Singleton = class {
 	}
 };
 MixinComponentGlobalState._Singleton.__stateGlobal = {...MixinComponentGlobalState._Singleton._getDefaultStateGlobal()};
-MixinComponentGlobalState._Singleton._pSaveStateDebounced = MiscUtil.debounce(MixinComponentGlobalState._Singleton._pSaveState.bind(MixinComponentGlobalState._Singleton), 100);
+MixinComponentGlobalState._Singleton._pSaveStateDebounced = MiscUtil.debounce(MixinComponentGlobalState._Singleton._pSaveState.bind(MixinComponentGlobalState._Singleton), VeCt.DUR_DEBOUNCE_SAVE);
 MixinComponentGlobalState._Singleton._pLoadingState = null;
 
 // endregion
@@ -66451,10 +67284,6 @@ class ComponentUiUtil {
 		hk();
 
 		return ele;
-	}
-
-	static $getDisp (comp, prop, {html, $ele, fnGetText} = {}) {
-		return this.getDisp(comp, prop, {html, ele: $ele?.[0], fnGetText});
 	}
 
 	/**
@@ -66502,6 +67331,7 @@ class ComponentUiUtil {
 		return ComponentUiUtil._getIptNumeric(component, prop, UiUtil.strToNumber, fallbackEmpty, opts);
 	}
 
+	/* eslint-disable vet-jquery/jquery */
 	/**
 	 * @param component An instance of a class which extends BaseComponent.
 	 * @param prop Component to hook on.
@@ -66522,17 +67352,19 @@ class ComponentUiUtil {
 	 * @return {jQuery}
 	 */
 	static $getIptInt (component, prop, fallbackEmpty = 0, opts) {
-		if (opts?.$ele) opts.ele = opts.$ele[0];
+		if (opts?.$ele) opts.ele = e_({ele: opts.$ele[0]});
 
 		const out = ComponentUiUtil._getIptNumeric(component, prop, UiUtil.strToInt, fallbackEmpty, opts);
-		if (!opts?.asMeta) return $(out);
+		if (!opts?.asMeta) return globalThis.jQuery(out);
 
-		out.$ipt = $(out.ipt);
-		out.$wrp = $(out.wrp);
+		out.$ipt = globalThis.jQuery(out.ipt);
+		out.$wrp = globalThis.jQuery(out.wrp);
 
 		return out;
 	}
+	/* eslint-enable vet-jquery/jquery */
 
+	/* eslint-disable vet-jquery/jquery */
 	/**
 	 * @param component An instance of a class which extends BaseComponent.
 	 * @param prop Component to hook on.
@@ -66552,16 +67384,17 @@ class ComponentUiUtil {
 	 * @return {jQuery}
 	 */
 	static $getIptNumber (component, prop, fallbackEmpty = 0, opts) {
-		if (opts?.$ele) opts.ele = opts.$ele[0];
+		if (opts?.$ele) opts.ele = e_({ele: opts.$ele[0]});
 
 		const out = ComponentUiUtil._getIptNumeric(component, prop, UiUtil.strToNumber, fallbackEmpty, opts);
-		if (!opts?.asMeta) return $(out);
+		if (!opts?.asMeta) return globalThis.jQuery(out);
 
-		out.$ipt = $(out.ipt);
-		out.$wrp = $(out.wrp);
+		out.$ipt = globalThis.jQuery(out.ipt);
+		out.$wrp = globalThis.jQuery(out.wrp);
 
 		return out;
 	}
+	/* eslint-enable vet-jquery/jquery */
 
 	static _getIptNumeric (component, prop, fnConvert, fallbackEmpty = 0, opts) {
 		opts = opts || {};
@@ -66577,7 +67410,7 @@ class ComponentUiUtil {
 			ipt.val(val);
 		};
 
-		const ipt = (opts.ele ? e_({ele: opts.ele}) : e_({outer: opts.html || `<input class="form-control input-xs form-control--minimal ve-text-right">`}))
+		const ipt = (opts.ele ? e_({ele: opts.ele}) : e_({outer: opts.html || `<input class="ve-form-control ve-input-xs form-control--minimal ve-text-right">`}))
 			.disableSpellcheck()
 			.onn("keydown", evt => { if (evt.key === "Escape") ipt.blur(); })
 			.onn("change", () => {
@@ -66642,7 +67475,7 @@ class ComponentUiUtil {
 		// Validate options
 		if ((opts.decorationLeft || opts.decorationRight) && !opts.asMeta) throw new Error(`Input must be created with "asMeta" option`);
 
-		const ipt = (opts.ele ? e_({ele: opts.ele}) : e_({outer: opts.html || `<input class="form-control input-xs form-control--minimal">`}))
+		const ipt = (opts.ele ? e_({ele: opts.ele}) : e_({outer: opts.html || `<input class="ve-form-control ve-input-xs form-control--minimal">`}))
 			.onn("keydown", evt => { if (evt.key === "Escape") ipt.blur(); })
 			.disableSpellcheck();
 		UiUtil.bindTypingEnd({
@@ -66655,8 +67488,7 @@ class ComponentUiUtil {
 
 		if (opts.placeholder) ipt.attr("placeholder", opts.placeholder);
 
-		// TODO(Future) replace with e.g. `datalist`
-		if (opts.autocomplete && opts.autocomplete.length) $(ipt).typeahead({source: opts.autocomplete});
+		if (opts.autocomplete && opts.autocomplete.length) ipt.typeahead(opts.autocomplete);
 		const hook = () => {
 			if (component._state[prop] == null) ipt.val(null);
 			else {
@@ -66671,6 +67503,7 @@ class ComponentUiUtil {
 		else return ipt;
 	}
 
+	/* eslint-disable vet-jquery/jquery */
 	/**
 	 * @param component An instance of a class which extends BaseComponent.
 	 * @param prop Component to hook on.
@@ -66686,47 +67519,54 @@ class ComponentUiUtil {
 	 * @param [opts.placeholder] Placeholder for the input.
 	 */
 	static $getIptStr (component, prop, opts) {
-		if (opts?.$ele) opts.ele = opts.$ele[0];
+		if (opts?.$ele) opts.ele = e_({ele: opts.$ele[0]});
 
 		const out = ComponentUiUtil.getIptStr(component, prop, opts);
-		if (!opts?.asMeta) return $(out);
+		if (!opts?.asMeta) return globalThis.jQuery(out);
 
-		out.$ipt = $(out.ipt);
-		out.$wrp = $(out.wrp);
+		out.$ipt = globalThis.jQuery(out.ipt);
+		out.$wrp = globalThis.jQuery(out.wrp);
 
 		return out;
 	}
+	/* eslint-enable vet-jquery/jquery */
 
 	static _getIptDecoratedMeta (component, prop, ipt, hook, opts) {
 		const out = {ipt, unhook: () => component._removeHookBase(prop, hook)};
 
 		if (opts.decorationLeft || opts.decorationRight) {
-			let $decorLeft;
-			let $decorRight;
+			let decorLeft;
+			let decorRight;
 
 			if (opts.decorationLeft) {
-				ipt.addClass("ui-ideco__ipt").addClass("ui-ideco__ipt--left");
-				$decorLeft = ComponentUiUtil._getEleDecor(component, prop, ipt, opts.decorationLeft, "left", opts);
+				ipt.addClass("ve-ui-ideco__ipt").addClass("ve-ui-ideco__ipt--left");
+				decorLeft = ComponentUiUtil._getEleDecor(component, prop, ipt, opts.decorationLeft, "left", opts);
 			}
 
 			if (opts.decorationRight) {
-				ipt.addClass("ui-ideco__ipt").addClass("ui-ideco__ipt--right");
-				$decorRight = ComponentUiUtil._getEleDecor(component, prop, ipt, opts.decorationRight, "right", opts);
+				ipt.addClass("ve-ui-ideco__ipt").addClass("ve-ui-ideco__ipt--right");
+				decorRight = ComponentUiUtil._getEleDecor(component, prop, ipt, opts.decorationRight, "right", opts);
 			}
 
-			out.wrp = ee`<div class="relative w-100">${ipt}${$decorLeft}${$decorRight}</div>`;
+			out.wrp = ee`<div class="ve-relative ve-w-100">${ipt}${decorLeft}${decorRight}</div>`;
 		}
 
 		return out;
 	}
 
+	static _DECOR_SIDE_TO_CSS_CLASS = {
+		"left": "ve-ui-ideco__wrp--left",
+		"right": "ve-ui-ideco__wrp--right",
+	};
+
 	static _getEleDecor (component, prop, ipt, decorType, side, opts) {
+		const classNameSide = this._DECOR_SIDE_TO_CSS_CLASS[side] || "";
 		switch (decorType) {
 			case "search": {
-				return ee`<div class="ui-ideco__wrp ui-ideco__wrp--${side} no-events ve-flex-vh-center"><span class="glyphicon glyphicon-search"></span></div>`;
+				return ee`<div class="ve-ui-ideco__wrp ${classNameSide} ve-no-events ve-flex-vh-center"><span class="glyphicon glyphicon-search"></span></div>`;
 			}
 			case "clear": {
-				return ee`<div class="ui-ideco__wrp ui-ideco__wrp--${side} ve-flex-vh-center clickable" title="Clear"><span class="glyphicon glyphicon-remove"></span></div>`
+				return ee`<div class="ve-ui-ideco__wrp ${classNameSide} ve-flex-vh-center ve-clickable" title="Clear"><span class="glyphicon glyphicon-remove"></span></div>`
 					.onn("click", () => {
 						ipt
 							.val("")
@@ -66754,14 +67594,18 @@ class ComponentUiUtil {
 					ipt.focus();
 				};
 
-				const btnUp = ee`<button class="ve-btn ve-btn-default ui-ideco__btn-ticker p-0 bold no-select">+</button>`
-					.onn("click", () => handleClick(1));
+				const btnUp = ee`<button class="ve-btn ve-btn-default ve-ui-ideco__btn-ticker ve-p-0 ve-bold ve-no-select" title="Increase by 1 (SHIFT for 5)">+</button>`
+					.onn("click", evt => {
+						handleClick(evt.shiftKey ? 5 : 1);
+					});
 
-				const btnDown = ee`<button class="ve-btn ve-btn-default ui-ideco__btn-ticker p-0 bold no-select">\u2212</button>`
-					.onn("click", () => handleClick(-1));
+				const btnDown = ee`<button class="ve-btn ve-btn-default ve-ui-ideco__btn-ticker ve-p-0 ve-bold ve-no-select" title="Decrease by 1 (SHIFT for 5)">\u2212</button>`
+					.onn("click", evt => {
+						handleClick(evt.shiftKey ? -5 : -1);
+					});
 
 				// Reverse flex column to stack "+" button as higher z-index
-				return ee`<div class="ui-ideco__wrp ui-ideco__wrp--${side} ve-flex-vh-center ve-flex-col-reverse">
+				return ee`<div class="ve-ui-ideco__wrp ${classNameSide} ve-flex-vh-center ve-flex-col-reverse">
 					${btnDown}
 					${btnUp}
 				</div>`;
@@ -66777,19 +67621,19 @@ class ComponentUiUtil {
 	 * @param component An instance of a class which extends BaseComponent.
 	 * @param prop Component to hook on.
 	 * @param [opts] Options Object.
-	 * @param [opts.$ele] Element to use.
-	 * @return {$}
+	 * @param [opts.ele] Element to use.
+	 * @return {HTMLElementExtended}
 	 */
-	static $getIptEntries (component, prop, opts) {
+	static getIptEntries (component, prop, opts) {
 		opts = opts || {};
 
-		const $ipt = (opts.$ele || $(`<textarea class="form-control input-xs form-control--minimal resize-vertical"></textarea>`))
-			.keydown(evt => { if (evt.key === "Escape") $ipt.blur(); })
-			.change(() => component._state[prop] = UiUtil.getTextAsEntries($ipt.val().trim()));
-		const hook = () => $ipt.val(UiUtil.getEntriesAsText(component._state[prop]));
+		const ipt = (opts.ele || ee`<textarea class="ve-form-control ve-input-xs form-control--minimal ve-resize-vertical"></textarea>`)
+			.onn("keydown", evt => { if (evt.key === "Escape") ipt.blur(); })
+			.onn("change", () => component._state[prop] = UiUtil.getTextAsEntries(ipt.val().trim()));
+		const hook = () => ipt.val(UiUtil.getEntriesAsText(component._state[prop]));
 		component._addHookBase(prop, hook);
 		hook();
-		return $ipt;
+		return ipt;
 	}
 
 	/**
@@ -66803,7 +67647,7 @@ class ComponentUiUtil {
 	static getIptColor (component, prop, opts) {
 		opts = opts || {};
 
-		const ipt = (opts.ele || e_({outer: opts.html || `<input class="form-control input-xs form-control--minimal ui__ipt-color" type="color">`}))
+		const ipt = (opts.ele || e_({outer: opts.html || `<input class="ve-form-control ve-input-xs form-control--minimal ve-ui__ipt-color" type="color">`}))
 			.onn("change", () => component._state[prop] = ipt.val());
 		const hook = () => ipt.val(component._state[prop]);
 		component._addHookBase(prop, hook);
@@ -66811,6 +67655,7 @@ class ComponentUiUtil {
 		return ipt;
 	}
 
+	/* eslint-disable vet-jquery/jquery */
 	/**
 	 * @param component An instance of a class which extends BaseComponent.
 	 * @param prop Component to hook on.
@@ -66821,8 +67666,9 @@ class ComponentUiUtil {
 	 */
 	static $getIptColor (component, prop, opts) {
 		const ipt = this.getIptColor(component, prop, opts);
-		return $(ipt);
+		return globalThis.jQuery(ipt);
 	}
+	/* eslint-enable vet-jquery/jquery */
 
 	/**
 	 * @param component An instance of a class which extends BaseComponent.
@@ -66847,7 +67693,7 @@ class ComponentUiUtil {
 		let ele = opts.ele;
 		if (opts.html) ele = e_({outer: opts.html});
 
-		const activeClass = opts.activeClass || "active";
+		const activeClass = opts.activeClass || "ve-active";
 		const stateName = opts.stateName || "state";
 		const stateProp = opts.stateProp || `_${stateName}`;
 
@@ -66874,6 +67720,7 @@ class ComponentUiUtil {
 		return btn;
 	}
 
+	/* eslint-disable vet-jquery/jquery */
 	/**
 	 * @param component An instance of a class which extends BaseComponent.
 	 * @param prop Component to hook on.
@@ -66893,12 +67740,10 @@ class ComponentUiUtil {
 	 */
 	static $getBtnBool (component, prop, opts) {
 		const nxtOpts = {...opts};
-		if (nxtOpts.$ele) {
-			nxtOpts.ele = nxtOpts.$ele[0];
-			delete nxtOpts.$ele;
-		}
-		return $(this.getBtnBool(component, prop, nxtOpts));
+		if (nxtOpts.$ele) nxtOpts.ele = e_({ele: nxtOpts.$ele[0]});
+		return globalThis.jQuery(this.getBtnBool(component, prop, nxtOpts));
 	}
+	/* eslint-enable vet-jquery/jquery */
 
 	/**
 	 * @param component An instance of a class which extends BaseComponent.
@@ -66908,12 +67753,15 @@ class ComponentUiUtil {
 	 * @param [opts.asMeta] If a meta-object should be returned containing the hook and the input.
 	 * @param [opts.isDisplayNullAsIndeterminate]
 	 * @param [opts.isTreatIndeterminateNullAsPositive]
+	 * @param [opts.isDisplayAsInverse]
 	 * @param [opts.stateName] State name.
 	 * @param [opts.stateProp] State prop.
 	 * @return {(HTMLElementExtended | Object)}
 	 */
 	static getCbBool (component, prop, opts) {
 		opts = opts || {};
+
+		if ((opts.isDisplayNullAsIndeterminate || opts.isTreatIndeterminateNullAsPositive) && opts.isDisplayAsInverse) throw new Error(`"isDisplayNullAsIndeterminate"/"isTreatIndeterminateNullAsPositive" and "isDisplayAsInverse" are mutually exclusive!`);
 
 		const stateName = opts.stateName || "state";
 		const stateProp = opts.stateProp || `_${stateName}`;
@@ -66930,12 +67778,13 @@ class ComponentUiUtil {
 					return;
 				}
 
-				component[stateProp][prop] = cb.checked;
+				component[stateProp][prop] = opts.isDisplayAsInverse ? !cb.checked : cb.checked;
 			},
 		});
 
 		const hook = () => {
-			cb.checked = !!component[stateProp][prop];
+			const val = !!component[stateProp][prop];
+			cb.checked = opts.isDisplayAsInverse ? !val : val;
 			if (opts.isDisplayNullAsIndeterminate) cb.indeterminate = component[stateProp][prop] == null;
 		};
 		component._addHook(stateName, prop, hook);
@@ -66949,6 +67798,7 @@ class ComponentUiUtil {
 			: cb;
 	}
 
+	/* eslint-disable vet-jquery/jquery */
 	/**
 	 * @param component An instance of a class which extends BaseComponent.
 	 * @param prop Component to hook on.
@@ -66964,9 +67814,10 @@ class ComponentUiUtil {
 	static $getCbBool (component, prop, opts) {
 		opts ||= {};
 		const out = this.getCbBool(component, prop, opts);
-		if (!opts.asMeta) return $(out);
-		return {...out, $cb: $(out.cb)};
+		if (!opts.asMeta) return globalThis.jQuery(out);
+		return {...out, $cb: globalThis.jQuery(out.cb)};
 	}
+	/* eslint-enable vet-jquery/jquery */
 
 	/* -------------------------------------------- */
 
@@ -67111,8 +67962,8 @@ class ComponentUiUtil {
 		}
 
 		_render_iptDisplay () {
-			const iptDisplay = ee`<input class="form-control input-xs form-control--minimal">`
-				.addClass("ui-sel2__ipt-display")
+			const iptDisplay = ee`<input class="ve-form-control ve-input-xs form-control--minimal">`
+				.addClass("ve-ui-sel2__ipt-display")
 				.attr("tabindex", "-1")
 				.onn("click", () => {
 					if (this._state.isDisabled) return;
@@ -67124,7 +67975,7 @@ class ComponentUiUtil {
 			this._addHookBase("selected", () => {
 				if (!this._isMultiSelect) {
 					iptDisplay
-						.toggleClass("italic", this._state.selected == null)
+						.toggleClass("ve-italic", this._state.selected == null)
 						.toggleClass("ve-muted", this._state.selected == null);
 
 					if (this._state.selected == null) {
@@ -67150,9 +68001,9 @@ class ComponentUiUtil {
 		}
 
 		_render_iptSearch () {
-			const iptSearch = ee`<input class="form-control input-xs form-control--minimal">`
-				.addClass("absolute")
-				.addClass("ui-sel2__ipt-search")
+			const iptSearch = ee`<input class="ve-form-control ve-input-xs form-control--minimal">`
+				.addClass("ve-absolute")
+				.addClass("ve-ui-sel2__ipt-search")
 				.onn("keydown", evt => {
 					if (this._state.isDisabled) return;
 
@@ -67202,13 +68053,13 @@ class ComponentUiUtil {
 		}
 
 		_render_wrp ({iptDisplay, iptSearch}) {
-			const wrpChoices = ee`<div class="absolute ui-sel2__wrp-options ve-overflow-y-scroll"></div>`;
+			const wrpChoices = ee`<div class="ve-absolute ve-ui-sel2__wrp-options ve-overflow-y-scroll"></div>`;
 
-			const wrp = ee`<div class="ve-flex relative ui-sel2__wrp w-100">
+			const wrp = ee`<div class="ve-flex ve-relative ve-ui-sel2__wrp ve-w-100">
 				${iptDisplay}
 				${iptSearch}
 				${wrpChoices}
-				<div class="ui-sel2__disp-arrow absolute no-events bold"><span class="glyphicon glyphicon-menu-down"></span></div>
+				<div class="ve-ui-sel2__disp-arrow ve-absolute ve-no-events ve-bold"><span class="glyphicon glyphicon-menu-down"></span></div>
 			</div>`;
 
 			return {
@@ -67235,7 +68086,7 @@ class ComponentUiUtil {
 						const display = v == null ? (this._displayNullAs || "\u2014") : this._fnDisplay ? this._fnDisplay(v) : v;
 						const additionalStyleClasses = this._fnGetAdditionalStyleClasses ? this._fnGetAdditionalStyleClasses(v) : null;
 
-						const ele = ee`<div class="ve-flex-v-center py-1 px-1 clickable ui-sel2__disp-option ${v == null ? `italic` : ""} ${additionalStyleClasses ? additionalStyleClasses.join(" ") : ""}" tabindex="0">${display}</div>`
+						const ele = ee`<div class="ve-flex-v-center ve-py-1 ve-px-1 ve-clickable ve-ui-sel2__disp-option ${v == null ? `ve-italic` : ""} ${additionalStyleClasses ? additionalStyleClasses.join(" ") : ""}" tabindex="0">${display}</div>`
 							.onn("click", () => {
 								if (this._state.isDisabled) return;
 
@@ -67244,8 +68095,8 @@ class ComponentUiUtil {
 								document.activeElement.blur();
 
 								// Temporarily remove pointer events from the dropdown, so it collapses thanks to its :hover CSS
-								this._rdState.wrp.addClass("no-events");
-								setTimeout(() => this._rdState.wrp.removeClass("no-events"), 50);
+								this._rdState.wrp.addClass("ve-no-events");
+								setTimeout(() => this._rdState.wrp.removeClass("ve-no-events"), 50);
 							})
 							.onn("keydown", evt => {
 								if (this._state.isDisabled) return;
@@ -67304,11 +68155,11 @@ class ComponentUiUtil {
 			this._addHookBase("selected", () => {
 				if (!this._isMultiSelect) {
 					this._rdState.optionMetas
-						.forEach(it => it.ele.removeClass("active"));
+						.forEach(it => it.ele.removeClass("ve-active"));
 
 					const optionMetaActive = this._rdState.optionMetas
 						.find(optionMeta => MiscUtil.isNearStrictlyEqual(optionMeta.value, this._state.selected));
-					if (optionMetaActive) optionMetaActive.ele.addClass("active");
+					if (optionMetaActive) optionMetaActive.ele.addClass("ve-active");
 				}
 
 				// TODO(Future) implement as required
@@ -67414,6 +68265,7 @@ class ComponentUiUtil {
 			: wrp;
 	}
 
+	/* eslint-disable vet-jquery/jquery */
 	/**
 	 * A select2-style dropdown.
 	 * @param comp An instance of a class which extends BaseComponent.
@@ -67457,19 +68309,20 @@ class ComponentUiUtil {
 				isDisabled,
 			},
 		);
-		if (!asMeta) return $(out);
+		if (!asMeta) return globalThis.jQuery(out);
 		return {
 			...out,
-			$wrp: $(out.wrp),
-			$iptDisplay: $(out.iptDisplay),
-			$iptSearch: $(out.iptSearch),
+			$wrp: globalThis.jQuery(out.wrp),
+			$iptDisplay: globalThis.jQuery(out.iptDisplay),
+			$iptSearch: globalThis.jQuery(out.iptSearch),
 		};
 	}
+	/* eslint-enable vet-jquery/jquery */
 
 	/* -------------------------------------------- */
 
 	// If the new value list doesn't contain our current value, reset our current value
-	static _$getSel_setValues_handleResetOnMissing (
+	static _getSel_setValues_handleResetOnMissing (
 		{
 			component,
 			_propProxy,
@@ -67499,6 +68352,7 @@ class ComponentUiUtil {
 		}
 	}
 
+	/* eslint-disable vet-jquery/jquery */
 	/**
 	 * @param component An instance of a class which extends BaseComponent.
 	 * @param prop Component to hook on.
@@ -67533,7 +68387,7 @@ class ComponentUiUtil {
 			prop,
 			{
 				values,
-				ele: $ele?.[0],
+				ele: $ele ? e_({ele: $ele[0]}) : null,
 				html,
 				isAllowNull,
 				fnDisplay,
@@ -67543,12 +68397,13 @@ class ComponentUiUtil {
 				isSetIndexes,
 			},
 		);
-		if (!asMeta) return $(out);
+		if (!asMeta) return globalThis.jQuery(out);
 		return {
 			...out,
-			$sel: $(out.sel),
+			$sel: globalThis.jQuery(out.sel),
 		};
 	}
+	/* eslint-enable vet-jquery/jquery */
 
 	/**
 	 * @param component An instance of a class which extends BaseComponent.
@@ -67585,7 +68440,7 @@ class ComponentUiUtil {
 
 		const sel = ele
 			|| (html ? e_({outer: html}) : null)
-			|| e_({tag: "select", clazz: "form-control input-xs"});
+			|| e_({tag: "select", clazz: "ve-form-control ve-input-xs"});
 
 		sel
 			.onn("change", () => {
@@ -67612,7 +68467,7 @@ class ComponentUiUtil {
 
 			sel.html(htmlOptions);
 
-			this._$getSel_setValues_handleResetOnMissing({
+			this._getSel_setValues_handleResetOnMissing({
 				component,
 				_propProxy,
 				prop,
@@ -67655,23 +68510,23 @@ class ComponentUiUtil {
 	static _PickerDisplayComponent = class extends BaseComponent {
 		static _RenderState = class {
 			constructor () {
-				this._$btnsRemove = [];
+				this._btnsRemove = [];
 			}
 
-			reset ($parent) {
-				$parent.empty();
-				this._$btnsRemove.splice(0, this._$btnsRemove.length);
+			reset (parent) {
+				parent.empty();
+				this._btnsRemove.splice(0, this._btnsRemove.length);
 			}
 
-			track$BtnRemove ($btnRemove) {
-				this._$btnsRemove.push($btnRemove);
+			trackBtnRemove (btnRemove) {
+				this._btnsRemove.push(btnRemove);
 			}
 
 			setIsDisabled (val) {
 				val = !!val;
 
-				this._$btnsRemove
-					.forEach($btnRemove => $btnRemove.prop("disabled", val));
+				this._btnsRemove
+					.forEach(btnRemove => btnRemove.prop("disabled", val));
 			}
 		};
 
@@ -67681,9 +68536,9 @@ class ComponentUiUtil {
 				propParent,
 				values = null,
 				isCaseInsensitive = false,
-				$wrpPills,
+				wrpPills,
 				fnGetTitlePill = null,
-				fnGet$ElePill = null,
+				fnGetElePill = null,
 			} = {},
 		) {
 			super();
@@ -67692,8 +68547,8 @@ class ComponentUiUtil {
 			this._propParent = propParent;
 			this._values = values;
 			this._isCaseInsensitive = isCaseInsensitive;
-			this._$wrpPills = $wrpPills;
-			this._fnGet$ElePill = fnGet$ElePill;
+			this._wrpPills = wrpPills;
+			this._fnGetElePill = fnGetElePill;
 			this._fnGetTitlePill = fnGetTitlePill;
 
 			Object.assign(this.__state, this._getSubcompValues());
@@ -67757,32 +68612,32 @@ class ComponentUiUtil {
 		}
 
 		render () {
-			this._rdState.reset(this._$wrpPills);
+			this._rdState.reset(this._wrpPills);
 
 			Object.entries(this._state).forEach(([k, v]) => {
 				if (v === false) return;
 
-				const $btnRemove = $(`<button class="ve-btn ve-btn-danger ui-pick__btn-remove ve-text-center">×</button>`)
-					.click(() => this._state[k] = false)
-					.prop("disabled", this._meta.isDisabled);
+				const btnRemove = ee`<button class="ve-btn ve-btn-danger ve-ui-pick__btn-remove ve-text-center">×</button>`
+					.onn("click", () => this._state[k] = false)
+					.prop("disabled", !!this._meta.isDisabled);
 
-				this._rdState.track$BtnRemove($btnRemove);
+				this._rdState.trackBtnRemove(btnRemove);
 
 				const titlePill = this._fnGetTitlePill ? this._fnGetTitlePill(k) : k;
-				const $elePill = this._fnGet$ElePill ? this._fnGet$ElePill(k) : k;
-				$$`<div class="ve-flex mx-1 mb-1 ui-pick__disp-pill max-w-100 min-w-0">
-					<div class="px-1 ui-pick__disp-text ve-flex-v-center text-clip-ellipsis no-select" title="${titlePill.qq()}">
-						${$elePill}
+				const elePill = this._fnGetElePill ? this._fnGetElePill(k) : k;
+				ee`<div class="ve-flex ve-mx-1 ve-mb-1 ve-ui-pick__disp-pill ve-max-w-100 ve-min-w-0">
+					<div class="ve-px-1 ve-ui-pick__disp-text ve-flex-v-center ve-text-clip-ellipsis ve-no-select" title="${titlePill.qq()}">
+						${elePill}
 					</div>
-					${$btnRemove}
+					${btnRemove}
 				</div>`
-					.appendTo(this._$wrpPills);
+					.appendTo(this._wrpPills);
 			});
 		}
 
 		bindParent (
 			{
-				$elesDisable = null,
+				elesDisable = null,
 			},
 		) {
 			this._addHookAll("state", () => {
@@ -67790,9 +68645,9 @@ class ComponentUiUtil {
 			});
 
 			this._addHook("meta", "isDisabled", () => {
-				if (!$elesDisable?.length) return;
+				if (!elesDisable?.length) return;
 
-				$elesDisable.forEach($eleDisable => $eleDisable.prop("disabled", this._meta.isDisabled));
+				elesDisable.forEach(eleDisable => eleDisable.prop("disabled", !!this._meta.isDisabled));
 			})();
 
 			const hkParent = () => this._proxyAssignSimple("state", this._getSubcompValues(), true);
@@ -67802,31 +68657,31 @@ class ComponentUiUtil {
 		}
 	};
 
-	static _$getPickPillDisplay (
+	static _getPickPillDisplay (
 		{
 			comp,
 			prop,
 			values = null,
 			isCaseInsensitive = false,
-			fnGet$ElePill = null,
+			fnGetElePill = null,
 			fnGetTitlePill = null,
 		},
 	) {
-		const $wrpPills = $(`<div class="ve-flex ve-flex-wrap max-w-100 min-w-0"></div>`);
+		const wrpPills = ee`<div class="ve-flex ve-flex-wrap ve-max-w-100 ve-min-w-0"></div>`;
 
 		const pickComp = new this._PickerDisplayComponent({
 			compParent: comp,
 			propParent: prop,
 			values,
 			isCaseInsensitive,
-			$wrpPills,
-			fnGet$ElePill,
+			wrpPills,
+			fnGetElePill,
 			fnGetTitlePill,
 		});
 		pickComp.init();
 
 		return {
-			$wrpPills,
+			wrpPills,
 			setIsDisabled: pickComp.setIsDisabled.bind(pickComp),
 			addValue: pickComp.addValue.bind(pickComp),
 			bindParent: pickComp.bindParent.bind(pickComp),
@@ -67839,26 +68694,17 @@ class ComponentUiUtil {
 
 	/* -------------------------------------------- */
 
-	static getPickEnum (comp, prop, opts) {
-		const out = this.$getPickEnum(comp, prop, opts);
-		if (!opts?.asMeta) return out[0];
-		return {
-			...out,
-			wrp: out.$wrp[0],
-		};
-	}
-
 	/**
 	 * @param comp An instance of a class which extends BaseComponent.
 	 * @param prop Component to hook on.
 	 * @param opts Options Object.
 	 * @param opts.values Values to display.
-	 * @param [opts.fnGet$ElePill] Value display function.
+	 * @param [opts.fnGetElePill] Value display function.
 	 * @param [opts.fnGetTitlePill] Value display function.
 	 * @param [opts.fnGetTextContextAction] Value display function.
 	 * @param [opts.asMeta] If a meta-object should be returned containing the hook and elements.
 	 */
-	static $getPickEnum (comp, prop, opts) {
+	static getPickEnum (comp, prop, opts) {
 		opts = opts || {};
 
 		let values = opts.values;
@@ -67874,27 +68720,27 @@ class ComponentUiUtil {
 
 		let menu = getMenu();
 
-		const $btnAdd = $(`<button class="ve-btn ve-btn-xxs ve-btn-default ui-pick__btn-add ve-flex-vh-center">+</button>`)
-			.click(evt => ContextUtil.pOpenMenu(evt, menu));
+		const btnAdd = ee`<button class="ve-btn ve-btn-xxs ve-btn-default ve-ui-pick__btn-add ve-flex-vh-center">+</button>`
+			.onn("click", evt => ContextUtil.pOpenMenu(evt, menu));
 
 		const {
-			$wrpPills,
+			wrpPills,
 			setIsDisabled,
 			addValue,
 			bindParent,
 			unbindParent,
 			setValues: setValuesPickDisplay,
-		} = this._$getPickPillDisplay({
+		} = this._getPickPillDisplay({
 			comp,
 			prop,
 			values: opts.values,
-			fnGet$ElePill: opts.fnGet$ElePill,
+			fnGetElePill: opts.fnGetElePill,
 			fnGetTitlePill: opts.fnGetTitlePill,
 		});
 
-		const $wrp = $$`<div class="ve-flex-v-center w-100 ui-pick__wrp-btns">${$btnAdd}${$wrpPills}</div>`;
+		const wrp = ee`<div class="ve-flex-v-center ve-w-100 ve-ui-pick__wrp-btns">${btnAdd}${wrpPills}</div>`;
 
-		const {hkParent} = bindParent({comp, prop, $elesDisable: [$btnAdd]});
+		const {hkParent} = bindParent({comp, prop, elesDisable: [btnAdd]});
 
 		const setValues = (nxtValues, ...rest) => {
 			setValuesPickDisplay(nxtValues, ...rest);
@@ -67904,10 +68750,10 @@ class ComponentUiUtil {
 			menu = getMenu();
 		};
 
-		if (!opts.asMeta) return $wrp;
+		if (!opts.asMeta) return wrp;
 
 		return {
-			$wrp,
+			wrp,
 			unhook: () => unbindParent({comp, prop, hk: hkParent}),
 			fnToggleDisabled: isDisabled => {
 				setIsDisabled(isDisabled);
@@ -67920,17 +68766,17 @@ class ComponentUiUtil {
 	 * @param comp An instance of a class which extends BaseComponent.
 	 * @param prop Component to hook on.
 	 * @param [opts] Options Object.
-	 * @param [opts.fnGet$ElePill] Value display function.
+	 * @param [opts.fnGetElePill] Value display function.
 	 * @param [opts.fnGetTitlePill] Value display function.
 	 * @param [opts.fnGetTextContextAction] Value display function.
 	 * @param [opts.isCaseInsensitive] If the values should be case insensitive.
 	 * @param [opts.asMeta] If a meta-object should be returned containing the hook and elements.
 	 */
-	static $getPickString (comp, prop, opts) {
+	static getPickString (comp, prop, opts) {
 		opts = opts || {};
 
-		const $btnAdd = $(`<button class="ve-btn ve-btn-xxs ve-btn-default ui-pick__btn-add ve-flex-vh-center">+</button>`)
-			.click(async () => {
+		const btnAdd = ee`<button class="ve-btn ve-btn-xxs ve-btn-default ve-ui-pick__btn-add ve-flex-vh-center">+</button>`
+			.onn("click", async () => {
 				const input = await InputUiUtil.pGetUserString();
 				if (input == null || input === VeCt.SYM_UI_SKIP) return;
 				const inputClean = opts.isCaseInsensitive ? input.trim().toLowerCase() : input.trim();
@@ -67938,27 +68784,27 @@ class ComponentUiUtil {
 			});
 
 		const {
-			$wrpPills,
+			wrpPills,
 			setIsDisabled,
 			addValue,
 			bindParent,
 			unbindParent,
-		} = this._$getPickPillDisplay({
+		} = this._getPickPillDisplay({
 			comp,
 			prop,
 			isCaseInsensitive: opts.isCaseInsensitive,
-			fnGet$ElePill: opts.fnGet$ElePill,
+			fnGetElePill: opts.fnGetElePill,
 			fnGetTitlePill: opts.fnGetTitlePill,
 		});
 
-		const $wrp = $$`<div class="ve-flex-v-center w-100">${$btnAdd}${$wrpPills}</div>`;
+		const wrp = ee`<div class="ve-flex-v-center ve-w-100">${btnAdd}${wrpPills}</div>`;
 
-		const {hkParent} = bindParent({comp, prop, $elesDisable: [$btnAdd]});
+		const {hkParent} = bindParent({comp, prop, elesDisable: [btnAdd]});
 
-		if (!opts.asMeta) return $wrp;
+		if (!opts.asMeta) return wrp;
 
 		return {
-			$wrp,
+			wrp,
 			unhook: () => unbindParent({comp, prop, hk: hkParent}),
 			fnToggleDisabled: isDisabled => {
 				setIsDisabled(isDisabled);
@@ -67970,17 +68816,17 @@ class ComponentUiUtil {
 	 * @param comp An instance of a class which extends BaseComponent.
 	 * @param prop Component to hook on.
 	 * @param [opts] Options Object.
-	 * @param [opts.fnGet$ElePill] Value display function.
+	 * @param [opts.fnGetElePill] Value display function.
 	 * @param [opts.fnGetTitlePill] Value display function.
 	 * @param [opts.fnOnDrop] Function triggered on drag-drop.
 	 * @param [opts.isCaseInsensitive] If the values should be case insensitive.
 	 * @param [opts.asMeta] If a meta-object should be returned containing the hook and elements.
 	 */
-	static $getPickString2 (
+	static getPickString2 (
 		comp,
 		prop,
 		{
-			fnGet$ElePill = null,
+			fnGetElePill = null,
 			fnGetTitlePill = null,
 			fnOnDrop = null,
 			isCaseInsensitive = false,
@@ -67990,56 +68836,54 @@ class ComponentUiUtil {
 		},
 	) {
 		const {
-			$wrpPills,
+			wrpPills,
 			setIsDisabled,
 			addValue,
 			bindParent,
 			unbindParent,
-		} = this._$getPickPillDisplay({
+		} = this._getPickPillDisplay({
 			comp,
 			prop,
-			isCaseInsensitive: isCaseInsensitive,
-			fnGet$ElePill: fnGet$ElePill,
-			fnGetTitlePill: fnGetTitlePill,
+			isCaseInsensitive,
+			fnGetElePill,
+			fnGetTitlePill,
 		});
 
 		const addInputValue = () => {
-			const val = $iptText.val().trim();
+			const val = iptText.val().trim();
 
 			if (!val) return;
 
 			addValue(val);
 
-			$iptText.val("");
+			iptText.val("");
 		};
 
-		const $iptText = $(`<input class="form-control form-control--minimal input-xs ${additionalStyleClassesInput || ""}" type="text">`)
+		const iptText = ee`<input class="ve-form-control form-control--minimal ve-input-xs ${additionalStyleClassesInput || ""}" type="text">`
 			.disableSpellcheck()
-			.placeholder(placeholderInput)
-			.on("keydown", evt => {
+			.placeholdere(placeholderInput)
+			.onn("keydown", evt => {
 				switch (evt.key) {
-					case "Escape": return $iptText.blur();
+					case "Escape": return iptText.blure();
 					case "Enter": return addInputValue();
 				}
 			});
 
-		const $btnAdd = $(`<button class="ve-btn ve-btn-xs ve-btn-default ve-self-flex-stretch"><span class="glyphicon glyphicon-plus"></span></button>`)
-			.on("click", () => {
+		const btnAdd = ee`<button class="ve-btn ve-btn-xs ve-btn-default ve-self-flex-stretch"><span class="glyphicon glyphicon-plus"></span></button>`
+			.onn("click", () => {
 				addInputValue();
 			});
 
-		const $wrp = $$`<div class="ve-flex-col w-100">
-			${$wrpPills.addClass("mb-1").addClass("ve-flex-h-right")}
-			<div class="ve-flex-v-center w-100 input-group">
-				${$iptText}
-				${$btnAdd}
+		const wrp = ee`<div class="ve-flex-col ve-w-100">
+			${wrpPills.addClass("ve-mb-1").addClass("ve-flex-h-right")}
+			<div class="ve-flex-v-center ve-w-100 ve-input-group">
+				${iptText}
+				${btnAdd}
 			</div>
 		</div>`;
 
 		if (fnOnDrop) {
-			$wrp.on("drop", evt => {
-				evt = evt.originalEvent;
-
+			wrp.onn("drop", evt => {
 				fnOnDrop({
 					evt,
 					addValue,
@@ -68050,16 +68894,16 @@ class ComponentUiUtil {
 		const {hkParent} = bindParent({
 			comp,
 			prop,
-			$elesDisable: [
-				$iptText,
-				$btnAdd,
+			elesDisable: [
+				iptText,
+				btnAdd,
 			],
 		});
 
-		if (!asMeta) return $wrp;
+		if (!asMeta) return wrp;
 
 		return {
-			$wrp,
+			wrp,
 			unhook: () => unbindParent({comp, prop, hk: hkParent}),
 			fnToggleDisabled: isDisabled => {
 				setIsDisabled(isDisabled);
@@ -68080,39 +68924,38 @@ class ComponentUiUtil {
 	 * @param [opts.isIndent] If the checkboxes should be indented.
 	 * @return {jQuery}
 	 */
-	static $getCbsEnum (component, prop, opts) {
+	static getCbsEnum (component, prop, opts) {
 		opts = opts || {};
 
-		const $wrp = $(`<div class="ve-flex-col w-100"></div>`);
-		const metas = opts.values.map(it => {
-			const $cb = $(`<input type="checkbox">`)
-				.keydown(evt => {
-					if (evt.key === "Escape") $cb.blur();
+		const wrp = ee`<div class="ve-flex-col ve-w-100"></div>`;
+		const metas = opts.values.map(value => {
+			const cb = ee`<input type="checkbox">`
+				.onn("keydown", evt => {
+					if (evt.key === "Escape") cb.blure();
 				})
-				.change(() => {
-					let didUpdate = false;
-					const ix = (component._state[prop] || []).indexOf(it);
-					if (~ix) component._state[prop].splice(ix, 1);
-					else {
-						if (component._state[prop]) component._state[prop].push(it);
-						else {
-							didUpdate = true;
-							component._state[prop] = [it];
-						}
-					}
-					if (!didUpdate) component._state[prop] = [...component._state[prop]];
+				.onn("change", () => {
+					const stateNxt = [...(component._state[prop] || [])];
+					const ix = stateNxt.indexOf(value);
+					if (~ix) stateNxt.splice(ix, 1);
+					else stateNxt.push(value);
+					component._state[prop] = stateNxt;
 				});
 
-			$$`<label class="split-v-center my-1 stripe-odd ${opts.isIndent ? "ml-4" : ""}"><div class="no-wrap ve-flex-v-center">${opts.fnDisplay ? opts.fnDisplay(it) : it}</div>${$cb}</label>`.appendTo($wrp);
+			ee`<label class="ve-split-v-center ve-my-1 stripe-odd ${opts.isIndent ? "ve-ml-4" : ""}"><div class="ve-no-wrap ve-flex-v-center">${opts.fnDisplay ? opts.fnDisplay(value) : value}</div>${cb}</label>`.appendTo(wrp);
 
-			return {$cb, value: it};
+			return {cb, value};
 		});
 
-		const hook = () => metas.forEach(meta => meta.$cb.prop("checked", component._state[prop] && component._state[prop].includes(meta.value)));
+		const hook = () => metas.forEach(meta => meta.cb.prop("checked", component._state[prop] && component._state[prop].includes(meta.value)));
 		component._addHookBase(prop, hook);
 		hook();
 
-		return opts.asMeta ? {$wrp, unhook: () => component._removeHookBase(prop, hook)} : $wrp;
+		return opts.asMeta
+			? {
+				wrp,
+				unhook: () => component._removeHookBase(prop, hook),
+			}
+			: wrp;
 	}
 
 	// region Multi Choice
@@ -68140,9 +68983,9 @@ class ComponentUiUtil {
 		this._getMetaWrpMultipleChoice_doValidateOptions(opts);
 
 		const rowMetas = [];
-		const $eles = [];
+		const eles = [];
 		const ixsSelectionOrder = [];
-		const $elesSearchable = {};
+		const elesSearchable = {};
 
 		const propIsAcceptable = this.getMetaWrpMultipleChoice_getPropIsAcceptable(prop);
 		const propPulse = this.getMetaWrpMultipleChoice_getPropPulse(prop);
@@ -68158,17 +69001,17 @@ class ComponentUiUtil {
 
 		let ixValue = 0;
 		valueGroups.forEach((group, i) => {
-			if (i !== 0) $eles.push($(`<hr class="w-100 hr-2 hr--dotted">`));
+			if (i !== 0) eles.push(ee`<hr class="ve-w-100 ve-hr-2 ve-hr--dotted">`);
 
 			if (group.name) {
-				const $wrpName = $$`<div class="split-v-center py-1">
-					<div class="ve-flex-v-center"><span class="mr-2">‒</span><span>${group.name}</span></div>
+				const wrpName = ee`<div class="ve-split-v-center ve-py-1">
+					<div class="ve-flex-v-center"><span class="ve-mr-2">‒</span><span>${group.name}</span></div>
 					${opts.valueGroupSplitControlsLookup?.[group.name]}
 				</div>`;
-				$eles.push($wrpName);
+				eles.push(wrpName);
 			}
 
-			if (group.text) $eles.push($(`<div class="ve-flex-v-center py-1"><div class="ml-1 mr-3"></div><i>${group.text}</i></div>`));
+			if (group.text) eles.push(ee`<div class="ve-flex-v-center ve-py-1"><div class="ve-ml-1 ve-mr-3"></div><i>${group.text}</i></div>`);
 
 			group.values.forEach(value => {
 				const ixValueFrozen = ixValue;
@@ -68184,9 +69027,9 @@ class ComponentUiUtil {
 				if (comp._state[propIsActive] && !comp._state[propIsRequired]) ixsSelectionOrder.push(ixValueFrozen);
 
 				let hk;
-				const $cb = isRequired
-					? $(`<input type="checkbox" disabled checked title="This option is required.">`)
-					: ComponentUiUtil.$getCbBool(comp, propIsActive);
+				const cb = isRequired
+					? ee`<input type="checkbox" disabled checked title="This option is required.">`
+					: ComponentUiUtil.getCbBool(comp, propIsActive);
 
 				if (isRequired) comp._state[propIsActive] = true;
 
@@ -68236,25 +69079,30 @@ class ComponentUiUtil {
 				const displayValue = opts.fnDisplay ? opts.fnDisplay(value, ixValueFrozen) : value;
 
 				rowMetas.push({
-					cb: $cb[0],
-					$cb,
+					cb: cb,
 					displayValue,
 					value: value,
 					propIsActive,
 					unhook: () => {
 						if (hk) comp._removeHookBase(propIsActive, hk);
 					},
+
+					/* eslint-disable vet-jquery/jquery */
+					...globalThis.jQuery ? {
+						$cb: globalThis.jQuery(cb),
+					} : {},
+					/* eslint-enable vet-jquery/jquery */
 				});
 
-				const $ele = $$`<label class="ve-flex-v-center py-1 stripe-even">
-					<div class="ve-col-1 ve-flex-vh-center">${$cb}</div>
+				const ele = ee`<label class="ve-flex-v-center ve-py-1 stripe-even">
+					<div class="ve-col-1 ve-flex-vh-center">${cb}</div>
 					<div class="ve-col-11 ve-flex-v-center">${displayValue}</div>
 				</label>`;
-				$eles.push($ele);
+				eles.push(ele);
 
 				if (opts.isSearchable) {
 					const searchText = `${opts.fnGetSearchText ? opts.fnGetSearchText(value, ixValueFrozen) : value}`.toLowerCase().trim();
-					($elesSearchable[searchText] = $elesSearchable[searchText] || []).push($ele);
+					(elesSearchable[searchText] = elesSearchable[searchText] || []).push(ele);
 				}
 
 				ixValue++;
@@ -68267,33 +69115,31 @@ class ComponentUiUtil {
 
 		comp.__state[propIxMax] = ixValue;
 
-		let $iptSearch;
+		let iptSearch;
 		if (opts.isSearchable) {
 			const compSub = BaseComponent.fromObject({search: ""});
-			$iptSearch = ComponentUiUtil.$getIptStr(compSub, "search");
+			iptSearch = ComponentUiUtil.getIptStr(compSub, "search");
 			const hkSearch = () => {
 				const cleanSearch = compSub._state.search.trim().toLowerCase();
 				if (!cleanSearch) {
-					Object.values($elesSearchable).forEach($eles => $eles.forEach($ele => $ele.removeClass("ve-hidden")));
+					Object.values(elesSearchable).forEach(eles => eles.forEach(ele => ele.removeClass("ve-hidden")));
 					return;
 				}
 
-				Object.entries($elesSearchable)
-					.forEach(([searchText, $eles]) => $eles.forEach($ele => $ele.toggleVe(searchText.includes(cleanSearch))));
+				Object.entries(elesSearchable)
+					.forEach(([searchText, eles]) => eles.forEach(ele => ele.toggleVe(searchText.includes(cleanSearch))));
 			};
 			compSub._addHookBase("search", hkSearch);
 			hkSearch();
 		}
 
-		const $ele = $$`<div class="ve-flex-col w-100 ve-overflow-y-auto min-h-40p">${$eles}</div>`;
+		const ele = ee`<div class="ve-flex-col ve-w-100 ve-overflow-y-auto ve-min-h-40p">${eles}</div>`;
 
 		// Always return this as a "meta" object
 		const unhook = () => rowMetas.forEach(it => it.unhook());
 		return {
-			ele: $ele[0],
-			$ele: $ele,
-			iptSearch: $iptSearch?.[0],
-			$iptSearch,
+			ele: ele,
+			iptSearch,
 			rowMetas, // Return this to allow for creating custom UI
 			propIsAcceptable,
 			propPulse,
@@ -68308,6 +69154,13 @@ class ComponentUiUtil {
 					.filter(it => it.startsWith(`${prop}__`))
 					.forEach(it => delete comp._state[it]);
 			},
+
+			/* eslint-disable vet-jquery/jquery */
+			...globalThis.jQuery ? {
+				$ele: globalThis.jQuery(ele),
+				$iptSearch: iptSearch ? globalThis.jQuery(iptSearch) : null,
+			} : {},
+			/* eslint-enable vet-jquery/jquery */
 		};
 	}
 
@@ -68362,23 +69215,6 @@ class ComponentUiUtil {
 	 * @param [opts.fnDisplayTooltip]
 	 * @param [opts.sparseValues]
 	 */
-	static $getSliderRange (comp, opts) {
-		opts = opts || {};
-		const slider = new ComponentUiUtil.RangeSlider({comp, ...opts});
-		return slider.$get();
-	}
-
-	/**
-	 * @param comp An instance of a class which extends BaseComponent.
-	 * @param opts Options Object.
-	 * @param opts.propMin
-	 * @param opts.propMax
-	 * @param opts.propCurMin
-	 * @param [opts.propCurMax]
-	 * @param [opts.fnDisplay] Value display function.
-	 * @param [opts.fnDisplayTooltip]
-	 * @param [opts.sparseValues]
-	 */
 	static getSliderRange (comp, opts) {
 		opts = opts || {};
 		const slider = new ComponentUiUtil.RangeSlider({comp, ...opts});
@@ -68397,7 +69233,7 @@ class ComponentUiUtil {
 		} = {},
 	) {
 		const slider = (ele || ee`<input type="range">`)
-			.onn("change", () => comp._state[prop] = Number(slider.val()));
+			.onn("input", () => comp._state[prop] = Number(slider.val()));
 
 		if (min != null) slider.attr("min", min);
 		if (max != null) slider.attr("max", max);
@@ -68407,39 +69243,6 @@ class ComponentUiUtil {
 		hk();
 
 		return asMeta ? ({slider, unhook: () => comp._removeHookBase(prop, hk)}) : slider;
-	}
-
-	static $getSliderNumber (
-		comp,
-		prop,
-		{
-			min,
-			max,
-			step,
-			$ele,
-			asMeta,
-		} = {},
-	) {
-		const ele = $ele?.length ? $ele[0] : undefined;
-
-		const out = this.getSliderNumber(
-			comp,
-			prop,
-			{
-				min,
-				max,
-				step,
-				ele,
-				asMeta,
-			},
-		);
-
-		if (!asMeta) return $(out);
-
-		return {
-			...out,
-			$slider: $(out.slider),
-		};
 	}
 }
 ComponentUiUtil.RangeSlider = class {
@@ -68492,11 +69295,6 @@ ComponentUiUtil.RangeSlider = class {
 		this._dragMeta = null;
 	}
 
-	$get () {
-		const out = this.get();
-		return $(out);
-	}
-
 	get () {
 		this.constructor._init();
 		this.constructor._ALL_SLIDERS.add(this);
@@ -68509,7 +69307,7 @@ ComponentUiUtil.RangeSlider = class {
 
 		this._dispTrackInner = this._isSingle ? null : e_({
 			tag: "div",
-			clazz: "ui-slidr__track-inner h-100 absolute",
+			clazz: "ve-ui-slidr__track-inner ve-h-100 ve-absolute",
 		});
 
 		this._thumbLow = this._getThumb();
@@ -68517,7 +69315,7 @@ ComponentUiUtil.RangeSlider = class {
 
 		this._dispTrackOuter = e_({
 			tag: "div",
-			clazz: `relative w-100 ui-slidr__track-outer`,
+			clazz: `ve-relative ve-w-100 ve-ui-slidr__track-outer`,
 			children: [
 				this._dispTrackInner,
 				this._thumbLow,
@@ -68531,7 +69329,7 @@ ComponentUiUtil.RangeSlider = class {
 		};
 		const wrpTrack = e_({
 			tag: "div",
-			clazz: `ve-flex-v-center w-100 h-100 ui-slidr__wrp-track clickable`,
+			clazz: `ve-flex-v-center ve-w-100 ve-h-100 ve-ui-slidr__wrp-track ve-clickable`,
 			children: [
 				this._dispTrackOuter,
 			],
@@ -68541,7 +69339,7 @@ ComponentUiUtil.RangeSlider = class {
 
 		const wrpTop = e_({
 			tag: "div",
-			clazz: "ve-flex-v-center w-100 ui-slidr__wrp-top",
+			clazz: "ve-flex-v-center ve-w-100 ve-ui-slidr__wrp-top",
 			children: [
 				dispValueLeft,
 				wrpTrack,
@@ -68557,14 +69355,14 @@ ComponentUiUtil.RangeSlider = class {
 		};
 		const wrpPips = e_({
 			tag: "div",
-			clazz: `w-100 ve-flex relative clickable h-100 ui-slidr__wrp-pips`,
+			clazz: `ve-w-100 ve-flex ve-relative ve-clickable ve-h-100 ve-ui-slidr__wrp-pips`,
 		})
 			.onn("mousedown", evt => onDownWrpPips(evt))
 			.onn("touchstart", evt => onDownWrpPips(evt));
 
 		const wrpBottom = e_({
 			tag: "div",
-			clazz: "w-100 ve-flex-vh-center ui-slidr__wrp-bottom",
+			clazz: "ve-w-100 ve-flex-vh-center ve-ui-slidr__wrp-bottom",
 			children: [
 				this._isSingle ? this._getSpcSingleValue() : this._getDispValue({side: "left"}), // Pad the start
 				wrpPips,
@@ -68655,7 +69453,7 @@ ComponentUiUtil.RangeSlider = class {
 
 		const wrp = e_({
 			tag: "div",
-			clazz: "ve-flex-col w-100 ui-slidr__wrp ve-touch-action-none",
+			clazz: "ve-flex-col ve-w-100 ve-ui-slidr__wrp ve-touch-action-none",
 			children: [
 				wrpTop,
 				wrpBottom,
@@ -68670,24 +69468,29 @@ ComponentUiUtil.RangeSlider = class {
 		if (this._cacheRendered) this._cacheRendered.remove();
 	}
 
+	static _SLIDER_SIDE_TO_CSS_CLASS = {
+		"left": "ve-ui-slidr__disp-value--left",
+		"right": "ve-ui-slidr__disp-value--right",
+	};
+
 	_getDispValue ({isVisible, side}) {
 		return e_({
 			tag: "div",
-			clazz: `ve-overflow-hidden ui-slidr__disp-value no-shrink no-grow no-wrap ve-flex-vh-center bold no-select ${isVisible ? `ui-slidr__disp-value--visible` : ""} ui-slidr__disp-value--${side}`,
+			clazz: `ve-overflow-hidden ve-ui-slidr__disp-value ve-no-shrink ve-no-grow ve-no-wrap ve-flex-vh-center ve-bold ve-no-select ${isVisible ? `ve-ui-slidr__disp-value--visible` : ""} ${this.constructor._SLIDER_SIDE_TO_CSS_CLASS[side] || ""}`,
 		});
 	}
 
 	_getSpcSingleValue () {
 		return e_({
 			tag: "div",
-			clazz: `px-2`,
+			clazz: `ve-px-2`,
 		});
 	}
 
 	_getThumb () {
 		const thumb = e_({
 			tag: "div",
-			clazz: "ui-slidr__thumb absolute clickable ve-touch-action-none",
+			clazz: "ve-ui-slidr__thumb ve-absolute ve-clickable ve-touch-action-none",
 			mousedown: evt => this._handleMouseDown(evt, thumb),
 		}).attr("draggable", true);
 
@@ -68699,19 +69502,19 @@ ComponentUiUtil.RangeSlider = class {
 
 		const pip = e_({
 			tag: "div",
-			clazz: `ui-slidr__pip ${isMajor ? `ui-slidr__pip--major` : `absolute`}`,
+			clazz: `ve-ui-slidr__pip ${isMajor ? `ve-ui-slidr__pip--major` : `absolute`}`,
 		});
 
 		const dispLabel = e_({
 			tag: "div",
-			clazz: "absolute ui-slidr__pip-label ve-flex-vh-center ve-small no-wrap",
+			clazz: "ve-absolute ve-ui-slidr__pip-label ve-flex-vh-center ve-small ve-no-wrap",
 			html: isMajor ? this._fnDisplay ? `${this._fnDisplay(value)}`.qq() : value : "",
 			title: isMajor && this._fnDisplayTooltip ? `${this._fnDisplayTooltip(value)}`.qq() : null,
 		});
 
 		return e_({
 			tag: "div",
-			clazz: "ve-flex-col ve-flex-vh-center absolute no-select",
+			clazz: "ve-flex-col ve-flex-vh-center ve-absolute ve-no-select",
 			children: [
 				pip,
 				dispLabel,
@@ -68812,7 +69615,7 @@ ComponentUiUtil.RangeSlider = class {
 		// region Set drag metadata
 		const {x: trackOriginX, width: trackWidth} = this._dispTrackOuter.getBoundingClientRect();
 
-		thumb.addClass(`ui-slidr__thumb--hover`);
+		thumb.addClass(`ve-ui-slidr__thumb--hover`);
 
 		this._dragMeta = {
 			trackOriginX,
@@ -68857,7 +69660,7 @@ ComponentUiUtil.RangeSlider = class {
 	_doDragCleanup () {
 		const isActive = this._dragMeta != null;
 
-		if (this._dragMeta?.thumb) this._dragMeta.thumb.removeClass(`ui-slidr__thumb--hover`);
+		if (this._dragMeta?.thumb) this._dragMeta.thumb.removeClass(`ve-ui-slidr__thumb--hover`);
 
 		this._dragMeta = null;
 
@@ -68936,7 +69739,6 @@ globalThis.SearchUiUtil = SearchUiUtil;
 globalThis.SearchWidget = SearchWidget;
 globalThis.InputUiUtil = InputUiUtil;
 globalThis.DragReorderUiUtil = DragReorderUiUtil;
-globalThis.SourceUiUtil = SourceUiUtil;
 globalThis.BaseComponent = BaseComponent;
 globalThis.ComponentUiUtil = ComponentUiUtil;
 
