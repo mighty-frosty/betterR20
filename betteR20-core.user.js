@@ -2081,6 +2081,7 @@ function baseConfig () {
 	d20plus.cfg.get = (group, key) => {
 		if (d20plus.cfg.current[group] === undefined) return undefined;
 		if (d20plus.cfg.current[group][key] === undefined) return undefined;
+		if (CONFIG_OPTIONS[group] === undefined || CONFIG_OPTIONS[group][key] === undefined) return d20plus.cfg.current[group][key];
 		if (CONFIG_OPTIONS[group][key]._type === "_SHEET_ATTRIBUTE") {
 			if (!NPC_SHEET_ATTRIBUTES[d20plus.cfg.current[group][key]]) return undefined;
 			return NPC_SHEET_ATTRIBUTES[d20plus.cfg.current[group][key]][d20plus.sheet];
@@ -25436,7 +25437,8 @@ function baseCharacterIo () {
 		delete safeAttributes.id;
 		delete safeAttributes.inplayerjournals;
 		delete safeAttributes.controlledby;
-		if (typeof d20plus.cfg?.getOrDefault === "function") safeAttributes.charactersheetname = d20plus.cfg.getOrDefault("import", "importSheetFormat");
+		const cfgSheetName = typeof d20plus.cfg?.getOrDefault === "function" ? d20plus.cfg.getOrDefault("import", "importSheetFormat") : null;
+		if (cfgSheetName) safeAttributes.charactersheetname = cfgSheetName;
 		character.set(safeAttributes);
 		character.save();
 
