@@ -2,7 +2,7 @@
 // @name         betteR20-beta-charactermancer-death-jumpagate-import
 // @namespace    https://5e.tools/
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      1.36.1.8-beta-testing
+// @version      1.36.1.9-beta-testing
 // @updateURL    https://deathstalker471.github.io/betterR20/betteR20-charactermancer.meta.js
 // @downloadURL  https://deathstalker471.github.io/betterR20/betteR20-charactermancer.user.js
 // @description  Charactermancer for betteR20 (can be disabled independently in Tampermonkey)
@@ -2568,6 +2568,10 @@ function d20plus2024Charactermancer () {
 		const isLanguages = body.includes("Proficiencies") && /Language/.test(body);
 		if (!isBooks && !isClasses && !isSubclasses && !isSubraces && !isRaces && !isBgs && !isFeats && !isItems && !isLists && !isSpells && !isSpellsForClass && !isLanguages) return _origFetch.apply(this, args);
 
+		// Do not show unowned content so it can be imported instead
+		if (body.includes("showUnownedContent: true")) {
+			args[1] = body.replace("showUnownedContent: true", "showUnownedContent: false");
+		}
 
 		const response = await _origFetch.apply(this, args);
 		let data;
@@ -2962,5 +2966,5 @@ function d20plus2024Charactermancer () {
   const strip = (str) => str.replace(/use strict/, "").substring(str.indexOf("\n") + 1, str.lastIndexOf("\n")) + "\n";
   unsafeWindow.eval("(function() {\n" + strip(d20plus2024Charactermancer.toString()) + "\n})()");
   unsafeWindow.d20plus.charactermancerLoaded = true;
-  unsafeWindow.d20plus.charactermancerVersion = "1.36.1.8-beta-testing";
+  unsafeWindow.d20plus.charactermancerVersion = "1.36.1.9-beta-testing";
 })();

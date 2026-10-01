@@ -2,7 +2,7 @@
 // @name         betteR20-beta-core-death-jumpagate-import
 // @namespace    https://5e.tools/
 // @license      MIT (https://opensource.org/licenses/MIT)
-// @version      1.36.1.8-beta-testing
+// @version      1.36.1.9-beta-testing
 // @updateURL    https://deathstalker471.github.io/betterR20/betteR20-core.meta.js
 // @downloadURL  https://deathstalker471.github.io/betterR20/betteR20-core.user.js
 // @description  Enhance your Roll20 experience
@@ -31,7 +31,7 @@ ART_HANDOUT = "betteR20-art";
 CONFIG_HANDOUT = "betteR20-config";
 
 B20_NAME = `core`;
-B20_VERSION = `1.36.1.8-beta-testing`;
+B20_VERSION = `1.36.1.9-beta-testing`;
 B20_REPO_URL = `https://deathstalker471.github.io/betterR20/`;
 
 // TODO automate to use mirror if main site is unavailable
@@ -3915,6 +3915,22 @@ function baseToolModule () {
 
 					const charIdMap = {};
 					const importedPageIds = [];
+					// Old (module) character id -> name, so tokens can still be linked by name when
+					// their character wasn't imported in this same run (charIdMap only covers this run).
+					const oldCharIdToName = {};
+					(data.characters || []).forEach(c => {
+						if (c?.attributes?.id && c.attributes.name) oldCharIdToName[c.attributes.id] = c.attributes.name.toLowerCase();
+					});
+					// Character creation completes in async callbacks; the token relink pass has to wait
+					// for all of them or tokens for the late ones never get linked.
+					let pendingChars = 0;
+					// Bar links point at attribute IDs from the module's original characters, which
+					// don't exist after import (new characters get new attribute IDs) - a dangling link
+					// leaves the bar unable to read anything. Drop the link, keep the static value/max,
+					// so each imported token has independent bars like monster-import tokens do.
+					const stripBarLinks = obj => {
+						["bar1_link", "bar2_link", "bar3_link"].forEach(k => { if (k in obj) obj[k] = ""; });
+					};
 					const doImport = () => {
 						if (isCancelled) {
 							$name.text("Import cancelled.");
@@ -3954,6 +3970,7 @@ function baseToolModule () {
 											// Process graphics with URL fixes
 											entry.graphics?.forEach(it => {
 												fixImageUrls(it);
+												stripBarLinks(it);
 												it.page_id = savedMap.id;
 												savedMap.thegraphics && savedMap.thegraphics.create(it);
 											});
@@ -4018,9 +4035,12 @@ function baseToolModule () {
 										const oldCharId = charAttrs.id;
 										delete charAttrs.id;
 
+										pendingChars++;
 										d20.Campaign.characters.create(charAttrs,
 											{
+												error: function () { pendingChars--; },
 												success: function (character) {
+													pendingChars--;
 													const newCharId = character.id;
 													charIdMap[oldCharId] = newCharId;
 
@@ -4033,14 +4053,38 @@ function baseToolModule () {
 													let tokenStr = entry.blobDefaultToken;
 													if (tokenStr) {
 														tokenStr = tokenStr.split(oldCharId).join(newCharId);
+														try {
+															const tokenObj = JSON.parse(tokenStr);
+															stripBarLinks(tokenObj);
+															tokenStr = JSON.stringify(tokenObj);
+														} catch (e) {
+															// leave the blob as-is if it isn't plain JSON
+														}
 													}
 
 													// Proceed with saving using the rebased data
 													character.attribs.reset();
 													const isNpc = rebasedAttribs.some(a => a.name === "npc" && String(a.current) === "1");
-													if (typeof d20plus.importer?.shouldUse2024 === "function" && d20plus.importer.shouldUse2024() && isNpc) {
+													const isNpc2024 = typeof d20plus.importer?.shouldUse2024 === "function" && d20plus.importer.shouldUse2024() && isNpc;
+													let tokenActionMeta2024 = null;
+													let tokenActionExtra2024 = null;
+													if (isNpc2024) {
 														// 2024 sheet: convert OGL attribs to 2024 store format
 														const store2024 = d20plus.importer.translateOGLTo2024Store(rebasedAttribs);
+														tokenActionMeta2024 = store2024.__tokenActionMeta;
+														delete store2024.__tokenActionMeta;
+
+														const attrLookup = name => {
+															const found = rebasedAttribs.find(a => a.name === name);
+															return found ? found.current : "";
+														};
+														tokenActionExtra2024 = {
+															legendaryActionCount: store2024.npc && store2024.npc.legendaryActionCount,
+															sensesText: attrLookup("npc_senses"),
+															languagesText: attrLookup("npc_languages"),
+															vulnerabilitiesText: attrLookup("npc_vulnerabilities"),
+														};
+
 														const toSave = [
 															{ name: "appState", current: "npc" },
 															{ name: "store", current: store2024 },
@@ -4055,7 +4099,11 @@ function baseToolModule () {
 														success: function () {
 															character.abilities.models.slice().forEach(ability => ability.destroy());
 															if (d20plus.cfg.getOrDefault("import", "tokenactions")) {
-																d20plus.importer._createTokenActionsFromCharacter(character);
+																if (isNpc2024) {
+																	d20plus.monsters.import2024TokenActions(character, tokenActionMeta2024, tokenActionExtra2024);
+																} else {
+																	d20plus.importer._createTokenActionsFromCharacter(character);
+																}
 															}
 														},
 													});
@@ -4091,6 +4139,7 @@ function baseToolModule () {
 							$remain.text(`${queue.length} remaining.`);
 							if (importedPageIds.length) {
 								setTimeout(async () => {
+									for (let i = 0; i < 60 && pendingChars > 0; ++i) await new Promise(r => setTimeout(r, 500));
 									// Build name->newCharId lookup for tokens where represents was never set
 									const charNameMap = {};
 									Object.values(charIdMap).forEach(newId => {
@@ -4111,6 +4160,9 @@ function baseToolModule () {
 											if (oldRepresents && charIdMap[oldRepresents]) {
 												// Token had an old char ID -- remap to new ID
 												g.save({represents: charIdMap[oldRepresents]});
+											} else if (oldRepresents && oldCharIdToName[oldRepresents] && charNameMap[oldCharIdToName[oldRepresents]]) {
+												// Character wasn't imported in this run - link to an existing one of the same name
+												g.save({represents: charNameMap[oldCharIdToName[oldRepresents]]});
 											} else if (!oldRepresents) {
 												// Token has no represents -- try matching by name
 												const tokenName = (g.get("name") || "").toLowerCase();
@@ -15058,23 +15110,50 @@ function d20plusEngine () {
 	// Roll20's Page Settings dialog is now a Vue component with no open/close event we can
 	// hook into, so watch for its "Backdrop Color" block and inject our Thumbnail section next to it.
 	d20plus.engine.enhanceVuePageThumbnail = () => {
+		const MAPIMAGE_CLASS = "b20-mapimage-section";
 		const SECTION_CLASS = "b20-thumbnail-section";
 		const GRIDFIX_CLASS = "b20-gridfix-section";
 
+		// Styled to match this panel's own design system (same CSS variables/fonts its
+		// native inputs and buttons use - see its <style scoped> block) rather than generic
+		// ad-hoc styling, since these sections are injected as plain elements that don't
+		// carry the Vue component's scoped data-v-* attribute and so never actually match
+		// its scoped selectors themselves.
 		if (!document.getElementById("b20-thumbnail-style")) {
 			document.head.insertAdjacentHTML("beforeend", `<style id="b20-thumbnail-style">
-				.${SECTION_CLASS} { display: flex; flex-direction: column; gap: 8px; }
-				.${SECTION_CLASS} .b20-thumbnail-row { display: flex; align-items: center; gap: 8px; }
+				.${MAPIMAGE_CLASS}, .${SECTION_CLASS}, .${GRIDFIX_CLASS} { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+				.${MAPIMAGE_CLASS} .b20-row, .${SECTION_CLASS} .b20-row, .${GRIDFIX_CLASS} .b20-row { display: flex; align-items: center; gap: 6px; }
 				.${SECTION_CLASS} .b20-thumbnail-preview { width: 48px; height: 48px; object-fit: cover; border-radius: 4px; background: rgba(128,128,128,.2); flex-shrink: 0; }
-				.${SECTION_CLASS} .b20-thumbnail-url { flex: 1; min-width: 0; padding: 6px 8px; border-radius: 4px; border: 1px solid rgba(128,128,128,.4); box-sizing: border-box; font: inherit; }
-				.b20-thumbnail-btn { padding: 6px 14px; border-radius: 4px; border: 1px solid rgba(128,128,128,.4); background: rgba(128,128,128,.12); color: inherit; cursor: pointer; font: inherit; font-size: 13px; }
-				.b20-thumbnail-btn:hover { background: rgba(128,128,128,.25); }
-				.${GRIDFIX_CLASS} .b20-thumbnail-row { display: flex; align-items: center; gap: 8px; }
+				.b20-mapimage-url, .b20-thumbnail-url, .b20-gridfix-factor {
+					font-family: var(--font-family-proxima-nova, inherit); font-size: 13px; font-weight: 600; line-height: normal;
+					padding: 8px; border-radius: 4px; border: 1px solid var(--primary-input-border, rgba(128,128,128,.4));
+					background: var(--vtt-component-background-color, transparent); color: inherit; box-sizing: border-box;
+				}
+				.b20-mapimage-url, .b20-thumbnail-url { flex: 1; min-width: 0; }
+				.b20-gridfix-factor { width: 64px; flex: none; }
+				.b20-thumbnail-btn {
+					font-family: var(--font-family-proxima-nova, inherit); font-size: 13px; font-weight: 600;
+					padding: 8px 14px; border-radius: 4px; border: none; background: rgba(80,87,110,.1);
+					color: var(--vtt-submenu-header, inherit); cursor: pointer; white-space: nowrap;
+				}
+				.b20-thumbnail-btn:hover { background: rgba(80,87,110,.2); }
 				.${GRIDFIX_CLASS} .b20-gridfix-desc { font-size: 12px; opacity: .75; margin: 0; }
-				.${GRIDFIX_CLASS} .b20-gridfix-factor { width: 64px; padding: 6px 8px; border-radius: 4px; border: 1px solid rgba(128,128,128,.4); box-sizing: border-box; font: inherit; }
-				.${GRIDFIX_CLASS} { position: relative; z-index: 10000; }
+				/* Native .divider-svg gets this margin from a scoped rule that only matches
+				   elements carrying the Vue component's data-v-* attribute - ours don't have
+				   it, so without this the dividers we insert collapse to zero height. */
+				.divider-svg { margin: 16px 0px; }
 			</style>`);
 		}
+
+		const $divider = () => $(`<div class="divider-svg" style="border-color: var(--vtt-submenu-divider-color); border-bottom-style: solid; border-bottom-width: 1px; width: 100%;"></div>`);
+
+		// Shared by Map Image (to know what it's replacing/creating), Thumbnail's "Reload
+		// Default" and Grid Correction's redraw nudge.
+		const getMainMapGraphic = () => {
+			const mapGraphics = d20.Campaign.activePage()?.thegraphics?.filter(g => g.get("layer") === "map") || [];
+			if (!mapGraphics.length) return null;
+			return mapGraphics.reduce((a, b) => (a.get("width") * a.get("height") >= b.get("width") * b.get("height")) ? a : b);
+		};
 
 		const inject = () => {
 			if (document.querySelector(`.${SECTION_CLASS}`)) return;
@@ -15083,21 +15162,67 @@ function d20plusEngine () {
 			const $section = $(backdrop).closest(".section");
 			if (!$section.length) return;
 
+			// Map Image — replaces the actual background graphic on the Map layer (creates one,
+			// sized to the loaded image, if the page doesn't have one yet), not just the small
+			// settings-panel thumbnail preview below.
+			const $mapImageSection = $(`
+				<div class="section ${MAPIMAGE_CLASS}">
+					<h4 class="title large-title">Map Image</h4>
+					<div class="b20-row">
+						<input class="b20-mapimage-url" type="text" placeholder="Image URL">
+						<button type="button" class="b20-thumbnail-btn b20-mapimage-apply">Apply</button>
+					</div>
+				</div>
+			`);
+			$section.after($divider(), $mapImageSection);
+
+			const $mapUrl = $mapImageSection.find(".b20-mapimage-url");
+			const existingMain = getMainMapGraphic();
+			if (existingMain) $mapUrl.val(existingMain.get("imgsrc") || "");
+
+			$mapImageSection.find(".b20-mapimage-apply").on("click", () => {
+				const url = $mapUrl.val().trim();
+				if (!url) return;
+				const page = d20.Campaign.activePage();
+				if (!page) return;
+				const main = getMainMapGraphic();
+				if (main) {
+					main.save({imgsrc: url});
+					return;
+				}
+				const img = new Image();
+				img.onload = () => {
+					const pageWidthPx = (page.get("width") || 25) * 70;
+					const pageHeightPx = (page.get("height") || 25) * 70;
+					page.thegraphics?.create({
+						imgsrc: url,
+						layer: "map",
+						width: img.naturalWidth,
+						height: img.naturalHeight,
+						left: pageWidthPx / 2,
+						top: pageHeightPx / 2,
+						page_id: page.id,
+					});
+				};
+				img.onerror = () => alert("Could not load an image from that URL.");
+				img.src = url;
+			});
+
 			const $newSection = $(`
 				<div class="section ${SECTION_CLASS}">
 					<h4 class="title large-title">Thumbnail</h4>
-					<div class="b20-thumbnail-row">
+					<div class="b20-row">
 						<img class="b20-thumbnail-preview" style="display:none;">
 						<input class="b20-thumbnail-url" type="text" placeholder="Image URL">
 					</div>
-					<div class="b20-thumbnail-row">
+					<div class="b20-row">
+						<button type="button" class="b20-thumbnail-btn b20-thumbnail-apply">Apply</button>
 						<button type="button" class="b20-thumbnail-btn b20-thumbnail-upload">Upload</button>
 						<button type="button" class="b20-thumbnail-btn b20-thumbnail-reload">Reload Default</button>
 					</div>
 				</div>
 			`);
-			const $divider = $(`<div class="divider-svg" style="border-color: var(--vtt-submenu-divider-color); border-bottom-style: solid; border-bottom-width: 1px; width: 100%;"></div>`);
-			$section.after($divider, $newSection);
+			$mapImageSection.after($divider(), $newSection);
 
 			const $preview = $newSection.find(".b20-thumbnail-preview");
 			const $url = $newSection.find(".b20-thumbnail-url");
@@ -15113,6 +15238,11 @@ function d20plusEngine () {
 				const val = $url.val();
 				$preview.attr("src", val).toggle(!!val);
 			}).on("change", () => setThumbnail($url.val()));
+
+			// Typing a URL alone relied on the input's blur-triggered "change" event to save,
+			// which doesn't fire in every situation (e.g. the field never loses focus) - an
+			// explicit Apply button, same as Map Image, guarantees it actually saves.
+			$newSection.find(".b20-thumbnail-apply").on("click", () => setThumbnail($url.val()));
 
 			$newSection.find(".b20-thumbnail-upload").on("click", () => {
 				const $input = $(`<input type="file" accept="image/*">`).appendTo("body").hide();
@@ -15133,10 +15263,8 @@ function d20plusEngine () {
 			});
 
 			$newSection.find(".b20-thumbnail-reload").on("click", () => {
-				const activePage = d20.Campaign.activePage();
-				const mapGraphics = activePage?.thegraphics?.filter(g => g.get("layer") === "map") || [];
-				if (!mapGraphics.length) return alert("No background image found on the Map layer.");
-				const main = mapGraphics.reduce((a, b) => (a.get("width") * a.get("height") >= b.get("width") * b.get("height")) ? a : b);
+				const main = getMainMapGraphic();
+				if (!main) return alert("No background image found on the Map layer.");
 				const imgsrc = main.get("imgsrc");
 				if (!imgsrc) return;
 				$url.val(imgsrc);
@@ -15156,14 +15284,14 @@ function d20plusEngine () {
 				<div class="section ${GRIDFIX_CLASS}">
 					<h4 class="title large-title">Grid Correction</h4>
 					<p class="b20-gridfix-desc">If map squares don't match the Roll20 grid, enter how many map squares fit across ONE SIDE of a Roll20 square (not the total count) - e.g. enter 2 if you see a 2x2 arrangement of 4 map squares inside one Roll20 square, or 3 for a 3x3 arrangement of 9.</p>
-					<div class="b20-thumbnail-row">
+					<div class="b20-row">
 						<input class="b20-gridfix-factor" type="number" min="1" step="any" value="1">
 						<button type="button" class="b20-thumbnail-btn b20-gridfix-apply">Apply Correction</button>
 						<button type="button" class="b20-thumbnail-btn b20-gridfix-revert">Revert to Stock</button>
 					</div>
 				</div>
 			`);
-			$newSection.after($gridFixSection);
+			$newSection.after($divider(), $gridFixSection);
 
 			// scale_number / snapping_increment is invariant across any number of Apply clicks
 			// (both divide by the same factor each time), and always equals the original stock
@@ -15178,10 +15306,9 @@ function d20plusEngine () {
 			// fires `change` - a true no-op save wouldn't - which triggers a redraw that picks up
 			// the new grid pitch too. Confirmed via console testing this does not corrupt the
 			// graphic (its saved state came back identical/correct afterward).
-			const nudgeRedraw = (activePage) => {
-				const mapGraphics = activePage.thegraphics?.filter(g => g.get("layer") === "map") || [];
-				if (!mapGraphics.length) return;
-				const main = mapGraphics.reduce((a, b) => (a.get("width") * a.get("height") >= b.get("width") * b.get("height")) ? a : b);
+			const nudgeRedraw = () => {
+				const main = getMainMapGraphic();
+				if (!main) return;
 				const top = main.get("top");
 				main.save({top: top + 1});
 				main.save({top});
@@ -15216,7 +15343,7 @@ function d20plusEngine () {
 					snapping_increment: newSnappingIncrement,
 					scale_number: newScaleNumber,
 				});
-				nudgeRedraw(activePage);
+				nudgeRedraw();
 				setVueInput("pageSettings-pd-tab-cellSize", newSnappingIncrement);
 				setVueInput("pageSettings-pd-tab-scale", newScaleNumber);
 			});
@@ -15232,7 +15359,7 @@ function d20plusEngine () {
 					snapping_increment: 1,
 					scale_number: stockScaleNumber,
 				});
-				nudgeRedraw(activePage);
+				nudgeRedraw();
 				setVueInput("pageSettings-pd-tab-cellSize", 1);
 				setVueInput("pageSettings-pd-tab-scale", stockScaleNumber);
 			});
@@ -16549,7 +16676,12 @@ function baseMenu () {
             setTimeout(() => {
                 d20.engine.select(it);
                 let toRoll = ``;
-                if (d20plus.sheet === "ogl") {
+                // d20plus.sheet stays "ogl" on 2024 sheets (they're detected separately), and the
+                // OGL "Initiative" ability doesn't exist there - so nothing ever reached the tracker.
+                const charSheetName = d20.Campaign.characters.get((it._model || it.model)?.get("represents"))?.get("charactersheetname");
+                if (d20plus.importer?.is2024Sheet?.(charSheetName)) {
+                    toRoll = `[[1d20+@{selected|initiative_bonus} &{tracker}]]`;
+                } else if (d20plus.sheet === "ogl") {
                     toRoll = `%{selected|Initiative}`;
                 } else if (d20plus.sheet === "shaped") {
                     toRoll = `@{selected|output_option} &{template:5e-shaped} {{ability=1}} {{title=INITIATIVE}} {{roll1=[[@{selected|initiative_formula}]]}}`;
@@ -16559,6 +16691,12 @@ function baseMenu () {
             }, index * 100); // 100ms delay between each roll
         });
     };
+
+    // d20plus.sheet stays "ogl" on 2024 sheets (they're detected separately), and the OGL NPC
+    // roll templates below rely on OGL-only attributes (npc_name_flag, wtype, rtype) that don't exist there.
+    const isToken2024 = (it) => d20plus.importer?.is2024Sheet?.(
+        d20.Campaign.characters.get((it._model || it.model)?.get("represents"))?.get("charactersheetname"),
+    );
 
     d20plus.menu.massRollSaves = function() {
         const options = ["str", "dex", "con", "int", "wis", "cha"].map(it => Parser.attAbvToFull(it));
@@ -16577,7 +16715,10 @@ function baseMenu () {
                     sel.forEach((it, index) => {
                         setTimeout(() => {
                             d20.engine.select(it);
-                            if (d20plus.sheet === "ogl") {
+                            if (isToken2024(it)) {
+                                const short = val.substring(0, 3).toLowerCase();
+                                d20.textchat.doChatInput(`${getTokenWhisperPart()}&{template:default} {{name=@{selected|token_name}}} {{rname=${val} Save}} {{r1=[[1d20+@{selected|npc_${short}_save}]]}}`);
+                            } else if (d20plus.sheet === "ogl") {
                                 const short = val.substring(0, 3);
                                 const toRoll = `${getTokenWhisperPart()}@{selected|wtype}&{template:npc} @{selected|npc_name_flag} {{type=Save}} @{selected|rtype} + [[@{selected|npc_${short.toLowerCase()}_save}]][${short.toUpperCase()}]]]}} {{rname=${val} Save}} {{r1=[[1d20 + [[@{selected|npc_${short.toLowerCase()}_save}]][${short.toUpperCase()}]]]}}`;
                                 d20.textchat.doChatInput(toRoll);
@@ -16619,7 +16760,10 @@ function baseMenu () {
                     sel.forEach((it, index) => {
                         setTimeout(() => {
                             d20.engine.select(it);
-                            if (d20plus.sheet === "ogl") {
+                            if (isToken2024(it)) {
+                                const slugged = val.replace(/\s/g, "_").toLowerCase();
+                                d20.textchat.doChatInput(`${getTokenWhisperPart()}&{template:default} {{name=@{selected|token_name}}} {{rname=${val}}} {{r1=[[1d20+@{selected|npc_${slugged}}]]}}`);
+                            } else if (d20plus.sheet === "ogl") {
                                 const slugged = val.replace(/\s/g, "_").toLowerCase();
                                 const toRoll = `${getTokenWhisperPart()}@{selected|wtype}&{template:npc} @{selected|npc_name_flag} {{type=Skill}} @{selected|rtype} + [[@{selected|npc_${slugged}}]]]]}}; {{rname=${val}}}; {{r1=[[1d20 + [[@{selected|npc_${slugged}}]]]]}}`;
                                 d20.textchat.doChatInput(toRoll);
@@ -20303,6 +20447,68 @@ const baseMacro = function () {
 	d20plus.macro.actionMacroSaves = "@{selected|wtype} &{template:simple}{{always=1}}?{Saving Throw?|STR,{{rname=Strength Save&#125;&#125;{{mod=@{npc_str_save}&#125;&#125; {{r1=[[1d20+@{npc_str_save}]]&#125;&#125;{{r2=[[1d20+@{npc_str_save}]]&#125;&#125;|DEX,{{rname=Dexterity Save&#125;&#125;{{mod=@{npc_dex_save}&#125;&#125; {{r1=[[1d20+@{npc_dex_save}]]&#125;&#125;{{r2=[[1d20+@{npc_dex_save}]]&#125;&#125;|CON,{{rname=Constitution Save&#125;&#125;{{mod=@{npc_con_save}&#125;&#125; {{r1=[[1d20+@{npc_con_save}]]&#125;&#125;{{r2=[[1d20+@{npc_con_save}]]&#125;&#125;|INT,{{rname=Intelligence Save&#125;&#125;{{mod=@{npc_int_save}&#125;&#125; {{r1=[[1d20+@{npc_int_save}]]&#125;&#125;{{r2=[[1d20+@{npc_int_save}]]&#125;&#125;|WIS,{{rname=Wisdom Save&#125;&#125;{{mod=@{npc_wis_save}&#125;&#125; {{r1=[[1d20+@{npc_wis_save}]]&#125;&#125;{{r2=[[1d20+@{npc_wis_save}]]&#125;&#125;|CHA,{{rname=Charisma Save&#125;&#125;{{mod=@{npc_cha_save}&#125;&#125; {{r1=[[1d20+@{npc_cha_save}]]&#125;&#125;{{r2=[[1d20+@{npc_cha_save}]]&#125;&#125;}{{charname=@{character_name}}} ";
 	d20plus.macro.actionMacroSkillCheck = "@{selected|wtype} &{template:simple}{{always=1}}?{Ability?|Acrobatics,{{rname=Acrobatics&#125;&#125;{{mod=@{npc_acrobatics}&#125;&#125; {{r1=[[1d20+@{npc_acrobatics}]]&#125;&#125;{{r2=[[1d20+@{npc_acrobatics}]]&#125;&#125;|Animal Handling,{{rname=Animal Handling&#125;&#125;{{mod=@{npc_animal_handling}&#125;&#125; {{r1=[[1d20+@{npc_animal_handling}]]&#125;&#125;{{r2=[[1d20+@{npc_animal_handling}]]&#125;&#125;|Arcana,{{rname=Arcana&#125;&#125;{{mod=@{npc_arcana}&#125;&#125; {{r1=[[1d20+@{npc_arcana}]]&#125;&#125;{{r2=[[1d20+@{npc_arcana}]]&#125;&#125;|Athletics,{{rname=Athletics&#125;&#125;{{mod=@{npc_athletics}&#125;&#125; {{r1=[[1d20+@{npc_athletics}]]&#125;&#125;{{r2=[[1d20+@{npc_athletics}]]&#125;&#125;|Deception,{{rname=Deception&#125;&#125;{{mod=@{npc_deception}&#125;&#125; {{r1=[[1d20+@{npc_deception}]]&#125;&#125;{{r2=[[1d20+@{npc_deception}]]&#125;&#125;|History,{{rname=History&#125;&#125;{{mod=@{npc_history}&#125;&#125; {{r1=[[1d20+@{npc_history}]]&#125;&#125;{{r2=[[1d20+@{npc_history}]]&#125;&#125;|Insight,{{rname=Insight&#125;&#125;{{mod=@{npc_insight}&#125;&#125; {{r1=[[1d20+@{npc_insight}]]&#125;&#125;{{r2=[[1d20+@{npc_insight}]]&#125;&#125;|Intimidation,{{rname=Intimidation&#125;&#125;{{mod=@{npc_intimidation}&#125;&#125; {{r1=[[1d20+@{npc_intimidation}]]&#125;&#125;{{r2=[[1d20+@{npc_intimidation}]]&#125;&#125;|Investigation,{{rname=Investigation&#125;&#125;{{mod=@{npc_investigation}&#125;&#125; {{r1=[[1d20+@{npc_investigation}]]&#125;&#125;{{r2=[[1d20+@{npc_investigation}]]&#125;&#125;|Medicine,{{rname=Medicine&#125;&#125;{{mod=@{npc_medicine}&#125;&#125; {{r1=[[1d20+@{npc_medicine}]]&#125;&#125;{{r2=[[1d20+@{npc_medicine}]]&#125;&#125;|Nature,{{rname=Nature&#125;&#125;{{mod=@{npc_nature}&#125;&#125; {{r1=[[1d20+@{npc_nature}]]&#125;&#125;{{r2=[[1d20+@{npc_nature}]]&#125;&#125;|Perception,{{rname=Perception&#125;&#125;{{mod=@{npc_perception}&#125;&#125; {{r1=[[1d20+@{npc_perception}]]&#125;&#125;{{r2=[[1d20+@{npc_perception}]]&#125;&#125;|Performance,{{rname=Performance&#125;&#125;{{mod=@{npc_performance}&#125;&#125; {{r1=[[1d20+@{npc_performance}]]&#125;&#125;{{r2=[[1d20+@{npc_performance}]]&#125;&#125;|Persuasion,{{rname=Persuasion&#125;&#125;{{mod=@{npc_persuasion}&#125;&#125; {{r1=[[1d20+@{npc_persuasion}]]&#125;&#125;{{r2=[[1d20+@{npc_persuasion}]]&#125;&#125;|Religion,{{rname=Religion&#125;&#125;{{mod=@{npc_religion}&#125;&#125; {{r1=[[1d20+@{npc_religion}]]&#125;&#125;{{r2=[[1d20+@{npc_religion}]]&#125;&#125;|Sleight of Hand,{{rname=Sleight of Hand&#125;&#125;{{mod=@{npc_sleight_of_hand}&#125;&#125; {{r1=[[1d20+@{npc_sleight_of_hand}]]&#125;&#125;{{r2=[[1d20+@{npc_sleight_of_hand}]]&#125;&#125;|Stealth,{{rname=Stealth&#125;&#125;{{mod=@{npc_stealth}&#125;&#125; {{r1=[[1d20+@{npc_stealth}]]&#125;&#125;{{r2=[[1d20+@{npc_stealth}]]&#125;&#125;|Survival,{{rname=Survival&#125;&#125;{{mod=@{npc_survival}&#125;&#125; {{r1=[[1d20+@{npc_survival}]]&#125;&#125;{{r2=[[1d20+@{npc_survival}]]&#125;&#125;}{{charname=@{character_name}}} ";
 	d20plus.macro.actionMacroAbilityCheck = "@{selected|wtype} &{template:simple}{{always=1}}?{Ability?|STR,{{rname=Strength&#125;&#125;{{mod=@{strength_mod}&#125;&#125; {{r1=[[1d20+@{strength_mod}]]&#125;&#125;{{r2=[[1d20+@{strength_mod}]]&#125;&#125;|DEX,{{rname=Dexterity&#125;&#125;{{mod=@{dexterity_mod}&#125;&#125; {{r1=[[1d20+@{dexterity_mod}]]&#125;&#125;{{r2=[[1d20+@{dexterity_mod}]]&#125;&#125;|CON,{{rname=Constitution&#125;&#125;{{mod=@{constitution_mod}&#125;&#125; {{r1=[[1d20+@{constitution_mod}]]&#125;&#125;{{r2=[[1d20+@{constitution_mod}]]&#125;&#125;|INT,{{rname=Intelligence&#125;&#125;{{mod=@{intelligence_mod}&#125;&#125; {{r1=[[1d20+@{intelligence_mod}]]&#125;&#125;{{r2=[[1d20+@{intelligence_mod}]]&#125;&#125;|WIS,{{rname=Wisdom&#125;&#125;{{mod=@{wisdom_mod}&#125;&#125; {{r1=[[1d20+@{wisdom_mod}]]&#125;&#125;{{r2=[[1d20+@{wisdom_mod}]]&#125;&#125;|CHA,{{rname=Charisma&#125;&#125;{{mod=@{charisma_mod}&#125;&#125; {{r1=[[1d20+@{charisma_mod}]]&#125;&#125;{{r2=[[1d20+@{charisma_mod}]]&#125;&#125;}{{charname=@{character_name}}} ";
+
+	// ------------------------------------------------------------------
+	// 2024 (Jumpgate) NPC sheet variants.
+	//
+	// The 2024 sheet stores monster data in one opaque "store" JSON attribute
+	// with no flat attributes of its own, BUT the sheet itself computes and
+	// exposes a family of classic-style flat attributes from that store purely
+	// for macro/API backward compatibility (confirmed live against a real
+	// Roll20 2024 NPC character). Repeating rows (actions/bonus actions/
+	// reactions/legendary/mythic actions) are addressed via a "legacy
+	// repeating" accessor, and support exactly two sub-fields: "name" and
+	// "action" (NOT "npc_action", "roll", or "description" as on the 2014
+	// sheet). Despite its own tooltip claiming positional-index-or-shortID
+	// addressing, the "action" sub-field only actually resolves via a
+	// positional index in "$N" form (confirmed live — a real shortID
+	// produces "Action N not supported"; likely because actionDisplayOrder
+	// is deliberately left empty, see build2024Store, and "action" — unlike
+	// "name" — needs that ordering to compute its compound roll). "$N" here
+	// mirrors the exact convention the 2014 macros already use for their own
+	// repeating rows (see actionMacroAction above).
+	// ------------------------------------------------------------------
+
+	d20plus.macro.actionMacroAction2024 = function (baseAction, pos) {
+		// baseAction: "repeating_npcaction" | "repeating_npcbonusaction" |
+		//             "repeating_npcreaction" | "repeating_npcaction-l" |
+		//             "repeating_npcaction-m"
+		return `/w gm %{selected|${baseAction}_$${pos}_action}`;
+	};
+
+	d20plus.macro.actionMacroTrait2024 = function (charName, traitName, traitDesc) {
+		return `/w gm &{template:default} {{name=${charName}}} {{${traitName}=${traitDesc}}}`;
+	};
+
+	d20plus.macro.actionMacroLegendary2024 = function (charName, count, tokenactiontext) {
+		return `/w gm &{template:default} {{name=${charName}}} {{rname=Legendary Actions}} {{description=The ${charName} can take ${count} legendary actions, choosing from the options below. Only one legendary option can be used at a time and only at the end of another creature's turn. The ${charName} regains spent legendary actions at the start of its turn.\n\r${tokenactiontext}}}`;
+	};
+
+	d20plus.macro.actionMacroMythic2024 = function (charName, tokenactiontext) {
+		return `/w gm &{template:default} {{name=${charName}}} {{rname=Mythic Actions}} {{description=${tokenactiontext}}}`;
+	};
+
+	d20plus.macro.actionMacroPerception2024 = function (sensesText) {
+		return `/w gm %{selected|npc_perception} &{template:default} {{name=Senses}} {{Senses=${sensesText}}}`;
+	};
+
+	d20plus.macro.actionMacroInit2024 = "/w gm [[1d20+@{selected|initiative_bonus}]]";
+
+	d20plus.macro.actionMacroDrImmunities2024 = function (vulnerabilitiesText) {
+		return `/w gm &{template:default} {{name=DR/Immunities}} {{Resistance=@{selected|npc_resistances}}} {{Vulnerability=${vulnerabilitiesText}}} {{Immunity=@{selected|npc_immunities}}} {{Condition Immunity=@{selected|npc_condition_immunities}}}`;
+	};
+
+	d20plus.macro.actionMacroStats2024 = function (languagesText) {
+		return `/w gm &{template:default} {{name=Stats}} {{Armor Class=@{selected|npc_ac}}} {{Hit Dice=@{selected|npc_hpformula}}} {{Speed=@{selected|npc_speed}}} {{Languages=${languagesText}}} {{Challenge=@{selected|npc_challenge} (@{selected|npc_xp} xp)}}`;
+	};
+
+	d20plus.macro.actionMacroSaves2024 = "&{template:default}?{Saving Throw?|STR,{{rname=Strength Save&#125;&#125;{{mod=@{selected|npc_str_save}&#125;&#125; {{r1=[[1d20+@{selected|npc_str_save}]]&#125;&#125;{{r2=[[1d20+@{selected|npc_str_save}]]&#125;&#125;|DEX,{{rname=Dexterity Save&#125;&#125;{{mod=@{selected|npc_dex_save}&#125;&#125; {{r1=[[1d20+@{selected|npc_dex_save}]]&#125;&#125;{{r2=[[1d20+@{selected|npc_dex_save}]]&#125;&#125;|CON,{{rname=Constitution Save&#125;&#125;{{mod=@{selected|npc_con_save}&#125;&#125; {{r1=[[1d20+@{selected|npc_con_save}]]&#125;&#125;{{r2=[[1d20+@{selected|npc_con_save}]]&#125;&#125;|INT,{{rname=Intelligence Save&#125;&#125;{{mod=@{selected|npc_int_save}&#125;&#125; {{r1=[[1d20+@{selected|npc_int_save}]]&#125;&#125;{{r2=[[1d20+@{selected|npc_int_save}]]&#125;&#125;|WIS,{{rname=Wisdom Save&#125;&#125;{{mod=@{selected|npc_wis_save}&#125;&#125; {{r1=[[1d20+@{selected|npc_wis_save}]]&#125;&#125;{{r2=[[1d20+@{selected|npc_wis_save}]]&#125;&#125;|CHA,{{rname=Charisma Save&#125;&#125;{{mod=@{selected|npc_cha_save}&#125;&#125; {{r1=[[1d20+@{selected|npc_cha_save}]]&#125;&#125;{{r2=[[1d20+@{selected|npc_cha_save}]]&#125;&#125;}{{charname=@{selected|character_name}}} ";
+
+	d20plus.macro.actionMacroSkillCheck2024 = "&{template:default}?{Skill?|Acrobatics,{{rname=Acrobatics&#125;&#125;{{mod=@{selected|npc_acrobatics}&#125;&#125; {{r1=[[1d20+@{selected|npc_acrobatics}]]&#125;&#125;{{r2=[[1d20+@{selected|npc_acrobatics}]]&#125;&#125;|Animal Handling,{{rname=Animal Handling&#125;&#125;{{mod=@{selected|npc_animal_handling}&#125;&#125; {{r1=[[1d20+@{selected|npc_animal_handling}]]&#125;&#125;{{r2=[[1d20+@{selected|npc_animal_handling}]]&#125;&#125;|Arcana,{{rname=Arcana&#125;&#125;{{mod=@{selected|npc_arcana}&#125;&#125; {{r1=[[1d20+@{selected|npc_arcana}]]&#125;&#125;{{r2=[[1d20+@{selected|npc_arcana}]]&#125;&#125;|Athletics,{{rname=Athletics&#125;&#125;{{mod=@{selected|npc_athletics}&#125;&#125; {{r1=[[1d20+@{selected|npc_athletics}]]&#125;&#125;{{r2=[[1d20+@{selected|npc_athletics}]]&#125;&#125;|Deception,{{rname=Deception&#125;&#125;{{mod=@{selected|npc_deception}&#125;&#125; {{r1=[[1d20+@{selected|npc_deception}]]&#125;&#125;{{r2=[[1d20+@{selected|npc_deception}]]&#125;&#125;|History,{{rname=History&#125;&#125;{{mod=@{selected|npc_history}&#125;&#125; {{r1=[[1d20+@{selected|npc_history}]]&#125;&#125;{{r2=[[1d20+@{selected|npc_history}]]&#125;&#125;|Insight,{{rname=Insight&#125;&#125;{{mod=@{selected|npc_insight}&#125;&#125; {{r1=[[1d20+@{selected|npc_insight}]]&#125;&#125;{{r2=[[1d20+@{selected|npc_insight}]]&#125;&#125;|Intimidation,{{rname=Intimidation&#125;&#125;{{mod=@{selected|npc_intimidation}&#125;&#125; {{r1=[[1d20+@{selected|npc_intimidation}]]&#125;&#125;{{r2=[[1d20+@{selected|npc_intimidation}]]&#125;&#125;|Investigation,{{rname=Investigation&#125;&#125;{{mod=@{selected|npc_investigation}&#125;&#125; {{r1=[[1d20+@{selected|npc_investigation}]]&#125;&#125;{{r2=[[1d20+@{selected|npc_investigation}]]&#125;&#125;|Medicine,{{rname=Medicine&#125;&#125;{{mod=@{selected|npc_medicine}&#125;&#125; {{r1=[[1d20+@{selected|npc_medicine}]]&#125;&#125;{{r2=[[1d20+@{selected|npc_medicine}]]&#125;&#125;|Nature,{{rname=Nature&#125;&#125;{{mod=@{selected|npc_nature}&#125;&#125; {{r1=[[1d20+@{selected|npc_nature}]]&#125;&#125;{{r2=[[1d20+@{selected|npc_nature}]]&#125;&#125;|Perception,{{rname=Perception&#125;&#125;{{mod=@{selected|npc_perception}&#125;&#125; {{r1=[[1d20+@{selected|npc_perception}]]&#125;&#125;{{r2=[[1d20+@{selected|npc_perception}]]&#125;&#125;|Performance,{{rname=Performance&#125;&#125;{{mod=@{selected|npc_performance}&#125;&#125; {{r1=[[1d20+@{selected|npc_performance}]]&#125;&#125;{{r2=[[1d20+@{selected|npc_performance}]]&#125;&#125;|Persuasion,{{rname=Persuasion&#125;&#125;{{mod=@{selected|npc_persuasion}&#125;&#125; {{r1=[[1d20+@{selected|npc_persuasion}]]&#125;&#125;{{r2=[[1d20+@{selected|npc_persuasion}]]&#125;&#125;|Religion,{{rname=Religion&#125;&#125;{{mod=@{selected|npc_religion}&#125;&#125; {{r1=[[1d20+@{selected|npc_religion}]]&#125;&#125;{{r2=[[1d20+@{selected|npc_religion}]]&#125;&#125;|Sleight of Hand,{{rname=Sleight of Hand&#125;&#125;{{mod=@{selected|npc_sleight_of_hand}&#125;&#125; {{r1=[[1d20+@{selected|npc_sleight_of_hand}]]&#125;&#125;{{r2=[[1d20+@{selected|npc_sleight_of_hand}]]&#125;&#125;|Stealth,{{rname=Stealth&#125;&#125;{{mod=@{selected|npc_stealth}&#125;&#125; {{r1=[[1d20+@{selected|npc_stealth}]]&#125;&#125;{{r2=[[1d20+@{selected|npc_stealth}]]&#125;&#125;|Survival,{{rname=Survival&#125;&#125;{{mod=@{selected|npc_survival}&#125;&#125; {{r1=[[1d20+@{selected|npc_survival}]]&#125;&#125;{{r2=[[1d20+@{selected|npc_survival}]]&#125;&#125;}{{charname=@{selected|character_name}}} ";
+
+	// Reused verbatim — already uses the generic strength_mod..charisma_mod
+	// attributes, confirmed present on the 2024 sheet too (via charisma_mod).
+	d20plus.macro.actionMacroAbilityCheck2024 = d20plus.macro.actionMacroAbilityCheck;
 };
 
 SCRIPT_EXTENSIONS.push(baseMacro);
