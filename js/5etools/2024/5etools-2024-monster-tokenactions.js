@@ -225,7 +225,7 @@ function d20plus2024MonsterTokenActions() {
 		// DR/Immunities + Stats — mostly live; vulnerabilities/languages baked
 		// (no live npc_vulnerabilities/npc_languages attributes exist).
 		if (cfg("tokenactionsOther")) {
-			makeAbility("DR/Immunities", d20plus.macro.actionMacroDrImmunities2024(extra.vulnerabilitiesText || ""));
+			makeAbility("DR-Immunities", d20plus.macro.actionMacroDrImmunities2024(extra.vulnerabilitiesText || ""));
 			makeAbility("Stats", d20plus.macro.actionMacroStats2024(extra.languagesText || ""));
 		}
 	};

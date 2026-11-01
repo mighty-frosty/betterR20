@@ -328,7 +328,7 @@ describe('import2024TokenActions', () => {
 			vulnerabilitiesText: 'Bludgeoning', languagesText: 'Common',
 		});
 
-		const dr = char._created.find(a => a.name === 'DR/Immunities');
+		const dr = char._created.find(a => a.name === 'DR-Immunities');
 		expect(dr.action).toContain('npc_resistances');
 		expect(dr.action).toContain('npc_immunities');
 		expect(dr.action).toContain('Bludgeoning');

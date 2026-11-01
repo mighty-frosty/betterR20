@@ -481,7 +481,7 @@ function d20plusMonsters () {
 									vulnerabilitiesText,
 								});
 							}
-						});
+						}).catch(e => console.error(`betterR20: failed to create 2024 token actions for "${data.name}":`, e));
 
 						if (renderFluff) {
 							setTimeout(() => {
