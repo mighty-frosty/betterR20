@@ -35921,7 +35921,7 @@ function d20plusMonsters () {
 									vulnerabilitiesText,
 								});
 							}
-						});
+						}).catch(e => console.error(`betterR20: failed to create 2024 token actions for "${data.name}":`, e));
 
 						if (renderFluff) {
 							setTimeout(() => {
@@ -39444,7 +39444,7 @@ function d20plus2024MonsterTokenActions() {
 		// DR/Immunities + Stats — mostly live; vulnerabilities/languages baked
 		// (no live npc_vulnerabilities/npc_languages attributes exist).
 		if (cfg("tokenactionsOther")) {
-			makeAbility("DR/Immunities", d20plus.macro.actionMacroDrImmunities2024(extra.vulnerabilitiesText || ""));
+			makeAbility("DR-Immunities", d20plus.macro.actionMacroDrImmunities2024(extra.vulnerabilitiesText || ""));
 			makeAbility("Stats", d20plus.macro.actionMacroStats2024(extra.languagesText || ""));
 		}
 	};
